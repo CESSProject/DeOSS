@@ -14,13 +14,11 @@
    limitations under the License.
 */
 
-package main
+package cmd
 
-import (
-	"github.com/CESSProject/cess-oss/cmd/cmd"
-)
+import "github.com/spf13/cobra"
 
-// Program entry
-func main() {
-	cmd.Execute()
+// Generate configuration file template
+func Command_Update_Runfunc(cmd *cobra.Command, args []string) {
+
 }

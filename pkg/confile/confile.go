@@ -21,7 +21,7 @@ import (
 	"path"
 	"strconv"
 
-	"github.com/CESSProject/cess-scheduler/pkg/utils"
+	"github.com/CESSProject/cess-oss/pkg/utils"
 	"github.com/centrifuge/go-substrate-rpc-client/v4/signature"
 	"github.com/pkg/errors"
 	"github.com/spf13/viper"

@@ -32,7 +32,7 @@ const (
 
 const (
 	// base dir
-	BaseDir = "/usr/local/cess-gateway"
+	BaseDir = "/usr/local/cess-oss"
 
 	// log file dir
 	LogfileDir = BaseDir + "/log"

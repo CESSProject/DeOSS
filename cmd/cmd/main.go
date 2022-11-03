@@ -17,6 +17,7 @@
 package cmd
 
 import (
+	"fmt"
 	"os"
 
 	"github.com/CESSProject/cess-oss/configs"
@@ -45,19 +46,20 @@ func init() {
 		Command_Profile(),
 		Command_Version(),
 		Command_Run(),
-		Command_BuySpace(),
-		Command_UpgradePackage(),
-		Command_Renewal(),
-		Command_Space(),
+		Command_Update(),
+		Command_State(),
 	)
-	rootCmd.PersistentFlags().StringVarP(&configs.ConfigFilePath, "config", "c", "", "Custom profile")
+	rootCmd.PersistentFlags().StringP("config", "c", "", "Custom profile")
 }
 
 func Command_Version() *cobra.Command {
 	cc := &cobra.Command{
-		Use:                   "version",
-		Short:                 "Print version information",
-		Run:                   Command_Version_Runfunc,
+		Use:   "version",
+		Short: "Print version information",
+		Run: func(cmd *cobra.Command, args []string) {
+			fmt.Println(configs.Version)
+			os.Exit(0)
+		},
 		DisableFlagsInUseLine: true,
 	}
 	return cc
@@ -76,48 +78,28 @@ func Command_Profile() *cobra.Command {
 func Command_Run() *cobra.Command {
 	cc := &cobra.Command{
 		Use:                   "run",
-		Short:                 "Operation scheduling service",
+		Short:                 "Running services",
 		Run:                   Command_Run_Runfunc,
 		DisableFlagsInUseLine: true,
 	}
 	return cc
 }
 
-func Command_BuySpace() *cobra.Command {
+func Command_Update() *cobra.Command {
 	cc := &cobra.Command{
-		Use:                   "buy",
-		Short:                 "Buy space packages:[1, 2, 3, 4, 5]",
-		Run:                   Command_BuySpace_Runfunc,
+		Use:                   "update",
+		Short:                 "Update information",
+		Run:                   Command_Update_Runfunc,
 		DisableFlagsInUseLine: true,
 	}
 	return cc
 }
 
-func Command_UpgradePackage() *cobra.Command {
+func Command_State() *cobra.Command {
 	cc := &cobra.Command{
-		Use:                   "upgrade",
-		Short:                 "Upgrade a small package to a large package",
-		Run:                   Command_UpgradePackage_Runfunc,
-		DisableFlagsInUseLine: true,
-	}
-	return cc
-}
-
-func Command_Renewal() *cobra.Command {
-	cc := &cobra.Command{
-		Use:                   "renewal",
-		Short:                 "One-month lease term for additional space package",
-		Run:                   Command_Renewal_Runfunc,
-		DisableFlagsInUseLine: true,
-	}
-	return cc
-}
-
-func Command_Space() *cobra.Command {
-	cc := &cobra.Command{
-		Use:                   "space",
-		Short:                 "View purchased space details",
-		Run:                   Command_Space_Runfunc,
+		Use:                   "state",
+		Short:                 "View status",
+		Run:                   Command_State_Runfunc,
 		DisableFlagsInUseLine: true,
 	}
 	return cc

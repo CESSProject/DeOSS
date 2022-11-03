@@ -17,7 +17,7 @@
 package chain
 
 import (
-	"github.com/CESSProject/cess-scheduler/pkg/utils"
+	"github.com/CESSProject/cess-oss/pkg/utils"
 	"github.com/centrifuge/go-substrate-rpc-client/v4/types"
 	"github.com/pkg/errors"
 )
