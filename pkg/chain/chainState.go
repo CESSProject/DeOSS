@@ -17,6 +17,8 @@
 package chain
 
 import (
+	"fmt"
+
 	"github.com/CESSProject/cess-oss/pkg/utils"
 	"github.com/centrifuge/go-substrate-rpc-client/v4/types"
 	"github.com/pkg/errors"
@@ -58,8 +60,8 @@ func (c *chainClient) GetStorageMinerInfo(pkey []byte) (MinerInfo, error) {
 
 	key, err := types.CreateStorageKey(
 		c.metadata,
-		state_Sminer,
-		sminer_MinerItems,
+		pallet_Sminer,
+		minerItems,
 		pkey,
 	)
 	if err != nil {
@@ -88,8 +90,8 @@ func (c *chainClient) GetAllStorageMiner() ([]types.AccountID, error) {
 
 	key, err := types.CreateStorageKey(
 		c.metadata,
-		state_Sminer,
-		sminer_AllMinerItems,
+		pallet_Sminer,
+		allMinerItems,
 	)
 	if err != nil {
 		return nil, errors.Wrap(err, "[CreateStorageKey]")
@@ -133,8 +135,8 @@ func (c *chainClient) GetFileMetaInfo(fid types.Bytes) (FileMetaInfo, error) {
 
 	key, err := types.CreateStorageKey(
 		c.metadata,
-		state_FileBank,
-		fileMap_FileMetaInfo,
+		pallet_FileBank,
+		fileMetaInfo,
 		b,
 	)
 	if err != nil {
@@ -163,8 +165,8 @@ func (c *chainClient) GetAllSchedulerInfo() ([]SchedulerInfo, error) {
 
 	key, err := types.CreateStorageKey(
 		c.metadata,
-		state_FileMap,
-		fileMap_SchedulerInfo,
+		pallet_FileMap,
+		schedulerInfo,
 	)
 	if err != nil {
 		return nil, errors.Wrap(err, "[CreateStorageKey]")
@@ -176,75 +178,12 @@ func (c *chainClient) GetAllSchedulerInfo() ([]SchedulerInfo, error) {
 	}
 	if !ok {
 		return data, ERR_RPC_EMPTY_VALUE
-	}
-	return data, nil
-}
-
-func (c *chainClient) GetProofs() ([]Proof, error) {
-	var data []Proof
-
-	if !c.IsChainClientOk() {
-		c.SetChainState(false)
-		return data, ERR_RPC_CONNECTION
-	}
-	c.SetChainState(true)
-
-	key, err := types.CreateStorageKey(
-		c.metadata,
-		state_SegmentBook,
-		segmentBook_UnVerifyProof,
-		c.keyring.PublicKey,
-	)
-	if err != nil {
-		return nil, errors.Wrap(err, "[CreateStorageKey]")
-	}
-
-	ok, err := c.api.RPC.State.GetStorageLatest(key, &data)
-	if err != nil {
-		return nil, errors.Wrap(err, "[GetStorageLatest]")
-	}
-	if !ok {
-		return nil, ERR_RPC_EMPTY_VALUE
 	}
 	return data, nil
 }
 
 func (c *chainClient) GetCessAccount() (string, error) {
 	return utils.EncodePublicKeyAsCessAccount(c.keyring.PublicKey)
-}
-
-func (c *chainClient) GetSpacePackageInfo(pkey []byte) (SpacePackage, error) {
-	var data SpacePackage
-
-	if !c.IsChainClientOk() {
-		c.SetChainState(false)
-		return data, ERR_RPC_CONNECTION
-	}
-	c.SetChainState(true)
-
-	b, err := types.Encode(pkey)
-	if err != nil {
-		return data, errors.Wrap(err, "[EncodeToBytes]")
-	}
-
-	key, err := types.CreateStorageKey(
-		c.metadata,
-		state_FileBank,
-		fileBank_PurchasedPackage,
-		b,
-	)
-	if err != nil {
-		return data, errors.Wrap(err, "[CreateStorageKey]")
-	}
-
-	ok, err := c.api.RPC.State.GetStorageLatest(key, &data)
-	if err != nil {
-		return data, errors.Wrap(err, "[GetStorageLatest]")
-	}
-	if !ok {
-		return data, ERR_RPC_EMPTY_VALUE
-	}
-	return data, nil
 }
 
 func (c *chainClient) GetAccountInfo(pkey []byte) (types.AccountInfo, error) {
@@ -263,8 +202,8 @@ func (c *chainClient) GetAccountInfo(pkey []byte) (types.AccountInfo, error) {
 
 	key, err := types.CreateStorageKey(
 		c.metadata,
-		state_System,
-		system_Account,
+		pallet_System,
+		account,
 		b,
 	)
 	if err != nil {
@@ -279,4 +218,44 @@ func (c *chainClient) GetAccountInfo(pkey []byte) (types.AccountInfo, error) {
 		return data, ERR_RPC_EMPTY_VALUE
 	}
 	return data, nil
+}
+
+func (c *chainClient) GetState(pubkey []byte) (string, error) {
+	var data Ipv4Type
+
+	if !c.IsChainClientOk() {
+		c.SetChainState(false)
+		return "", ERR_RPC_CONNECTION
+	}
+	c.SetChainState(true)
+
+	b, err := types.Encode(types.NewAccountID(pubkey))
+	if err != nil {
+		return "", errors.Wrap(err, "[EncodeToBytes]")
+	}
+
+	key, err := types.CreateStorageKey(
+		c.metadata,
+		pallet_Oss,
+		oss,
+		b,
+	)
+	if err != nil {
+		return "", errors.Wrap(err, "[CreateStorageKey]")
+	}
+
+	ok, err := c.api.RPC.State.GetStorageLatest(key, &data)
+	if err != nil {
+		return "", errors.Wrap(err, "[GetStorageLatest]")
+	}
+	if !ok {
+		return "", ERR_RPC_EMPTY_VALUE
+	}
+
+	return fmt.Sprintf("%d.%d.%d.%d:%d",
+		data.Value[0],
+		data.Value[1],
+		data.Value[2],
+		data.Value[3],
+		data.Port), nil
 }

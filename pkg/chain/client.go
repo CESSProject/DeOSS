@@ -45,22 +45,14 @@ type Chainer interface {
 	GetFileMetaInfo(fid types.Bytes) (FileMetaInfo, error)
 	// GetAllSchedulerInfo is used to get information about all schedules
 	GetAllSchedulerInfo() ([]SchedulerInfo, error)
-	// GetProofs is used to get all the proofs to be verified
-	GetProofs() ([]Proof, error)
 	// GetCessAccount is used to get the account in cess chain format
 	GetCessAccount() (string, error)
 	// GetAccountInfo is used to get account information
 	GetAccountInfo(pkey []byte) (types.AccountInfo, error)
-	// GetSpacePackageInfo is used to get the space package information of the account
-	GetSpacePackageInfo(pkey []byte) (SpacePackage, error)
-	// Register is used by the scheduling service to register
-	Register(stash, ip, port string) (string, error)
-	// SubmitProofResults is used to submit proof verification results
-	SubmitProofResults(data []ProofResult) (string, error)
-	// SubmitFillerMeta is used to submit the meta information of the filler
-	SubmitFillerMeta(miner_acc types.AccountID, info []FillerMetaInfo) (string, error)
-	// SubmitFileMeta is used to submit the meta information of the file
-	SubmitFileMeta(fid string, fsize uint64, block []BlockInfo) (string, error)
+	// GetState is used to obtain OSS status information
+	GetState(pubkey []byte) (string, error)
+	// Register is used to register oss services
+	Register(ip, port string) (string, error)
 	// Update is used to update the communication address of the scheduling service
 	Update(ip, port string) (string, error)
 }
@@ -101,8 +93,8 @@ func NewChainClient(rpcAddr, secret, stash string, t time.Duration) (Chainer, er
 	}
 	cli.keyEvents, err = types.CreateStorageKey(
 		cli.metadata,
-		state_System,
-		system_Events,
+		pallet_System,
+		events,
 		nil,
 	)
 	if err != nil {

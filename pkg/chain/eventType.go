@@ -310,6 +310,21 @@ type Event_UpdateScheduler struct {
 	Topics   []types.Hash
 }
 
+// ------------------------Oss---------------------------
+type Event_OssRegister struct {
+	Phase    types.Phase
+	Acc      types.AccountID
+	Endpoint Ipv4Type_Query
+	Topics   []types.Hash
+}
+
+type Event_OssUpdate struct {
+	Phase        types.Phase
+	Acc          types.AccountID
+	New_endpoint Ipv4Type_Query
+	Topics       []types.Hash
+}
+
 // ------------------------other system---------------------------
 type Event_UnsignedPhaseStarted struct {
 	Phase  types.Phase
@@ -389,6 +404,9 @@ type CessEventRecords struct {
 	//FileMap
 	FileMap_RegistrationScheduler []Event_RegistrationScheduler
 	FileMap_UpdateScheduler       []Event_UpdateScheduler
+	//OSS
+	Oss_Register []Event_OssRegister
+	Oss_Update   []Event_OssUpdate
 	//other system
 	ElectionProviderMultiPhase_UnsignedPhaseStarted []Event_UnsignedPhaseStarted
 	ElectionProviderMultiPhase_SignedPhaseStarted   []Event_SignedPhaseStarted

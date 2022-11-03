@@ -16,40 +16,39 @@
 
 package chain
 
-// cess chain state
+// Pallets
 const (
-	state_FileBank    = "FileBank"
-	state_FileMap     = "FileMap"
-	state_Sminer      = "Sminer"
-	state_SegmentBook = "SegmentBook"
-	state_System      = "System"
+	pallet_FileBank    = "FileBank"
+	pallet_FileMap     = "FileMap"
+	pallet_Sminer      = "Sminer"
+	pallet_SegmentBook = "SegmentBook"
+	pallet_System      = "System"
+	pallet_Oss         = "Oss"
 )
 
-// cess chain module method
+// Pallet's method
 const (
 	// System
-	system_Account = "Account"
-	system_Events  = "Events"
+	account = "Account"
+	events  = "Events"
+
 	// Sminer
-	sminer_AllMinerItems  = "AllMiner"
-	sminer_MinerItems     = "MinerItems"
-	sminer_SegInfo        = "SegInfo"
-	sminer_PurchasedSpace = "PurchasedSpace"
-	sminer_TotalSpace     = "AvailableSpace"
+	allMinerItems = "AllMiner"
+	minerItems    = "MinerItems"
+	segInfo       = "SegInfo"
+
 	// FileMap
-	fileMap_FileMetaInfo  = "File"
-	fileMap_SchedulerInfo = "SchedulerMap"
-	fileMap_SchedulerPuk  = "SchedulerPuk"
+	fileMetaInfo  = "File"
+	schedulerInfo = "SchedulerMap"
+
 	// FileBank
-	fileBank_UserSpaceList    = "UserSpaceList"
-	fileBank_PurchasedPackage = "PurchasedPackage"
-	fileBank_UserFilelist     = "UserHoldFileList"
-	fileBank_FileRecovery     = "FileRecovery"
-	// SegmentBook
-	segmentBook_UnVerifyProof = "UnVerifyProof"
+	fileBank_UserFilelist = "UserHoldFileList"
+
+	// Oss
+	oss = "Oss"
 )
 
-// cess chain Transaction name
+// Extrinsics
 const (
 	// FileBank
 	tx_FileBank_Update             = "FileBank.update"
@@ -58,9 +57,9 @@ const (
 	tx_FileBank_ClearRecoveredFile = "FileBank.recover_file"
 	// SegmentBook
 	tx_SegmentBook_VerifyProof = "SegmentBook.verify_proof"
-	// FileMap
-	tx_FileMap_UpdateScheduler = "FileMap.update_scheduler"
-	tx_FileMap_Add_schedule    = "FileMap.registration_oss"
+	// Oss
+	OssRegister = "Oss.register"
+	OssUpdate   = "Oss.update"
 )
 
 const (

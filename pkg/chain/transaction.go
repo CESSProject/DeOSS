@@ -17,7 +17,6 @@
 package chain
 
 import (
-	"encoding/hex"
 	"strconv"
 	"strings"
 	"time"
@@ -46,7 +45,7 @@ func (c *chainClient) Register(ip, port string) (string, error) {
 	if utils.IsIPv4(ip) {
 		ipType.IPv4.Index = 0
 		ips := strings.Split(ip, ".")
-		for i := 0; i < 4; i++ {
+		for i := 0; i < len(ipType.IPv4.Value); i++ {
 			temp, _ := strconv.Atoi(ips[i])
 			ipType.IPv4.Value[i] = types.U8(temp)
 		}
@@ -58,8 +57,7 @@ func (c *chainClient) Register(ip, port string) (string, error) {
 
 	call, err := types.NewCall(
 		c.metadata,
-		tx_FileMap_Add_schedule,
-		types.NewAccountID(stashPuk),
+		OssRegister,
 		ipType.IPv4,
 	)
 	if err != nil {
@@ -73,8 +71,8 @@ func (c *chainClient) Register(ip, port string) (string, error) {
 
 	key, err := types.CreateStorageKey(
 		c.metadata,
-		state_System,
-		system_Account,
+		pallet_System,
+		account,
 		c.keyring.PublicKey,
 	)
 	if err != nil {
@@ -83,7 +81,7 @@ func (c *chainClient) Register(ip, port string) (string, error) {
 
 	ok, err := c.api.RPC.State.GetStorageLatest(key, &accountInfo)
 	if err != nil {
-		return txhash, errors.Wrap(err, "GetStorageLatest")
+		return txhash, errors.Wrap(err, "[GetStorageLatest]")
 	}
 
 	if !ok {
@@ -109,10 +107,10 @@ func (c *chainClient) Register(ip, port string) (string, error) {
 	// Do the transfer and track the actual status
 	sub, err := c.api.RPC.Author.SubmitAndWatchExtrinsic(ext)
 	if err != nil {
-		var tryCount = 0
 		if !strings.Contains(err.Error(), "Priority is too low") {
 			return txhash, errors.Wrap(err, "[SubmitAndWatchExtrinsic]")
 		}
+		var tryCount = 0
 		for tryCount < 20 {
 			o.Nonce = types.NewUCompactFromUInt(uint64(accountInfo.Nonce + types.NewU32(1)))
 			// Sign the transaction
@@ -140,12 +138,12 @@ func (c *chainClient) Register(ip, port string) (string, error) {
 				txhash, _ = types.EncodeToHex(status.AsInBlock)
 				h, err := c.api.RPC.State.GetStorageRaw(c.keyEvents, status.AsInBlock)
 				if err != nil {
-					return txhash, errors.Wrap(err, "GetStorageRaw")
+					return txhash, errors.Wrap(err, "[GetStorageRaw]")
 				}
 
 				types.EventRecordsRaw(*h).DecodeEventRecords(c.metadata, &events)
 
-				if len(events.FileMap_RegistrationScheduler) > 0 {
+				if len(events.Oss_Register) > 0 {
 					return txhash, nil
 				}
 				return txhash, errors.New(ERR_Failed)
@@ -158,361 +156,10 @@ func (c *chainClient) Register(ip, port string) (string, error) {
 	}
 }
 
-// Update file meta information
-func (c *chainClient) SubmitFileMeta(fid string, fsize uint64, block []BlockInfo) (string, error) {
-	var (
-		txhash      string
-		accountInfo types.AccountInfo
-	)
-
-	c.lock.Lock()
-	defer c.lock.Unlock()
-
-	if !c.IsChainClientOk() {
-		c.SetChainState(false)
-		return txhash, ERR_RPC_CONNECTION
-	}
-	c.SetChainState(true)
-
-	var hash FileHash
-	if len(fid) != len(hash) {
-		return txhash, errors.New(ERR_Failed)
-	}
-	for i := 0; i < len(hash); i++ {
-		hash[i] = types.U8(fid[i])
-	}
-
-	call, err := types.NewCall(
-		c.metadata,
-		tx_FileBank_Upload,
-		hash,
-		types.U64(fsize),
-		block,
-	)
-	if err != nil {
-		return txhash, errors.Wrap(err, "NewCall")
-	}
-
-	ext := types.NewExtrinsic(call)
-	if err != nil {
-		return txhash, errors.Wrap(err, "NewExtrinsic")
-	}
-
-	key, err := types.CreateStorageKey(
-		c.metadata,
-		state_System,
-		system_Account,
-		c.keyring.PublicKey,
-	)
-	if err != nil {
-		return txhash, errors.Wrap(err, "CreateStorageKey")
-	}
-
-	ok, err := c.api.RPC.State.GetStorageLatest(key, &accountInfo)
-	if err != nil {
-		return txhash, errors.Wrap(err, "GetStorageLatest err")
-	}
-
-	if !ok {
-		return txhash, ERR_RPC_EMPTY_VALUE
-	}
-
-	o := types.SignatureOptions{
-		BlockHash:          c.genesisHash,
-		Era:                types.ExtrinsicEra{IsMortalEra: false},
-		GenesisHash:        c.genesisHash,
-		Nonce:              types.NewUCompactFromUInt(uint64(accountInfo.Nonce)),
-		SpecVersion:        c.runtimeVersion.SpecVersion,
-		Tip:                types.NewUCompactFromUInt(0),
-		TransactionVersion: c.runtimeVersion.TransactionVersion,
-	}
-
-	// Sign the transaction
-	err = ext.Sign(c.keyring, o)
-	if err != nil {
-		return txhash, errors.Wrap(err, "Sign")
-	}
-
-	// Do the transfer and track the actual status
-	sub, err := c.api.RPC.Author.SubmitAndWatchExtrinsic(ext)
-	if err != nil {
-		var tryCount = 0
-		if !strings.Contains(err.Error(), "Priority is too low") {
-			return txhash, errors.Wrap(err, "[SubmitAndWatchExtrinsic]")
-		}
-		for tryCount < 20 {
-			o.Nonce = types.NewUCompactFromUInt(uint64(accountInfo.Nonce + types.NewU32(1)))
-			// Sign the transaction
-			err = ext.Sign(c.keyring, o)
-			if err != nil {
-				return txhash, errors.Wrap(err, "[Sign]")
-			}
-			sub, err = c.api.RPC.Author.SubmitAndWatchExtrinsic(ext)
-			if err == nil {
-				break
-			}
-			tryCount++
-		}
-	}
-	if err != nil {
-		return txhash, errors.Wrap(err, "SubmitAndWatchExtrinsic err")
-	}
-	defer sub.Unsubscribe()
-	timeout := time.After(c.timeForBlockOut)
-	for {
-		select {
-		case status := <-sub.Chan():
-			if status.IsInBlock {
-				events := CessEventRecords{}
-				txhash = hex.EncodeToString(status.AsInBlock[:])
-				h, err := c.api.RPC.State.GetStorageRaw(c.keyEvents, status.AsInBlock)
-				if err != nil {
-					return txhash, errors.Wrap(err, "GetStorageRaw")
-				}
-
-				types.EventRecordsRaw(*h).DecodeEventRecords(c.metadata, &events)
-
-				if len(events.FileBank_FileUpload) > 0 {
-					return txhash, nil
-				}
-				return txhash, errors.New(ERR_Failed)
-			}
-		case err = <-sub.Err():
-			return txhash, errors.Wrap(err, "sub")
-		case <-timeout:
-			return txhash, ERR_RPC_TIMEOUT
-		}
-	}
-}
-
-// Update file meta information
-func (c *chainClient) SubmitFillerMeta(miner_acc types.AccountID, info []FillerMetaInfo) (string, error) {
-	var (
-		txhash      string
-		accountInfo types.AccountInfo
-	)
-
-	c.lock.Lock()
-	defer c.lock.Unlock()
-
-	if !c.IsChainClientOk() {
-		c.SetChainState(false)
-		return txhash, ERR_RPC_CONNECTION
-	}
-	c.SetChainState(true)
-
-	call, err := types.NewCall(c.metadata, tx_FileBank_UploadFiller, miner_acc, info)
-	if err != nil {
-		return txhash, errors.Wrap(err, "[NewCall]")
-	}
-
-	ext := types.NewExtrinsic(call)
-	if err != nil {
-		return txhash, errors.Wrap(err, "[NewExtrinsic]")
-	}
-
-	key, err := types.CreateStorageKey(
-		c.metadata,
-		state_System,
-		system_Account,
-		c.keyring.PublicKey,
-	)
-	if err != nil {
-		return txhash, errors.Wrap(err, "[CreateStorageKey]")
-	}
-
-	ok, err := c.api.RPC.State.GetStorageLatest(key, &accountInfo)
-	if err != nil {
-		return txhash, errors.Wrap(err, "[GetStorageLatest]")
-	}
-
-	if !ok {
-		return txhash, ERR_RPC_EMPTY_VALUE
-	}
-
-	o := types.SignatureOptions{
-		BlockHash:          c.genesisHash,
-		Era:                types.ExtrinsicEra{IsMortalEra: false},
-		GenesisHash:        c.genesisHash,
-		Nonce:              types.NewUCompactFromUInt(uint64(accountInfo.Nonce)),
-		SpecVersion:        c.runtimeVersion.SpecVersion,
-		Tip:                types.NewUCompactFromUInt(0),
-		TransactionVersion: c.runtimeVersion.TransactionVersion,
-	}
-
-	// Sign the transaction
-	err = ext.Sign(c.keyring, o)
-	if err != nil {
-		return txhash, errors.Wrap(err, "[Sign]")
-	}
-
-	// Do the transfer and track the actual status
-	sub, err := c.api.RPC.Author.SubmitAndWatchExtrinsic(ext)
-	if err != nil {
-		var tryCount = 0
-		if !strings.Contains(err.Error(), "Priority is too low") {
-			return txhash, errors.Wrap(err, "[SubmitAndWatchExtrinsic]")
-		}
-		for tryCount < 20 {
-			o.Nonce = types.NewUCompactFromUInt(uint64(accountInfo.Nonce + types.NewU32(1)))
-			// Sign the transaction
-			err = ext.Sign(c.keyring, o)
-			if err != nil {
-				return txhash, errors.Wrap(err, "[Sign]")
-			}
-			sub, err = c.api.RPC.Author.SubmitAndWatchExtrinsic(ext)
-			if err == nil {
-				break
-			}
-			tryCount++
-		}
-	}
-	if err != nil {
-		return "", errors.Wrap(err, "[SubmitAndWatchExtrinsic]")
-	}
-	defer sub.Unsubscribe()
-	timeout := time.After(c.timeForBlockOut)
-	for {
-		select {
-		case status := <-sub.Chan():
-			if status.IsInBlock {
-				events := CessEventRecords{}
-				txhash, _ = types.EncodeToHex(status.AsInBlock)
-				h, err := c.api.RPC.State.GetStorageRaw(c.keyEvents, status.AsInBlock)
-				if err != nil {
-					return txhash, errors.Wrap(err, "GetStorageRaw")
-				}
-
-				types.EventRecordsRaw(*h).DecodeEventRecords(c.metadata, &events)
-
-				if len(events.FileBank_FillerUpload) > 0 {
-					return txhash, nil
-				}
-				return txhash, errors.New(ERR_Failed)
-			}
-		case err = <-sub.Err():
-			return txhash, errors.Wrap(err, "sub")
-		case <-timeout:
-			return txhash, ERR_RPC_TIMEOUT
-		}
-	}
-}
-
-func (c *chainClient) SubmitProofResults(data []ProofResult) (string, error) {
-	var (
-		txhash      string
-		accountInfo types.AccountInfo
-	)
-
-	c.lock.Lock()
-	defer c.lock.Unlock()
-
-	if !c.IsChainClientOk() {
-		c.SetChainState(false)
-		return txhash, ERR_RPC_CONNECTION
-	}
-	c.SetChainState(true)
-
-	call, err := types.NewCall(c.metadata, tx_SegmentBook_VerifyProof, data)
-	if err != nil {
-		return txhash, errors.Wrap(err, "[NewCall]")
-	}
-
-	ext := types.NewExtrinsic(call)
-	if err != nil {
-		return txhash, errors.Wrap(err, "[NewExtrinsic]")
-	}
-
-	key, err := types.CreateStorageKey(
-		c.metadata,
-		state_System,
-		system_Account,
-		c.keyring.PublicKey,
-	)
-	if err != nil {
-		return txhash, errors.Wrap(err, "[CreateStorageKey]")
-	}
-
-	ok, err := c.api.RPC.State.GetStorageLatest(key, &accountInfo)
-	if err != nil {
-		return txhash, errors.Wrap(err, "[GetStorageLatest]")
-	}
-	if !ok {
-		return txhash, ERR_RPC_EMPTY_VALUE
-	}
-
-	o := types.SignatureOptions{
-		BlockHash:          c.genesisHash,
-		Era:                types.ExtrinsicEra{IsMortalEra: false},
-		GenesisHash:        c.genesisHash,
-		Nonce:              types.NewUCompactFromUInt(uint64(accountInfo.Nonce)),
-		SpecVersion:        c.runtimeVersion.SpecVersion,
-		Tip:                types.NewUCompactFromUInt(0),
-		TransactionVersion: c.runtimeVersion.TransactionVersion,
-	}
-
-	// Sign the transaction
-	err = ext.Sign(c.keyring, o)
-	if err != nil {
-		return txhash, errors.Wrap(err, "[Sign]")
-	}
-
-	// Do the transfer and track the actual status
-	sub, err := c.api.RPC.Author.SubmitAndWatchExtrinsic(ext)
-	if err != nil {
-		var tryCount = 0
-		if !strings.Contains(err.Error(), "Priority is too low") {
-			return txhash, errors.Wrap(err, "[SubmitAndWatchExtrinsic]")
-		}
-		for tryCount < 20 {
-			o.Nonce = types.NewUCompactFromUInt(uint64(accountInfo.Nonce + types.NewU32(1)))
-			// Sign the transaction
-			err = ext.Sign(c.keyring, o)
-			if err != nil {
-				return txhash, errors.Wrap(err, "[Sign]")
-			}
-			sub, err = c.api.RPC.Author.SubmitAndWatchExtrinsic(ext)
-			if err == nil {
-				break
-			}
-			tryCount++
-		}
-	}
-	if err != nil {
-		return txhash, errors.Wrap(err, "[SubmitAndWatchExtrinsic]")
-	}
-
-	defer sub.Unsubscribe()
-	timeout := time.After(c.timeForBlockOut)
-	for {
-		select {
-		case status := <-sub.Chan():
-			if status.IsInBlock {
-				events := CessEventRecords{}
-				txhash, _ = types.EncodeToHex(status.AsInBlock)
-				h, err := c.api.RPC.State.GetStorageRaw(c.keyEvents, status.AsInBlock)
-				if err != nil {
-					return txhash, errors.Wrap(err, "[GetStorageRaw]")
-				}
-
-				types.EventRecordsRaw(*h).DecodeEventRecords(c.metadata, &events)
-
-				if len(events.SegmentBook_VerifyProof) > 0 {
-					return txhash, nil
-				}
-				return txhash, errors.New(ERR_Failed)
-			}
-		case err = <-sub.Err():
-			return txhash, errors.Wrap(err, "sub")
-		case <-timeout:
-			return txhash, ERR_RPC_TIMEOUT
-		}
-	}
-}
-
 func (c *chainClient) Update(ip, port string) (string, error) {
 	var (
 		txhash      string
+		ipType      IpAddress
 		accountInfo types.AccountInfo
 	)
 
@@ -524,25 +171,23 @@ func (c *chainClient) Update(ip, port string) (string, error) {
 		return txhash, ERR_RPC_CONNECTION
 	}
 	c.SetChainState(true)
-
-	var ipType IpAddress
 
 	if utils.IsIPv4(ip) {
 		ipType.IPv4.Index = 0
 		ips := strings.Split(ip, ".")
-		for i := 0; i < 4; i++ {
+		for i := 0; i < len(ipType.IPv4.Value); i++ {
 			temp, _ := strconv.Atoi(ips[i])
 			ipType.IPv4.Value[i] = types.U8(temp)
 		}
 		temp, _ := strconv.Atoi(port)
 		ipType.IPv4.Port = types.U16(temp)
 	} else {
-		return txhash, errors.New("unsupported ip format")
+		return txhash, ERR_RPC_IP_FORMAT
 	}
 
 	call, err := types.NewCall(
 		c.metadata,
-		tx_FileMap_UpdateScheduler,
+		OssUpdate,
 		ipType.IPv4,
 	)
 	if err != nil {
@@ -556,8 +201,8 @@ func (c *chainClient) Update(ip, port string) (string, error) {
 
 	key, err := types.CreateStorageKey(
 		c.metadata,
-		state_System,
-		system_Account,
+		pallet_System,
+		account,
 		c.keyring.PublicKey,
 	)
 	if err != nil {
@@ -591,10 +236,10 @@ func (c *chainClient) Update(ip, port string) (string, error) {
 	// Do the transfer and track the actual status
 	sub, err := c.api.RPC.Author.SubmitAndWatchExtrinsic(ext)
 	if err != nil {
-		var tryCount = 0
 		if !strings.Contains(err.Error(), "Priority is too low") {
 			return txhash, errors.Wrap(err, "[SubmitAndWatchExtrinsic]")
 		}
+		var tryCount = 0
 		for tryCount < 20 {
 			o.Nonce = types.NewUCompactFromUInt(uint64(accountInfo.Nonce + types.NewU32(1)))
 			// Sign the transaction
@@ -627,13 +272,13 @@ func (c *chainClient) Update(ip, port string) (string, error) {
 
 				types.EventRecordsRaw(*h).DecodeEventRecords(c.metadata, &events)
 
-				if len(events.FileMap_UpdateScheduler) > 0 {
+				if len(events.Oss_Update) > 0 {
 					return txhash, nil
 				}
 				return txhash, errors.New(ERR_Failed)
 			}
 		case err = <-sub.Err():
-			return txhash, errors.Wrap(err, "sub")
+			return txhash, errors.Wrap(err, "[sub]")
 		case <-timeout:
 			return txhash, ERR_RPC_TIMEOUT
 		}

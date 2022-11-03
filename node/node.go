@@ -39,7 +39,7 @@ type Node struct {
 	Chain   chain.Chainer
 	Logs    logger.Logger
 	Cache   db.Cacher
-	Gin     *gin.Engine
+	Route   *gin.Engine
 }
 
 // New is used to build a node instance
@@ -49,17 +49,18 @@ func New() *Node {
 
 func (n *Node) Run() {
 	gin.SetMode(gin.ReleaseMode)
-	n.Gin = gin.Default()
+	n.Route = gin.Default()
 	config := cors.DefaultConfig()
 	config.AllowAllOrigins = true
 	config.AllowMethods = []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"}
 	config.AddAllowHeaders("Authorization", "*")
-	n.Gin.Use(cors.New(config))
-
+	n.Route.Use(cors.New(config))
+	// Add route
+	addRoute(n.Route)
 	// Server
 	s := &http.Server{
 		Addr:           ":" + n.Confile.GetServicePort(),
-		Handler:        n.Gin,
+		Handler:        n.Route,
 		ReadTimeout:    configs.Http_ReadTimeout,
 		WriteTimeout:   configs.Http_WriteTimeout,
 		MaxHeaderBytes: configs.Http_MaximumHead,
