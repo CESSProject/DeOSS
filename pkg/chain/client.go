@@ -70,7 +70,7 @@ type chainClient struct {
 	timeForBlockOut time.Duration
 }
 
-func NewChainClient(rpcAddr, secret, stash string, t time.Duration) (Chainer, error) {
+func NewChainClient(rpcAddr, secret string, t time.Duration) (Chainer, error) {
 	var (
 		err error
 		cli = &chainClient{}

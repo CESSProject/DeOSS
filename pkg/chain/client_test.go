@@ -26,8 +26,7 @@ import (
 func TestNewChainClient(t *testing.T) {
 	rpcAddr := "wss://testnet-rpc0.cess.cloud/ws/"
 	secret := "swear theme bounce soccer hungry gesture hurdle asset typical call balcony wrist"
-	stash := "cXfg2SYcq85nyZ1U4ccx6QnAgSeLQB8aXZ2jstbw9CPGSmhXY"
 	time := time.Duration(time.Second * time.Duration(20))
-	_, err := NewChainClient(rpcAddr, secret, stash, time)
+	_, err := NewChainClient(rpcAddr, secret, time)
 	assert.NoError(t, err)
 }

@@ -24,6 +24,8 @@ import (
 const (
 	// name
 	Name = "cess-oss"
+	// Name space
+	NameSpace = Name
 	// version
 	Version = Name + " " + "v0.1.0"
 	// description
@@ -32,23 +34,13 @@ const (
 
 const (
 	// base dir
-	BaseDir = "/usr/local/cess-oss"
-
+	BaseDir = Name
 	// log file dir
-	LogfileDir = BaseDir + "/log"
-
-	// keyfile dir
-	PrivateKeyfile = BaseDir + "/.privateKey.pem"
-	PublicKeyfile  = BaseDir + "/.publicKey.pem"
-
+	Log = "log"
 	// database dir
-	DbDir = BaseDir + "/db"
-
-	// file cache dir
-	FileCacheDir = BaseDir + "/cache"
-
-	// file records dir
-	FilRecordsDir = "records"
+	Cache = "cache"
+	// file dir
+	File = "file"
 
 	// random number valid time, the unit is minutes
 	RandomValidTime = 5.0
@@ -63,14 +55,9 @@ const (
 	ValidTimeOfCaptcha = time.Duration(time.Minute * 5)
 )
 
-// return state code
 const (
-	Code_200 = 200
-	Code_400 = 400
-	Code_403 = 403
-	Code_404 = 404
-	Code_500 = 500
-	Code_600 = 600
+	// BlockInterval is the time interval for generating blocks, in seconds
+	BlockInterval = time.Second * time.Duration(6)
 )
 
 var PublicKey []byte

@@ -16,10 +16,8 @@
 
 package node
 
-import "github.com/gin-gonic/gin"
-
-func addRoute(r *gin.Engine) {
-	authG := r.Group("/v1/login")
+func (n *Node) addRoute() {
+	authG := n.Handle.Group("/v1/login")
 	{
 		authG.POST("/admin")
 		authG.POST("/auth")

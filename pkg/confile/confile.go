@@ -41,6 +41,7 @@ AccountSeed     = ""`
 type Confiler interface {
 	Parse(path string) error
 	GetRpcAddr() string
+	GetServiceAddr() string
 	GetServicePort() string
 	GetDataDir() string
 	GetCtrlPrk() string
@@ -48,6 +49,7 @@ type Confiler interface {
 
 type confile struct {
 	RpcAddr     string `name:"RpcAddr" toml:"RpcAddr" yaml:"RpcAddr"`
+	ServiceAddr string `name:"ServiceAddr" toml:"ServiceAddr" yaml:"ServiceAddr"`
 	ServicePort string `name:"ServicePort" toml:"ServicePort" yaml:"ServicePort"`
 	DataDir     string `name:"DataDir" toml:"DataDir" yaml:"DataDir"`
 	AccountSeed string `name:"AccountSeed" toml:"AccountSeed" yaml:"AccountSeed"`
@@ -87,7 +89,8 @@ func (c *confile) Parse(fpath string) error {
 		return errors.Errorf("Secret: %v", err)
 	}
 
-	if c.RpcAddr == "" {
+	if c.RpcAddr == "" ||
+		c.ServiceAddr == "" {
 		return errors.New("The configuration file cannot have empty entries")
 	}
 
@@ -119,6 +122,10 @@ func (c *confile) Parse(fpath string) error {
 
 func (c *confile) GetRpcAddr() string {
 	return c.RpcAddr
+}
+
+func (c *confile) GetServiceAddr() string {
+	return c.ServiceAddr
 }
 
 func (c *confile) GetServicePort() string {
