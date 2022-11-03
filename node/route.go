@@ -17,10 +17,11 @@
 package node
 
 func (n *Node) addRoute() {
-	authG := n.Handle.Group("/v1/login")
-	{
-		authG.POST("/admin")
-		authG.POST("/auth")
-		authG.POST("/message")
-	}
+	// authG := n.Handle.Group("/v1/login")
+	// {
+	// 	authG.POST("/admin")
+	// 	authG.POST("/auth")
+	// 	authG.POST("/message")
+	// }
+	n.Handle.POST("/auth", n.authHandle)
 }
