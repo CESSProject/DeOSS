@@ -21,7 +21,7 @@
 
 ## Binaries for programs and plugins
 main
-gateway
+oss*
 *.exe
 *.dll
 *.so

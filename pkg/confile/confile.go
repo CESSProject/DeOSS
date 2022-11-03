@@ -21,46 +21,36 @@ import (
 	"path"
 	"strconv"
 
-	"github.com/CESSProject/cess-oss/pkg/utils"
 	"github.com/centrifuge/go-substrate-rpc-client/v4/signature"
 	"github.com/pkg/errors"
 	"github.com/spf13/viper"
 )
 
 const (
-	DefaultConfigurationFile      = "./conf.toml"
-	ConfigurationFileTemplateName = "conf_template.toml"
-	ConfigurationFileTemplete     = `# The rpc address of the chain node
-RpcAddr     = ""
-# The IP address of the machine's public network used by the scheduler program
-ServiceAddr = ""
+	ProfileDefault  = "conf.toml"
+	ProfileTemplete = `# The rpc address of the chain node
+RpcAddr         = ""
 # Port number monitored by the scheduler program
-ServicePort = ""
+ServicePort     = ""
 # Data storage directory
-DataDir     = ""
-# Phrase or seed of the controller account
-CtrlPrk     = ""
-# The address of stash account
-StashAcc    = ""`
+DataDir         = ""
+# Phrase or seed of wallet account
+AccountSeed     = ""`
 )
 
 type Confiler interface {
 	Parse(path string) error
 	GetRpcAddr() string
-	GetServiceAddr() string
 	GetServicePort() string
 	GetDataDir() string
 	GetCtrlPrk() string
-	GetStashAcc() string
 }
 
 type confile struct {
 	RpcAddr     string `name:"RpcAddr" toml:"RpcAddr" yaml:"RpcAddr"`
-	ServiceAddr string `name:"ServiceAddr" toml:"ServiceAddr" yaml:"ServiceAddr"`
 	ServicePort string `name:"ServicePort" toml:"ServicePort" yaml:"ServicePort"`
 	DataDir     string `name:"DataDir" toml:"DataDir" yaml:"DataDir"`
-	CtrlPrk     string `name:"CtrlPrk" toml:"CtrlPrk" yaml:"CtrlPrk"`
-	StashAcc    string `name:"StashAcc" toml:"StashAcc" yaml:"StashAcc"`
+	AccountSeed string `name:"AccountSeed" toml:"AccountSeed" yaml:"AccountSeed"`
 }
 
 func NewConfigfile() Confiler {
@@ -70,7 +60,7 @@ func NewConfigfile() Confiler {
 func (c *confile) Parse(fpath string) error {
 	var confilePath = fpath
 	if confilePath == "" {
-		confilePath = DefaultConfigurationFile
+		confilePath = ProfileDefault
 	}
 	fstat, err := os.Stat(confilePath)
 	if err != nil {
@@ -92,20 +82,12 @@ func (c *confile) Parse(fpath string) error {
 		return errors.Errorf("Unmarshal: %v", err)
 	}
 
-	_, err = signature.KeyringPairFromSecret(c.CtrlPrk, 0)
+	_, err = signature.KeyringPairFromSecret(c.AccountSeed, 0)
 	if err != nil {
 		return errors.Errorf("Secret: %v", err)
 	}
 
-	_, err = utils.DecodePublicKeyOfCessAccount(c.StashAcc)
-	if err != nil {
-		return errors.Errorf("Decode: %v", err)
-	}
-
-	if c.DataDir == "" ||
-		c.RpcAddr == "" ||
-		c.ServiceAddr == "" ||
-		c.ServicePort == "" {
+	if c.RpcAddr == "" {
 		return errors.New("The configuration file cannot have empty entries")
 	}
 
@@ -139,10 +121,6 @@ func (c *confile) GetRpcAddr() string {
 	return c.RpcAddr
 }
 
-func (c *confile) GetServiceAddr() string {
-	return c.ServiceAddr
-}
-
 func (c *confile) GetServicePort() string {
 	return c.ServicePort
 }
@@ -152,9 +130,5 @@ func (c *confile) GetDataDir() string {
 }
 
 func (c *confile) GetCtrlPrk() string {
-	return c.CtrlPrk
-}
-
-func (c *confile) GetStashAcc() string {
-	return c.StashAcc
+	return c.AccountSeed
 }

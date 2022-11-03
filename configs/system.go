@@ -61,49 +61,6 @@ const (
 
 	// Valid Time Of Captcha
 	ValidTimeOfCaptcha = time.Duration(time.Minute * 5)
-
-	//
-	SIZE_1KB = 1024
-	SIZE_1MB = 1024 * SIZE_1KB
-	SIZE_1GB = 1024 * SIZE_1MB
-)
-
-const (
-	//Scheduler's rpc service name
-	RpcService_Scheduler = "wservice"
-	//Scheduler's rpc service name
-	RpcService_Miner = "mservice"
-	//auth method of rpc service
-	RpcMethod_auth = "auth"
-	//write method of rpc service
-	RpcMethod_WriteFile = "writefile"
-	//read method of rpc service
-	RpcMethod_ReadFile = "readfile"
-	//
-	RpcBuffer = 1024 * 1024
-
-	//
-	EmailSubject_captcha = "CESS | Authorization captcha"
-	EmailSubject_token   = "CESS | Authorization token"
-)
-
-const (
-	HELP_common = `Please check with the following help information:
-    1.Check if the wallet balance is sufficient
-    2.Block hash:`
-	HELP_BuySpace1 = `Please check with the following help information:
-    1.Check whether the available space is sufficient
-    2.Check if the wallet balance is sufficient
-    3.Block hash:`
-	HELP_BuySpace2 = `    4.Check the fileBank.buyPackage transaction event result in the block hash above:
-        If system.ExtrinsicFailed is prompted, it means failure;
-        If system.ExtrinsicSuccess is prompted, it means success;`
-	HELP_Upgrade = `    3.Check the fileBank.upgradePackage transaction event result in the block hash above:
-        If system.ExtrinsicFailed is prompted, it means failure;
-        If system.ExtrinsicSuccess is prompted, it means success;`
-	HELP_Renewal = `    3.Check the fileBank.renewalPackage transaction event result in the block hash above:
-        If system.ExtrinsicFailed is prompted, it means failure;
-        If system.ExtrinsicSuccess is prompted, it means success;`
 )
 
 // return state code

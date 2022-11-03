@@ -24,7 +24,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/CESSProject/cess-scheduler/configs"
+	"github.com/CESSProject/cess-oss/configs"
 	"github.com/klauspost/reedsolomon"
 )
 
