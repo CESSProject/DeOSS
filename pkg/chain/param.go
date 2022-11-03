@@ -60,7 +60,7 @@ const (
 	tx_SegmentBook_VerifyProof = "SegmentBook.verify_proof"
 	// FileMap
 	tx_FileMap_UpdateScheduler = "FileMap.update_scheduler"
-	tx_FileMap_Add_schedule    = "FileMap.registration_scheduler"
+	tx_FileMap_Add_schedule    = "FileMap.registration_oss"
 )
 
 const (

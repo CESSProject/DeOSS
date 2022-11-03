@@ -27,10 +27,6 @@ func (c *chainClient) GetPublicKey() []byte {
 	return c.keyring.PublicKey
 }
 
-func (c *chainClient) GetStashPublicKey() ([]byte, error) {
-	return utils.DecodePublicKeyOfCessAccount(c.stash)
-}
-
 func (c *chainClient) GetMnemonicSeed() string {
 	return c.keyring.URI
 }

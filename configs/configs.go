@@ -34,22 +34,11 @@ const (
 	SIZE_1GiB = 1024 * SIZE_1MiB
 )
 
-// filler
+// http
 const (
-	// FillerSize is the fill size of the uncommissioned data segment
-	FillerSize = 8 * SIZE_1MiB
-	// FillerLineLength is the number of characters in a line
-	FillerLineLength = 4096
-	// BlockSize is the block size when pbc is calculated
-	BlockSize = SIZE_1MiB
-	// ScanBlockSize is the size of the scan and cannot be larger than BlockSize
-	ScanBlockSize = BlockSize / 2
-	// The maximum number of fillermeta submitted in a transaction
-	Max_SubFillerMeta = 8
-	// Number of local filler caches
-	Num_Filler_Reserved = 5
-
-	Max_Filler_Meta = 100
+	Http_ReadTimeout  = 60
+	Http_WriteTimeout = 60
+	Http_MaximumHead  = SIZE_1MiB
 )
 
 const (

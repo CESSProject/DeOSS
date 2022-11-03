@@ -30,6 +30,7 @@ const (
 // error type
 var (
 	ERR_RPC_CONNECTION  = errors.New("rpc connection failed")
+	ERR_RPC_IP_FORMAT   = errors.New("unsupported ip format")
 	ERR_RPC_TIMEOUT     = errors.New("timeout")
 	ERR_RPC_EMPTY_VALUE = errors.New("empty")
 )

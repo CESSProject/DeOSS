@@ -29,8 +29,6 @@ import (
 type Chainer interface {
 	// Getpublickey returns its own public key
 	GetPublicKey() []byte
-	// GetStashPublicKey returns its stash account public key
-	GetStashPublicKey() ([]byte, error)
 	// Getpublickey returns its own private key
 	GetMnemonicSeed() string
 	// NewAccountId returns the account id
@@ -77,7 +75,6 @@ type chainClient struct {
 	genesisHash     types.Hash
 	keyring         signature.KeyringPair
 	rpcAddr         string
-	stash           string
 	timeForBlockOut time.Duration
 }
 
@@ -122,7 +119,6 @@ func NewChainClient(rpcAddr, secret, stash string, t time.Duration) (Chainer, er
 	cli.chainState.Store(true)
 	cli.timeForBlockOut = t
 	cli.rpcAddr = rpcAddr
-	cli.stash = stash
 	return cli, nil
 }
 

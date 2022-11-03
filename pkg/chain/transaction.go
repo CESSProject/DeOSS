@@ -27,9 +27,10 @@ import (
 	"github.com/pkg/errors"
 )
 
-func (c *chainClient) Register(stash, ip, port string) (string, error) {
+func (c *chainClient) Register(ip, port string) (string, error) {
 	var (
 		txhash      string
+		ipType      IpAddress
 		accountInfo types.AccountInfo
 	)
 
@@ -42,13 +43,6 @@ func (c *chainClient) Register(stash, ip, port string) (string, error) {
 	}
 	c.SetChainState(true)
 
-	stashPuk, err := utils.DecodePublicKeyOfCessAccount(stash)
-	if err != nil {
-		return txhash, errors.Wrap(err, "DecodePublicKeyOfCessAccount")
-	}
-
-	var ipType IpAddress
-
 	if utils.IsIPv4(ip) {
 		ipType.IPv4.Index = 0
 		ips := strings.Split(ip, ".")
@@ -59,7 +53,7 @@ func (c *chainClient) Register(stash, ip, port string) (string, error) {
 		temp, _ := strconv.Atoi(port)
 		ipType.IPv4.Port = types.U16(temp)
 	} else {
-		return txhash, errors.New("unsupported ip format")
+		return txhash, ERR_RPC_IP_FORMAT
 	}
 
 	call, err := types.NewCall(
