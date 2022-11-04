@@ -25,4 +25,5 @@ func (n *Node) addRoute() {
 	// }
 	n.Handle.POST("/auth", n.authHandle)
 	n.Handle.PUT("/bucket", n.newBucketHandle)
+	n.Handle.GET("/bucket", n.viewBucketHandle)
 }
