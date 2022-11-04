@@ -17,16 +17,26 @@
 package node
 
 import (
+	"errors"
 	"net/http"
+	"time"
 
+	"github.com/CESSProject/cess-oss/configs"
 	"github.com/CESSProject/cess-oss/pkg/utils"
+	"github.com/CESSProject/go-keyring"
+	jwt "github.com/dgrijalva/jwt-go"
 	"github.com/gin-gonic/gin"
 )
 
+type CustomClaims struct {
+	Account string `json:"account"`
+	jwt.StandardClaims
+}
+
 type AuthType struct {
-	Account   []byte
-	Signature []byte
+	Account   string
 	Message   string
+	Signature []byte
 }
 
 // It is used to authorize users
@@ -41,7 +51,8 @@ func (n *Node) authHandle(c *gin.Context) {
 	}
 
 	// Check publickey
-	if err = utils.VerityAddress(string(req.Account), utils.CessPrefix); err != nil {
+	pubkey, err := utils.DecodePublicKeyOfCessAccount(req.Account)
+	if err != nil {
 		c.JSON(400, "InvalidParameter.Account")
 		return
 	}
@@ -51,11 +62,64 @@ func (n *Node) authHandle(c *gin.Context) {
 		return
 	}
 
-	if len(req.Signature) == 0 {
+	if len(req.Signature) < 64 {
 		c.JSON(400, "InvalidParameter.Signature")
 		return
 	}
 
-	c.JSON(http.StatusOK, "")
+	ok, err := VerifySign(pubkey, []byte(req.Message), req.Signature)
+	if err != nil {
+		c.JSON(400, err.Error())
+		return
+	}
+
+	if !ok {
+		c.JSON(403, "NoPermission")
+		return
+	}
+
+	claims := CustomClaims{
+		req.Account,
+		jwt.StandardClaims{
+			NotBefore: int64(time.Now().Unix() - 60),
+			ExpiresAt: int64(time.Now().Unix() + int64(configs.TokenDated)),
+		},
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	mySigningKey, err := n.Cache.Get([]byte("SigningKey"))
+	if err != nil {
+		c.JSON(500, "InternalError")
+		return
+	}
+
+	tokenString, err := token.SignedString(string(mySigningKey))
+	if err != nil {
+		c.JSON(500, "InternalError")
+		return
+	}
+
+	c.JSON(http.StatusOK, map[string]string{"token": tokenString})
 	return
+}
+
+func VerifySign(pkey, signmsg, sign []byte) (bool, error) {
+	if len(signmsg) == 0 || len(sign) < 64 {
+		return false, errors.New("Invalid signature")
+	}
+
+	ss58, err := utils.EncodePublicKeyAsSubstrateAccount(pkey)
+	if err != nil {
+		return false, err
+	}
+
+	verkr, _ := keyring.FromURI(ss58, keyring.NetSubstrate{})
+
+	var sign_array [64]byte
+	for i := 0; i < 64; i++ {
+		sign_array[i] = sign[i]
+	}
+
+	// Verify signature
+	return verkr.Verify(verkr.SigningContext(signmsg), sign_array), nil
 }

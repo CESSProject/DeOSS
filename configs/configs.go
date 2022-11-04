@@ -39,6 +39,8 @@ const (
 	Http_ReadTimeout  = 60
 	Http_WriteTimeout = 60
 	Http_MaximumHead  = SIZE_1MiB
+	Header_Auth       = "Authorization"
+	TokenDated        = 60 * 60 * 24 * 30
 )
 
 const (

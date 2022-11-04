@@ -29,6 +29,7 @@ import (
 	"github.com/CESSProject/cess-oss/pkg/confile"
 	"github.com/CESSProject/cess-oss/pkg/db"
 	"github.com/CESSProject/cess-oss/pkg/logger"
+	"github.com/CESSProject/cess-oss/pkg/utils"
 	"github.com/spf13/cobra"
 )
 
@@ -210,7 +211,19 @@ func buildDir(cfg confile.Confiler, client chain.Chainer) (string, string, strin
 }
 
 func buildCache(cacheDir string) (db.Cacher, error) {
-	return db.NewCache(cacheDir, 0, 0, configs.NameSpace)
+	cache, err := db.NewCache(cacheDir, 0, 0, configs.NameSpace)
+	if err != nil {
+		return nil, err
+	}
+
+	ok, err := cache.Has([]byte("SigningKey"))
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		err = cache.Put([]byte("SigningKey"), []byte(utils.GetRandomcode(16)))
+	}
+	return cache, err
 }
 
 func buildLogs(logDir string) (logger.Logger, error) {

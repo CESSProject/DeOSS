@@ -33,11 +33,11 @@ var (
 func DecodePublicKeyOfCessAccount(address string) ([]byte, error) {
 	err := VerityAddress(address, CessPrefix)
 	if err != nil {
-		return nil, errors.New("Invalid addrss")
+		return nil, errors.New("Invalid account")
 	}
 	data := base58.Decode(address)
 	if len(data) != (34 + len(CessPrefix)) {
-		return nil, errors.New("base58 decode error")
+		return nil, errors.New("Public key decoding failed")
 	}
 	return data[len(CessPrefix) : len(data)-2], nil
 }
@@ -45,11 +45,11 @@ func DecodePublicKeyOfCessAccount(address string) ([]byte, error) {
 func DecodePublicKeyOfSubstrateAccount(address string) ([]byte, error) {
 	err := VerityAddress(address, SubstratePrefix)
 	if err != nil {
-		return nil, errors.New("Invalid address")
+		return nil, errors.New("Invalid account")
 	}
 	data := base58.Decode(address)
 	if len(data) != (34 + len(SubstratePrefix)) {
-		return nil, errors.New("base58 decode error")
+		return nil, errors.New("Public key decoding failed")
 	}
 	return data[len(SubstratePrefix) : len(data)-2], nil
 }
@@ -65,7 +65,7 @@ func PubBytesToString(b []byte) string {
 
 func EncodePublicKeyAsSubstrateAccount(publicKey []byte) (string, error) {
 	if len(publicKey) != 32 {
-		return "", errors.New("public hash length is not equal 32")
+		return "", errors.New("Invalid public key")
 	}
 	payload := appendBytes(SubstratePrefix, publicKey)
 	input := appendBytes(SSPrefix, payload)
@@ -73,14 +73,14 @@ func EncodePublicKeyAsSubstrateAccount(publicKey []byte) (string, error) {
 	checkum := ck[:2]
 	address := base58.Encode(appendBytes(payload, checkum))
 	if address == "" {
-		return address, errors.New("base58 encode error")
+		return address, errors.New("Public key encoding failed")
 	}
 	return address, nil
 }
 
 func EncodePublicKeyAsCessAccount(publicKey []byte) (string, error) {
 	if len(publicKey) != 32 {
-		return "", errors.New("public hash length is not equal 32")
+		return "", errors.New("Invalid public key")
 	}
 	payload := appendBytes(CessPrefix, publicKey)
 	input := appendBytes(SSPrefix, payload)
@@ -88,7 +88,7 @@ func EncodePublicKeyAsCessAccount(publicKey []byte) (string, error) {
 	checkum := ck[:2]
 	address := base58.Encode(appendBytes(payload, checkum))
 	if address == "" {
-		return address, errors.New("base58 encode error")
+		return address, errors.New("Public key encoding failed")
 	}
 	return address, nil
 }
@@ -103,10 +103,10 @@ func appendBytes(data1, data2 []byte) []byte {
 func VerityAddress(address string, prefix []byte) error {
 	decodeBytes := base58.Decode(address)
 	if len(decodeBytes) != (34 + len(prefix)) {
-		return errors.New("base58 decode error")
+		return errors.New("Public key decoding failed")
 	}
 	if decodeBytes[0] != prefix[0] {
-		return errors.New("prefix valid error")
+		return errors.New("Invalid account prefix")
 	}
 	pub := decodeBytes[len(prefix) : len(decodeBytes)-2]
 
@@ -116,11 +116,11 @@ func VerityAddress(address string, prefix []byte) error {
 	checkSum := ck[:2]
 	for i := 0; i < 2; i++ {
 		if checkSum[i] != decodeBytes[32+len(prefix)+i] {
-			return errors.New("checksum valid error")
+			return errors.New("Invalid account")
 		}
 	}
 	if len(pub) != 32 {
-		return errors.New("decode public key length is not equal 32")
+		return errors.New("Invalid account public key")
 	}
 	return nil
 }
