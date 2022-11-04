@@ -51,10 +51,9 @@ const (
 // Extrinsics
 const (
 	// FileBank
-	tx_FileBank_Update             = "FileBank.update"
-	tx_FileBank_Upload             = "FileBank.upload"
-	tx_FileBank_UploadFiller       = "FileBank.upload_filler"
-	tx_FileBank_ClearRecoveredFile = "FileBank.recover_file"
+	tx_FileBank_Update    = "FileBank.update"
+	tx_FileBank_Upload    = "FileBank.upload"
+	FileBank_CreateBucket = "FileBank.create_bucket"
 	// SegmentBook
 	tx_SegmentBook_VerifyProof = "SegmentBook.verify_proof"
 	// Oss

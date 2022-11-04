@@ -290,9 +290,17 @@ type Event_PackageUpgrade struct {
 type Event_PackageRenewal struct {
 	Phase        types.Phase
 	Acc          types.AccountID
-	Package_type types.U8
+	Renewal_days types.U32
 	Fee          types.U128
 	Topics       []types.Hash
+}
+
+type Event_CreateBucket struct {
+	Phase       types.Phase
+	Acc         types.AccountID
+	Owner       types.AccountID
+	Bucket_name types.Bytes
+	Topics      []types.Hash
 }
 
 // ------------------------FileMap--------------------------------
@@ -401,6 +409,7 @@ type CessEventRecords struct {
 	FileBank_BuyPackage           []Event_BuyPackage
 	FileBank_PackageUpgrade       []Event_PackageUpgrade
 	FileBank_PackageRenewal       []Event_PackageRenewal
+	FilBank_CreateBucket          []Event_CreateBucket
 	//FileMap
 	FileMap_RegistrationScheduler []Event_RegistrationScheduler
 	FileMap_UpdateScheduler       []Event_UpdateScheduler

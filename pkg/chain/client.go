@@ -58,6 +58,8 @@ type Chainer interface {
 	Register(ip, port string) (string, error)
 	// Update is used to update the communication address of the scheduling service
 	Update(ip, port string) (string, error)
+	// CreateBucket is used to create a bucket for users
+	CreateBucket(owner_pkey []byte, name string) (string, error)
 }
 
 type chainClient struct {
