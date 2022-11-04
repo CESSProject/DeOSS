@@ -122,27 +122,6 @@ type Ipv6Type struct {
 	Port  types.U16
 }
 
-// proof type
-type Proof struct {
-	FileId         FileHash
-	Miner_pubkey   types.AccountID
-	Challenge_info ChallengeInfo
-	Mu             []types.Bytes
-	Sigma          types.Bytes
-	Name           types.Bytes
-	U              []types.Bytes
-}
-
-// challenge info
-type ChallengeInfo struct {
-	File_size  types.U64
-	File_type  types.U8
-	Block_list types.Bytes
-	File_id    FileHash
-	Shard_id   FileBlockId
-	Random     []types.Bytes
-}
-
 // user space package Info
 type SpacePackage struct {
 	Space           types.U128
@@ -155,10 +134,10 @@ type SpacePackage struct {
 	State           types.Bytes
 }
 
-// proof result
-type ProofResult struct {
-	PublicKey types.AccountID
-	FileId    FileHash
-	Shard_id  FileBlockId
-	Result    types.Bool
+type BucketInfo struct {
+	Total_capacity     types.U32
+	Available_capacity types.U32
+	Objects_num        types.U32
+	Objects_list       []FileHash
+	Authority          []types.AccountID
 }

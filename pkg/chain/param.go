@@ -43,6 +43,7 @@ const (
 
 	// FileBank
 	fileBank_UserFilelist = "UserHoldFileList"
+	fileBank_Bucket       = "Bucket"
 
 	// Oss
 	oss = "Oss"

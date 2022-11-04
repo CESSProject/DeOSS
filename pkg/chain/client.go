@@ -50,6 +50,8 @@ type Chainer interface {
 	// GetAccountInfo is used to get account information
 	GetAccountInfo(pkey []byte) (types.AccountInfo, error)
 
+	// GetBucketInfo is used to query bucket details
+	GetBucketInfo(owner_pkey []byte, name string) (BucketInfo, error)
 	// GetGrantor is used to query the user's space grantor
 	GetGrantor(pkey []byte) (types.AccountID, error)
 	// GetState is used to obtain OSS status information

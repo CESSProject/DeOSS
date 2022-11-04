@@ -293,3 +293,43 @@ func (c *chainClient) GetGrantor(pkey []byte) (types.AccountID, error) {
 	}
 	return data, nil
 }
+
+func (c *chainClient) GetBucketInfo(owner_pkey []byte, name string) (BucketInfo, error) {
+	var data BucketInfo
+
+	if !c.IsChainClientOk() {
+		c.SetChainState(false)
+		return data, ERR_RPC_CONNECTION
+	}
+	c.SetChainState(true)
+
+	owner, err := types.Encode(types.NewAccountID(owner_pkey))
+	if err != nil {
+		return data, errors.Wrap(err, "[EncodeToBytes]")
+	}
+
+	name_byte, err := types.Encode(name)
+	if err != nil {
+		return data, errors.Wrap(err, "[Encode]")
+	}
+
+	key, err := types.CreateStorageKey(
+		c.metadata,
+		pallet_FileBank,
+		fileBank_Bucket,
+		owner,
+		name_byte,
+	)
+	if err != nil {
+		return data, errors.Wrap(err, "[CreateStorageKey]")
+	}
+
+	ok, err := c.api.RPC.State.GetStorageLatest(key, &data)
+	if err != nil {
+		return data, errors.Wrap(err, "[GetStorageLatest]")
+	}
+	if !ok {
+		return data, ERR_RPC_EMPTY_VALUE
+	}
+	return data, nil
+}

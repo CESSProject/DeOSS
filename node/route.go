@@ -24,4 +24,5 @@ func (n *Node) addRoute() {
 	// 	authG.POST("/message")
 	// }
 	n.Handle.POST("/auth", n.authHandle)
+	n.Handle.PUT("/bucket", n.newBucketHandle)
 }
