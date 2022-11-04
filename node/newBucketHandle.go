@@ -17,6 +17,7 @@
 package node
 
 import (
+	"net/http"
 	"regexp"
 	"strings"
 
@@ -34,6 +35,7 @@ type NewBucketType struct {
 func (n *Node) newBucketHandle(c *gin.Context) {
 	var (
 		err error
+		acc string
 		req NewBucketType
 	)
 	// token
@@ -50,18 +52,28 @@ func (n *Node) newBucketHandle(c *gin.Context) {
 		return
 	}
 
-	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-		return mySigningKey, nil
-	})
+	token, err := jwt.ParseWithClaims(
+		tokenString,
+		&CustomClaims{},
+		func(token *jwt.Token) (interface{}, error) {
+			return mySigningKey, nil
+		})
 
-	if !token.Valid {
-		if ve, ok := err.(*jwt.ValidationError); ok {
-			if ve.Errors&(jwt.ValidationErrorExpired|jwt.ValidationErrorNotValidYet) != 0 {
-				// Token is either expired or not active yet
-				c.JSON(403, "TokenExpired")
-				return
-			}
-		}
+	// if !token.Valid {
+	// 	if ve, ok := err.(*jwt.ValidationError); ok {
+	// 		if ve.Errors&(jwt.ValidationErrorExpired|jwt.ValidationErrorNotValidYet) != 0 {
+	// 			// Token is either expired or not active yet
+	// 			c.JSON(403, "TokenExpired")
+	// 			return
+	// 		}
+	// 	}
+	// 	c.JSON(403, "NoPermission")
+	// 	return
+	// }
+
+	if claims, ok := token.Claims.(*CustomClaims); ok && token.Valid {
+		acc = claims.Account
+	} else {
 		c.JSON(403, "NoPermission")
 		return
 	}
@@ -75,6 +87,19 @@ func (n *Node) newBucketHandle(c *gin.Context) {
 		c.JSON(400, "InvalidParameter.BucketName")
 		return
 	}
+
+	pkey, err := utils.DecodePublicKeyOfCessAccount(acc)
+	if err != nil {
+		c.JSON(403, "InvalidToken")
+		return
+	}
+
+	txHash, err := n.Chain.CreateBucket(pkey, req.BucketName)
+	if err != nil {
+		c.JSON(400, err.Error())
+		return
+	}
+	c.JSON(http.StatusOK, map[string]string{"Block hash:": txHash})
 }
 
 // Bucket name verification rules
