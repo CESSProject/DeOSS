@@ -17,22 +17,24 @@
 package node
 
 import (
+	"regexp"
+	"strings"
+
 	"github.com/CESSProject/cess-oss/configs"
+	"github.com/CESSProject/cess-oss/pkg/utils"
+	jwt "github.com/dgrijalva/jwt-go"
 	"github.com/gin-gonic/gin"
-	"github.com/golang-jwt/jwt"
 )
 
 type NewBucketType struct {
-	Account   string
-	Message   string
-	Signature []byte
+	BucketName string `json:"bucket_name"`
 }
 
 // It is used to authorize users
 func (n *Node) newBucketHandle(c *gin.Context) {
 	var (
 		err error
-		req AuthType
+		req NewBucketType
 	)
 	// token
 	tokenString := c.Request.Header.Get(configs.Header_Auth)
@@ -68,4 +70,43 @@ func (n *Node) newBucketHandle(c *gin.Context) {
 		c.JSON(400, "Invalid.Body")
 		return
 	}
+
+	if !VerifyBucketName(req.BucketName) {
+		c.JSON(400, "InvalidParameter.BucketName")
+		return
+	}
+}
+
+// Bucket name verification rules
+// It can only contain numbers, lowercase letters, special characters (. -)
+// And the length is 3-63
+// Must start and end with a letter or number
+// Must not contain two adjacent points
+// Must not be formatted as an IP address
+func VerifyBucketName(name string) bool {
+	if len(name) < 3 || len(name) > 63 {
+		return false
+	}
+
+	re, err := regexp.Compile(`^[a-z0-9.-]{3,63}$`)
+	if err != nil {
+		return false
+	}
+
+	if !re.MatchString(name) {
+		return false
+	}
+
+	if strings.Contains(name, "..") {
+		return false
+	}
+
+	if byte(name[0]) == byte('.') ||
+		byte(name[0]) == byte('-') ||
+		byte(name[len(name)-1]) == byte('.') ||
+		byte(name[len(name)-1]) == byte('-') {
+		return false
+	}
+
+	return !utils.IsIPv4(name)
 }

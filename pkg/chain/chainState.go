@@ -259,3 +259,37 @@ func (c *chainClient) GetState(pubkey []byte) (string, error) {
 		data.Value[3],
 		data.Port), nil
 }
+
+func (c *chainClient) GetGrantor(pkey []byte) (types.AccountID, error) {
+	var data types.AccountID
+
+	if !c.IsChainClientOk() {
+		c.SetChainState(false)
+		return data, ERR_RPC_CONNECTION
+	}
+	c.SetChainState(true)
+
+	b, err := types.Encode(types.NewAccountID(pkey))
+	if err != nil {
+		return data, errors.Wrap(err, "[EncodeToBytes]")
+	}
+
+	key, err := types.CreateStorageKey(
+		c.metadata,
+		pallet_Oss,
+		oss,
+		b,
+	)
+	if err != nil {
+		return data, errors.Wrap(err, "[CreateStorageKey]")
+	}
+
+	ok, err := c.api.RPC.State.GetStorageLatest(key, &data)
+	if err != nil {
+		return data, errors.Wrap(err, "[GetStorageLatest]")
+	}
+	if !ok {
+		return data, ERR_RPC_EMPTY_VALUE
+	}
+	return data, nil
+}

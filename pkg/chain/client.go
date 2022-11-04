@@ -49,6 +49,9 @@ type Chainer interface {
 	GetCessAccount() (string, error)
 	// GetAccountInfo is used to get account information
 	GetAccountInfo(pkey []byte) (types.AccountInfo, error)
+
+	// GetGrantor is used to query the user's space grantor
+	GetGrantor(pkey []byte) (types.AccountID, error)
 	// GetState is used to obtain OSS status information
 	GetState(pubkey []byte) (string, error)
 	// Register is used to register oss services

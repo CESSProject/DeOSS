@@ -34,9 +34,9 @@ type CustomClaims struct {
 }
 
 type AuthType struct {
-	Account   string
-	Message   string
-	Signature []byte
+	Account   string `json:"account"`
+	Message   string `json:"message"`
+	Signature []byte `json:"signature"`
 }
 
 // It is used to authorize users
