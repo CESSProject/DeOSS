@@ -62,6 +62,8 @@ type Chainer interface {
 	Update(ip, port string) (string, error)
 	// CreateBucket is used to create a bucket for users
 	CreateBucket(owner_pkey []byte, name string) (string, error)
+	// DeleteBucket is used to delete buckets created by users
+	DeleteBucket(owner_pkey []byte, name string) (string, error)
 }
 
 type chainClient struct {
