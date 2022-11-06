@@ -1,0 +1,31 @@
+## ide
+.vscode
+.idea
+.vs
+.DS_Store
+*/.DS_Store
+.git
+
+## Data and cache files
+/log
+/db
+/test
+/cache
+
+## nohup print and log files
+*.out
+*.log
+*.tmp
+*.backup
+*.bkp
+
+## Binaries for programs and plugins
+main
+oss*
+*.exe
+*.dll
+*.so
+*.a
+
+## config file
+conf.toml
