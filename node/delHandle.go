@@ -18,23 +18,25 @@ package node
 
 import (
 	"net/http"
+	"unsafe"
 
 	"github.com/CESSProject/cess-oss/configs"
+	"github.com/CESSProject/cess-oss/pkg/chain"
 	"github.com/CESSProject/cess-oss/pkg/utils"
 	jwt "github.com/dgrijalva/jwt-go"
 	"github.com/gin-gonic/gin"
 )
 
-type DelBucketType struct {
-	BucketName string `json:"bucket_name"`
-}
+// type DelFileType struct {
+// 	FileHash string `json:"file_hash"`
+// }
 
-// It is used to authorize users
-func (n *Node) delBucketHandle(c *gin.Context) {
+// delHandle is used to delete buckets or files
+func (n *Node) delHandle(c *gin.Context) {
 	var (
-		err error
-		acc string
-		req DelBucketType
+		err    error
+		acc    string
+		txHash string
 	)
 
 	// token
@@ -58,18 +60,6 @@ func (n *Node) delBucketHandle(c *gin.Context) {
 			return mySigningKey, nil
 		})
 
-	// if !token.Valid {
-	// 	if ve, ok := err.(*jwt.ValidationError); ok {
-	// 		if ve.Errors&(jwt.ValidationErrorExpired|jwt.ValidationErrorNotValidYet) != 0 {
-	// 			// Token is either expired or not active yet
-	// 			c.JSON(403, "TokenExpired")
-	// 			return
-	// 		}
-	// 	}
-	// 	c.JSON(403, "NoPermission")
-	// 	return
-	// }
-
 	if claims, ok := token.Claims.(*CustomClaims); ok && token.Valid {
 		acc = claims.Account
 	} else {
@@ -77,19 +67,29 @@ func (n *Node) delBucketHandle(c *gin.Context) {
 		return
 	}
 
-	if !VerifyBucketName(req.BucketName) {
-		c.JSON(400, "InvalidParameter.BucketName")
-		return
-	}
 	pkey, err := utils.DecodePublicKeyOfCessAccount(acc)
 	if err != nil {
 		c.JSON(400, "InvalidParameter.Token")
 		return
 	}
-	txHash, err := n.Chain.DeleteBucket(pkey, req.BucketName)
-	if err != nil {
-		c.JSON(400, err.Error())
+
+	deleteName := c.Param("name")
+	if VerifyBucketName(deleteName) {
+		txHash, err = n.Chain.DeleteBucket(pkey, deleteName)
+		if err != nil {
+			c.JSON(400, err.Error())
+			return
+		}
+	} else if len(deleteName) == int(unsafe.Sizeof(chain.FileHash{})) {
+		txHash, err = n.Chain.DeleteFile(pkey, deleteName)
+		if err != nil {
+			c.JSON(400, err.Error())
+			return
+		}
+	} else {
+		c.JSON(400, "Invalid.Parameter")
 		return
 	}
+
 	c.JSON(http.StatusOK, map[string]string{"Block hash:": txHash})
 }

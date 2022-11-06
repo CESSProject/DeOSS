@@ -25,6 +25,8 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"regexp"
+	"strings"
 	"time"
 
 	"github.com/CESSProject/cess-oss/configs"
@@ -39,18 +41,11 @@ import (
 )
 
 // It is used to authorize users
-func (n *Node) upfileHandle(c *gin.Context) {
+func (n *Node) putHandle(c *gin.Context) {
 	var (
 		err error
 		acc string
 	)
-	// token
-	bucketName := c.Request.Header.Get(configs.Header_BucketName)
-	if bucketName == "" {
-		//Uld.Sugar().Infof("[%v] head missing token", c.ClientIP())
-		c.JSON(403, "Invalid.BucketName")
-		return
-	}
 
 	// token
 	tokenString := c.Request.Header.Get(configs.Header_Auth)
@@ -86,6 +81,36 @@ func (n *Node) upfileHandle(c *gin.Context) {
 		return
 	}
 
+	putName := c.Param("name")
+	if putName == "" {
+		//Uld.Sugar().Infof("[%v] no file name", usertoken.Mailbox)
+		c.JSON(400, "Invalid.Parameter")
+		return
+	}
+
+	if VerifyBucketName(putName) {
+		txHash, err := n.Chain.CreateBucket(pkey, putName)
+		if err != nil {
+			c.JSON(400, err.Error())
+			return
+		}
+		c.JSON(http.StatusOK, map[string]string{"Block hash:": txHash})
+		return
+	}
+
+	// bucket name
+	bucketName := c.Request.Header.Get(configs.Header_BucketName)
+	if bucketName == "" {
+		//Uld.Sugar().Infof("[%v] head missing token", c.ClientIP())
+		c.JSON(400, "Invalid.BucketName")
+		return
+	}
+
+	if !VerifyBucketName(bucketName) {
+		c.JSON(400, "Invalid.BucketName")
+		return
+	}
+
 	//
 	grantor, err := n.Chain.GetGrantor(pkey)
 	if err != nil {
@@ -100,13 +125,6 @@ func (n *Node) upfileHandle(c *gin.Context) {
 			c.JSON(400, "Unauthorized")
 			return
 		}
-	}
-
-	filename := c.Param("filename")
-	if filename == "" {
-		//Uld.Sugar().Infof("[%v] no file name", usertoken.Mailbox)
-		c.JSON(400, "Invalid.Filename")
-		return
 	}
 
 	content_length := c.Request.ContentLength
@@ -135,7 +153,7 @@ func (n *Node) upfileHandle(c *gin.Context) {
 	}
 
 	// Calc file path
-	fpath := filepath.Join(n.FileDir, url.QueryEscape(filename))
+	fpath := filepath.Join(n.FileDir, url.QueryEscape(putName))
 
 	// Create file
 	f, err := os.Create(fpath)
@@ -209,7 +227,7 @@ func (n *Node) upfileHandle(c *gin.Context) {
 
 	userBrief := chain.UserBrief{
 		User:        types.NewAccountID(pkey),
-		File_name:   types.Bytes(filename),
+		File_name:   types.Bytes(putName),
 		Bucket_name: types.Bytes(bucketName),
 	}
 	// Declaration file
@@ -219,7 +237,7 @@ func (n *Node) upfileHandle(c *gin.Context) {
 		c.JSON(500, err.Error())
 		return
 	}
-	go n.task_StoreFile(newChunksPath, hashtree, filename, fstat.Size())
+	go n.task_StoreFile(newChunksPath, hashtree, putName, fstat.Size())
 
 	c.JSON(http.StatusOK, hashtree)
 	return
@@ -234,12 +252,12 @@ func (n *Node) task_StoreFile(fpath []string, fid, fname string, fsize int64) {
 	}()
 	var channel_1 = make(chan uint8, 1)
 	//Uld.Sugar().Infof("[%v] Start the file backup management process", fid)
-	go n.uploadToStorage(channel_1, fpath, fid, fname, fsize)
+	go n.uploadToStorage(channel_1, fpath, fid, fsize)
 	for {
 		select {
 		case result := <-channel_1:
 			if result == 1 {
-				go n.uploadToStorage(channel_1, fpath, fid, fname, fsize)
+				go n.uploadToStorage(channel_1, fpath, fid, fsize)
 				time.Sleep(time.Second * 6)
 			}
 			if result == 2 {
@@ -255,7 +273,7 @@ func (n *Node) task_StoreFile(fpath []string, fid, fname string, fsize int64) {
 }
 
 // Upload files to cess storage system
-func (n *Node) uploadToStorage(ch chan uint8, fpath []string, fid, fname string, fsize int64) {
+func (n *Node) uploadToStorage(ch chan uint8, fpath []string, fid string, fsize int64) {
 	defer func() {
 		err := recover()
 		if err != nil {
@@ -334,4 +352,38 @@ func (n *Node) uploadToStorage(ch chan uint8, fpath []string, fid, fname string,
 		return
 	}
 	ch <- 1
+}
+
+// Bucket name verification rules
+// It can only contain numbers, lowercase letters, special characters (. -)
+// And the length is 3-63
+// Must start and end with a letter or number
+// Must not contain two adjacent points
+// Must not be formatted as an IP address
+func VerifyBucketName(name string) bool {
+	if len(name) < 3 || len(name) > 63 {
+		return false
+	}
+
+	re, err := regexp.Compile(`^[a-z0-9.-]{3,63}$`)
+	if err != nil {
+		return false
+	}
+
+	if !re.MatchString(name) {
+		return false
+	}
+
+	if strings.Contains(name, "..") {
+		return false
+	}
+
+	if byte(name[0]) == byte('.') ||
+		byte(name[0]) == byte('-') ||
+		byte(name[len(name)-1]) == byte('.') ||
+		byte(name[len(name)-1]) == byte('-') {
+		return false
+	}
+
+	return !utils.IsIPv4(name)
 }
