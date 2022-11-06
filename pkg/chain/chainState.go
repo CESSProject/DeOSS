@@ -333,3 +333,37 @@ func (c *chainClient) GetBucketInfo(owner_pkey []byte, name string) (BucketInfo,
 	}
 	return data, nil
 }
+
+func (c *chainClient) GetBucketList(owner_pkey []byte) ([]types.Bytes, error) {
+	var data []types.Bytes
+
+	if !c.IsChainClientOk() {
+		c.SetChainState(false)
+		return data, ERR_RPC_CONNECTION
+	}
+	c.SetChainState(true)
+
+	owner, err := types.Encode(types.NewAccountID(owner_pkey))
+	if err != nil {
+		return data, errors.Wrap(err, "[EncodeToBytes]")
+	}
+
+	key, err := types.CreateStorageKey(
+		c.metadata,
+		pallet_FileBank,
+		fileBank_BucketList,
+		owner,
+	)
+	if err != nil {
+		return data, errors.Wrap(err, "[CreateStorageKey]")
+	}
+
+	ok, err := c.api.RPC.State.GetStorageLatest(key, &data)
+	if err != nil {
+		return data, errors.Wrap(err, "[GetStorageLatest]")
+	}
+	if !ok {
+		return data, ERR_RPC_EMPTY_VALUE
+	}
+	return data, nil
+}
