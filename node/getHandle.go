@@ -27,7 +27,7 @@ import (
 )
 
 // It is used to authorize users
-func (n *Node) getHandle(c *gin.Context) {
+func (n *Node) GetHandle(c *gin.Context) {
 	// account
 	account := c.Request.Header.Get(configs.Header_Account)
 	if account == "" {

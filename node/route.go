@@ -23,5 +23,5 @@ func (n *Node) addRoute() {
 
 	n.Handle.DELETE("/:name", n.delHandle)
 
-	n.Handle.GET("/:name", n.getHandle)
+	n.Handle.GET("/:name", n.GetHandle)
 }
