@@ -131,7 +131,7 @@ func buildChain(cfg confile.Confiler, timeout time.Duration) (chain.Chainer, err
 	log.Println("Complete synchronization of primary network block data")
 
 	// whether to register
-	schelist, err := client.GetAllSchedulerInfo()
+	schelist, err := client.GetSchedulerList()
 	if err != nil && err.Error() != chain.ERR_RPC_EMPTY_VALUE.Error() {
 		return nil, err
 	}

@@ -17,13 +17,11 @@
 package node
 
 func (n *Node) addRoute() {
-	// authG := n.Handle.Group("/v1/login")
-	// {
-	// 	authG.POST("/admin")
-	// 	authG.POST("/auth")
-	// 	authG.POST("/message")
-	// }
 	n.Handle.POST("/auth", n.authHandle)
-	n.Handle.PUT("/bucket", n.newBucketHandle)
-	n.Handle.GET("/bucket", n.viewBucketHandle)
+
+	n.Handle.PUT("/:name", n.putHandle)
+
+	n.Handle.DELETE("/:name", n.delHandle)
+
+	n.Handle.GET("/:name", n.GetHandle)
 }

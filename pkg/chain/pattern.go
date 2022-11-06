@@ -64,11 +64,11 @@ type Cache_MinerInfo struct {
 
 // file meta info
 type FileMetaInfo struct {
-	Size      types.U64
-	Index     types.U32
-	State     types.Bytes
-	Users     []types.AccountID
-	Names     []types.Bytes
+	Size       types.U64
+	Index      types.U32
+	State      types.Bytes
+	UserBriefs []UserBrief
+	//Names      []types.Bytes
 	BlockInfo []BlockInfo
 }
 
@@ -140,4 +140,10 @@ type BucketInfo struct {
 	Objects_num        types.U32
 	Objects_list       []FileHash
 	Authority          []types.AccountID
+}
+
+type UserBrief struct {
+	User        types.AccountID
+	File_name   types.Bytes
+	Bucket_name types.Bytes
 }

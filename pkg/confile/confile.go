@@ -29,13 +29,15 @@ import (
 const (
 	ProfileDefault  = "conf.toml"
 	ProfileTemplete = `# The rpc address of the chain node
-RpcAddr         = ""
+RpcAddr     = ""
+# The IP address of the machine's public network used by the scheduler program
+ServiceAddr = ""
 # Port number monitored by the scheduler program
-ServicePort     = ""
+ServicePort = ""
 # Data storage directory
-DataDir         = ""
+DataDir     = ""
 # Phrase or seed of wallet account
-AccountSeed     = ""`
+AccountSeed = ""`
 )
 
 type Confiler interface {

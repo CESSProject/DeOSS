@@ -40,6 +40,8 @@ const (
 	Http_WriteTimeout = 60
 	Http_MaximumHead  = SIZE_1MiB
 	Header_Auth       = "Authorization"
+	Header_BucketName = "BucketName"
+	Header_Account    = "Account"
 	TokenDated        = 60 * 60 * 24 * 30
 )
 

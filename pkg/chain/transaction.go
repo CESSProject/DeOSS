@@ -404,3 +404,371 @@ func (c *chainClient) CreateBucket(owner_pkey []byte, name string) (string, erro
 		}
 	}
 }
+
+func (c *chainClient) DeleteBucket(owner_pkey []byte, name string) (string, error) {
+	var (
+		txhash      string
+		accountInfo types.AccountInfo
+	)
+
+	c.lock.Lock()
+	defer c.lock.Unlock()
+
+	if !c.IsChainClientOk() {
+		c.SetChainState(false)
+		return txhash, ERR_RPC_CONNECTION
+	}
+	c.SetChainState(true)
+
+	b, err := types.Encode(name)
+	if err != nil {
+		return txhash, errors.Wrap(err, "[Encode]")
+	}
+	call, err := types.NewCall(
+		c.metadata,
+		FileBank_DeleteBucket,
+		types.NewAccountID(owner_pkey),
+		b,
+	)
+	if err != nil {
+		return txhash, errors.Wrap(err, "[NewCall]")
+	}
+
+	ext := types.NewExtrinsic(call)
+	if err != nil {
+		return txhash, errors.Wrap(err, "[NewExtrinsic]")
+	}
+
+	key, err := types.CreateStorageKey(
+		c.metadata,
+		pallet_System,
+		account,
+		c.keyring.PublicKey,
+	)
+	if err != nil {
+		return txhash, errors.Wrap(err, "[CreateStorageKey]")
+	}
+
+	ok, err := c.api.RPC.State.GetStorageLatest(key, &accountInfo)
+	if err != nil {
+		return txhash, errors.Wrap(err, "[GetStorageLatest]")
+	}
+	if !ok {
+		return txhash, ERR_RPC_EMPTY_VALUE
+	}
+
+	o := types.SignatureOptions{
+		BlockHash:          c.genesisHash,
+		Era:                types.ExtrinsicEra{IsMortalEra: false},
+		GenesisHash:        c.genesisHash,
+		Nonce:              types.NewUCompactFromUInt(uint64(accountInfo.Nonce)),
+		SpecVersion:        c.runtimeVersion.SpecVersion,
+		Tip:                types.NewUCompactFromUInt(0),
+		TransactionVersion: c.runtimeVersion.TransactionVersion,
+	}
+
+	// Sign the transaction
+	err = ext.Sign(c.keyring, o)
+	if err != nil {
+		return txhash, errors.Wrap(err, "[Sign]")
+	}
+
+	// Do the transfer and track the actual status
+	sub, err := c.api.RPC.Author.SubmitAndWatchExtrinsic(ext)
+	if err != nil {
+		if !strings.Contains(err.Error(), "Priority is too low") {
+			return txhash, errors.Wrap(err, "[SubmitAndWatchExtrinsic]")
+		}
+		var tryCount = 0
+		for tryCount < 20 {
+			o.Nonce = types.NewUCompactFromUInt(uint64(accountInfo.Nonce + types.NewU32(1)))
+			// Sign the transaction
+			err = ext.Sign(c.keyring, o)
+			if err != nil {
+				return txhash, errors.Wrap(err, "[Sign]")
+			}
+			sub, err = c.api.RPC.Author.SubmitAndWatchExtrinsic(ext)
+			if err == nil {
+				break
+			}
+			tryCount++
+		}
+	}
+	if err != nil {
+		return txhash, errors.Wrap(err, "[SubmitAndWatchExtrinsic]")
+	}
+	defer sub.Unsubscribe()
+	timeout := time.After(c.timeForBlockOut)
+	for {
+		select {
+		case status := <-sub.Chan():
+			if status.IsInBlock {
+				events := CessEventRecords{}
+				txhash, _ = types.EncodeToHex(status.AsInBlock)
+				h, err := c.api.RPC.State.GetStorageRaw(c.keyEvents, status.AsInBlock)
+				if err != nil {
+					return txhash, errors.Wrap(err, "[GetStorageRaw]")
+				}
+
+				types.EventRecordsRaw(*h).DecodeEventRecords(c.metadata, &events)
+
+				if len(events.Oss_Update) > 0 {
+					return txhash, nil
+				}
+				return txhash, errors.New(ERR_Failed)
+			}
+		case err = <-sub.Err():
+			return txhash, errors.Wrap(err, "[sub]")
+		case <-timeout:
+			return txhash, ERR_RPC_TIMEOUT
+		}
+	}
+}
+
+func (c *chainClient) DeclarationFile(filehash string, user UserBrief) (string, error) {
+	var (
+		txhash      string
+		accountInfo types.AccountInfo
+	)
+
+	c.lock.Lock()
+	defer c.lock.Unlock()
+
+	if !c.IsChainClientOk() {
+		c.SetChainState(false)
+		return txhash, ERR_RPC_CONNECTION
+	}
+	c.SetChainState(true)
+
+	var hash FileHash
+	if len(filehash) != len(hash) {
+		return txhash, errors.New("invalid filehash")
+	}
+	for i := 0; i < len(hash); i++ {
+		hash[i] = types.U8(filehash[i])
+	}
+
+	call, err := types.NewCall(
+		c.metadata,
+		FileBank_UploadDeclaration,
+		hash,
+		user,
+	)
+	if err != nil {
+		return txhash, errors.Wrap(err, "[NewCall]")
+	}
+
+	ext := types.NewExtrinsic(call)
+	if err != nil {
+		return txhash, errors.Wrap(err, "[NewExtrinsic]")
+	}
+
+	key, err := types.CreateStorageKey(
+		c.metadata,
+		pallet_System,
+		account,
+		c.keyring.PublicKey,
+	)
+	if err != nil {
+		return txhash, errors.Wrap(err, "[CreateStorageKey]")
+	}
+
+	ok, err := c.api.RPC.State.GetStorageLatest(key, &accountInfo)
+	if err != nil {
+		return txhash, errors.Wrap(err, "[GetStorageLatest]")
+	}
+	if !ok {
+		return txhash, ERR_RPC_EMPTY_VALUE
+	}
+
+	o := types.SignatureOptions{
+		BlockHash:          c.genesisHash,
+		Era:                types.ExtrinsicEra{IsMortalEra: false},
+		GenesisHash:        c.genesisHash,
+		Nonce:              types.NewUCompactFromUInt(uint64(accountInfo.Nonce)),
+		SpecVersion:        c.runtimeVersion.SpecVersion,
+		Tip:                types.NewUCompactFromUInt(0),
+		TransactionVersion: c.runtimeVersion.TransactionVersion,
+	}
+
+	// Sign the transaction
+	err = ext.Sign(c.keyring, o)
+	if err != nil {
+		return txhash, errors.Wrap(err, "[Sign]")
+	}
+
+	// Do the transfer and track the actual status
+	sub, err := c.api.RPC.Author.SubmitAndWatchExtrinsic(ext)
+	if err != nil {
+		if !strings.Contains(err.Error(), "Priority is too low") {
+			return txhash, errors.Wrap(err, "[SubmitAndWatchExtrinsic]")
+		}
+		var tryCount = 0
+		for tryCount < 20 {
+			o.Nonce = types.NewUCompactFromUInt(uint64(accountInfo.Nonce + types.NewU32(1)))
+			// Sign the transaction
+			err = ext.Sign(c.keyring, o)
+			if err != nil {
+				return txhash, errors.Wrap(err, "[Sign]")
+			}
+			sub, err = c.api.RPC.Author.SubmitAndWatchExtrinsic(ext)
+			if err == nil {
+				break
+			}
+			tryCount++
+		}
+	}
+	if err != nil {
+		return txhash, errors.Wrap(err, "[SubmitAndWatchExtrinsic]")
+	}
+	defer sub.Unsubscribe()
+	timeout := time.After(c.timeForBlockOut)
+	for {
+		select {
+		case status := <-sub.Chan():
+			if status.IsInBlock {
+				events := CessEventRecords{}
+				txhash, _ = types.EncodeToHex(status.AsInBlock)
+				h, err := c.api.RPC.State.GetStorageRaw(c.keyEvents, status.AsInBlock)
+				if err != nil {
+					return txhash, errors.Wrap(err, "[GetStorageRaw]")
+				}
+
+				types.EventRecordsRaw(*h).DecodeEventRecords(c.metadata, &events)
+
+				if len(events.FileBank_UploadDeclaration) > 0 {
+					return txhash, nil
+				}
+				return txhash, errors.New(ERR_Failed)
+			}
+		case err = <-sub.Err():
+			return txhash, errors.Wrap(err, "[sub]")
+		case <-timeout:
+			return txhash, ERR_RPC_TIMEOUT
+		}
+	}
+}
+
+func (c *chainClient) DeleteFile(owner_pkey []byte, filehash string) (string, error) {
+	var (
+		txhash      string
+		accountInfo types.AccountInfo
+	)
+
+	c.lock.Lock()
+	defer c.lock.Unlock()
+
+	if !c.IsChainClientOk() {
+		c.SetChainState(false)
+		return txhash, ERR_RPC_CONNECTION
+	}
+	c.SetChainState(true)
+
+	var hash FileHash
+	if len(filehash) != len(hash) {
+		return txhash, errors.New("invalid filehash")
+	}
+	for i := 0; i < len(hash); i++ {
+		hash[i] = types.U8(filehash[i])
+	}
+
+	call, err := types.NewCall(
+		c.metadata,
+		FileBank_DeleteFile,
+		types.NewAccountID(owner_pkey),
+		hash,
+	)
+	if err != nil {
+		return txhash, errors.Wrap(err, "[NewCall]")
+	}
+
+	ext := types.NewExtrinsic(call)
+	if err != nil {
+		return txhash, errors.Wrap(err, "[NewExtrinsic]")
+	}
+
+	key, err := types.CreateStorageKey(
+		c.metadata,
+		pallet_System,
+		account,
+		c.keyring.PublicKey,
+	)
+	if err != nil {
+		return txhash, errors.Wrap(err, "[CreateStorageKey]")
+	}
+
+	ok, err := c.api.RPC.State.GetStorageLatest(key, &accountInfo)
+	if err != nil {
+		return txhash, errors.Wrap(err, "[GetStorageLatest]")
+	}
+	if !ok {
+		return txhash, ERR_RPC_EMPTY_VALUE
+	}
+
+	o := types.SignatureOptions{
+		BlockHash:          c.genesisHash,
+		Era:                types.ExtrinsicEra{IsMortalEra: false},
+		GenesisHash:        c.genesisHash,
+		Nonce:              types.NewUCompactFromUInt(uint64(accountInfo.Nonce)),
+		SpecVersion:        c.runtimeVersion.SpecVersion,
+		Tip:                types.NewUCompactFromUInt(0),
+		TransactionVersion: c.runtimeVersion.TransactionVersion,
+	}
+
+	// Sign the transaction
+	err = ext.Sign(c.keyring, o)
+	if err != nil {
+		return txhash, errors.Wrap(err, "[Sign]")
+	}
+
+	// Do the transfer and track the actual status
+	sub, err := c.api.RPC.Author.SubmitAndWatchExtrinsic(ext)
+	if err != nil {
+		if !strings.Contains(err.Error(), "Priority is too low") {
+			return txhash, errors.Wrap(err, "[SubmitAndWatchExtrinsic]")
+		}
+		var tryCount = 0
+		for tryCount < 20 {
+			o.Nonce = types.NewUCompactFromUInt(uint64(accountInfo.Nonce + types.NewU32(1)))
+			// Sign the transaction
+			err = ext.Sign(c.keyring, o)
+			if err != nil {
+				return txhash, errors.Wrap(err, "[Sign]")
+			}
+			sub, err = c.api.RPC.Author.SubmitAndWatchExtrinsic(ext)
+			if err == nil {
+				break
+			}
+			tryCount++
+		}
+	}
+	if err != nil {
+		return txhash, errors.Wrap(err, "[SubmitAndWatchExtrinsic]")
+	}
+	defer sub.Unsubscribe()
+	timeout := time.After(c.timeForBlockOut)
+	for {
+		select {
+		case status := <-sub.Chan():
+			if status.IsInBlock {
+				events := CessEventRecords{}
+				txhash, _ = types.EncodeToHex(status.AsInBlock)
+				h, err := c.api.RPC.State.GetStorageRaw(c.keyEvents, status.AsInBlock)
+				if err != nil {
+					return txhash, errors.Wrap(err, "[GetStorageRaw]")
+				}
+
+				types.EventRecordsRaw(*h).DecodeEventRecords(c.metadata, &events)
+
+				if len(events.FileBank_DeleteFile) > 0 {
+					return txhash, nil
+				}
+				return txhash, errors.New(ERR_Failed)
+			}
+		case err = <-sub.Err():
+			return txhash, errors.Wrap(err, "[sub]")
+		case <-timeout:
+			return txhash, ERR_RPC_TIMEOUT
+		}
+	}
+}

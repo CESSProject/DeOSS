@@ -108,7 +108,7 @@ func (c *chainClient) GetAllStorageMiner() ([]types.AccountID, error) {
 }
 
 // Query file meta info
-func (c *chainClient) GetFileMetaInfo(fid types.Bytes) (FileMetaInfo, error) {
+func (c *chainClient) GetFileMetaInfo(fid string) (FileMetaInfo, error) {
 	var (
 		data FileMetaInfo
 		hash FileHash
@@ -120,8 +120,8 @@ func (c *chainClient) GetFileMetaInfo(fid types.Bytes) (FileMetaInfo, error) {
 	}
 	c.SetChainState(true)
 
-	if len(fid) != len(hash) {
-		return data, errors.New(ERR_Failed)
+	if len(hash) != len(fid) {
+		return data, errors.New("invalid filehash")
 	}
 
 	for i := 0; i < len(hash); i++ {
@@ -146,35 +146,6 @@ func (c *chainClient) GetFileMetaInfo(fid types.Bytes) (FileMetaInfo, error) {
 	ok, err := c.api.RPC.State.GetStorageLatest(key, &data)
 	if err != nil {
 		return data, errors.Wrap(err, "[GetStorageLatest]")
-	}
-	if !ok {
-		return data, ERR_RPC_EMPTY_VALUE
-	}
-	return data, nil
-}
-
-// Query Scheduler info
-func (c *chainClient) GetAllSchedulerInfo() ([]SchedulerInfo, error) {
-	var data []SchedulerInfo
-
-	if !c.IsChainClientOk() {
-		c.SetChainState(false)
-		return data, ERR_RPC_CONNECTION
-	}
-	c.SetChainState(true)
-
-	key, err := types.CreateStorageKey(
-		c.metadata,
-		pallet_FileMap,
-		schedulerInfo,
-	)
-	if err != nil {
-		return nil, errors.Wrap(err, "[CreateStorageKey]")
-	}
-
-	ok, err := c.api.RPC.State.GetStorageLatest(key, &data)
-	if err != nil {
-		return nil, errors.Wrap(err, "[GetStorageLatest]")
 	}
 	if !ok {
 		return data, ERR_RPC_EMPTY_VALUE
@@ -277,7 +248,7 @@ func (c *chainClient) GetGrantor(pkey []byte) (types.AccountID, error) {
 	key, err := types.CreateStorageKey(
 		c.metadata,
 		pallet_Oss,
-		oss,
+		Grantor,
 		b,
 	)
 	if err != nil {
@@ -319,6 +290,69 @@ func (c *chainClient) GetBucketInfo(owner_pkey []byte, name string) (BucketInfo,
 		fileBank_Bucket,
 		owner,
 		name_byte,
+	)
+	if err != nil {
+		return data, errors.Wrap(err, "[CreateStorageKey]")
+	}
+
+	ok, err := c.api.RPC.State.GetStorageLatest(key, &data)
+	if err != nil {
+		return data, errors.Wrap(err, "[GetStorageLatest]")
+	}
+	if !ok {
+		return data, ERR_RPC_EMPTY_VALUE
+	}
+	return data, nil
+}
+
+func (c *chainClient) GetBucketList(owner_pkey []byte) ([]types.Bytes, error) {
+	var data []types.Bytes
+
+	if !c.IsChainClientOk() {
+		c.SetChainState(false)
+		return data, ERR_RPC_CONNECTION
+	}
+	c.SetChainState(true)
+
+	owner, err := types.Encode(types.NewAccountID(owner_pkey))
+	if err != nil {
+		return data, errors.Wrap(err, "[EncodeToBytes]")
+	}
+
+	key, err := types.CreateStorageKey(
+		c.metadata,
+		pallet_FileBank,
+		fileBank_BucketList,
+		owner,
+	)
+	if err != nil {
+		return data, errors.Wrap(err, "[CreateStorageKey]")
+	}
+
+	ok, err := c.api.RPC.State.GetStorageLatest(key, &data)
+	if err != nil {
+		return data, errors.Wrap(err, "[GetStorageLatest]")
+	}
+	if !ok {
+		return data, ERR_RPC_EMPTY_VALUE
+	}
+	return data, nil
+}
+
+// Get scheduler information on the cess chain
+func (c *chainClient) GetSchedulerList() ([]SchedulerInfo, error) {
+	var data []SchedulerInfo
+
+	if !c.IsChainClientOk() {
+		c.SetChainState(false)
+		return data, ERR_RPC_CONNECTION
+	}
+	c.SetChainState(true)
+
+	key, err := types.CreateStorageKey(
+		c.metadata,
+		pallet_FileMap,
+		schedulerMap,
 	)
 	if err != nil {
 		return data, errors.Wrap(err, "[CreateStorageKey]")

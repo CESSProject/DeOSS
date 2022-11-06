@@ -42,14 +42,16 @@ type Chainer interface {
 	// Getallstorageminer is used to obtain the AccountID of all miners
 	GetAllStorageMiner() ([]types.AccountID, error)
 	// GetFileMetaInfo is used to get the meta information of the file
-	GetFileMetaInfo(fid types.Bytes) (FileMetaInfo, error)
-	// GetAllSchedulerInfo is used to get information about all schedules
-	GetAllSchedulerInfo() ([]SchedulerInfo, error)
+	GetFileMetaInfo(fid string) (FileMetaInfo, error)
 	// GetCessAccount is used to get the account in cess chain format
 	GetCessAccount() (string, error)
 	// GetAccountInfo is used to get account information
 	GetAccountInfo(pkey []byte) (types.AccountInfo, error)
 
+	// GetSchedulerList is used to get information about all schedules
+	GetSchedulerList() ([]SchedulerInfo, error)
+	// GetBucketList is used to obtain all buckets of the user
+	GetBucketList(owner_pkey []byte) ([]types.Bytes, error)
 	// GetBucketInfo is used to query bucket details
 	GetBucketInfo(owner_pkey []byte, name string) (BucketInfo, error)
 	// GetGrantor is used to query the user's space grantor
@@ -62,6 +64,12 @@ type Chainer interface {
 	Update(ip, port string) (string, error)
 	// CreateBucket is used to create a bucket for users
 	CreateBucket(owner_pkey []byte, name string) (string, error)
+	// DeleteBucket is used to delete buckets created by users
+	DeleteBucket(owner_pkey []byte, name string) (string, error)
+	//
+	DeleteFile(owner_pkey []byte, filehash string) (string, error)
+	//
+	DeclarationFile(filehash string, user UserBrief) (string, error)
 }
 
 type chainClient struct {
