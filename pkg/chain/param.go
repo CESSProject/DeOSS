@@ -46,7 +46,8 @@ const (
 	fileBank_Bucket       = "Bucket"
 	fileBank_BucketList   = "BucketList"
 	// Oss
-	oss = "Oss"
+	oss     = "Oss"
+	Grantor = "AuthorityList"
 )
 
 // Extrinsics

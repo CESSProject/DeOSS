@@ -277,7 +277,7 @@ func (c *chainClient) GetGrantor(pkey []byte) (types.AccountID, error) {
 	key, err := types.CreateStorageKey(
 		c.metadata,
 		pallet_Oss,
-		oss,
+		Grantor,
 		b,
 	)
 	if err != nil {
