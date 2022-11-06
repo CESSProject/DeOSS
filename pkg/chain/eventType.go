@@ -167,10 +167,11 @@ type Event_EndOfBufferPeriod struct {
 
 // ------------------------FileBank-------------------------------
 type Event_DeleteFile struct {
-	Phase  types.Phase
-	Acc    types.AccountID
-	Fileid FileHash
-	Topics []types.Hash
+	Phase     types.Phase
+	Acc       types.AccountID
+	Owner     types.AccountID
+	File_hash FileHash
+	Topics    []types.Hash
 }
 
 type Event_BuySpace struct {

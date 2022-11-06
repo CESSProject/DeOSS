@@ -29,6 +29,7 @@ func (n *Node) addRoute() {
 	n.Handle.PUT("", n.upfileHandle)
 
 	n.Handle.DELETE("", n.delBucketHandle)
+	n.Handle.DELETE("", n.delFileHandle)
 
 	n.Handle.GET("", n.viewBucketListHandle)
 	n.Handle.GET("/bucket", n.viewBucketHandle)

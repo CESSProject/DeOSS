@@ -57,6 +57,7 @@ const (
 	tx_FileBank_Upload         = "FileBank.upload"
 	FileBank_CreateBucket      = "FileBank.create_bucket"
 	FileBank_DeleteBucket      = "fileBank.delete_bucket"
+	FileBank_DeleteFile        = "FileBank.delete_file"
 	FileBank_UploadDeclaration = "FileBank.upload_declaration"
 	// SegmentBook
 	tx_SegmentBook_VerifyProof = "SegmentBook.verify_proof"
