@@ -18,16 +18,22 @@ package node
 
 import (
 	"encoding/hex"
+	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/CESSProject/cess-oss/configs"
+	"github.com/CESSProject/cess-oss/pkg/chain"
 	"github.com/CESSProject/cess-oss/pkg/erasure"
 	"github.com/CESSProject/cess-oss/pkg/hashtree"
 	"github.com/CESSProject/cess-oss/pkg/utils"
+	cesskeyring "github.com/CESSProject/go-keyring"
+	"github.com/centrifuge/go-substrate-rpc-client/v4/types"
 	jwt "github.com/dgrijalva/jwt-go"
 	"github.com/gin-gonic/gin"
 )
@@ -38,6 +44,14 @@ func (n *Node) upfileHandle(c *gin.Context) {
 		err error
 		acc string
 	)
+	// token
+	bucketName := c.Request.Header.Get(configs.Header_BucketName)
+	if bucketName == "" {
+		//Uld.Sugar().Infof("[%v] head missing token", c.ClientIP())
+		c.JSON(403, "Invalid.BucketName")
+		return
+	}
+
 	// token
 	tokenString := c.Request.Header.Get(configs.Header_Auth)
 	if tokenString == "" {
@@ -193,12 +207,131 @@ func (n *Node) upfileHandle(c *gin.Context) {
 		}
 	}
 
+	userBrief := chain.UserBrief{
+		User:        types.NewAccountID(pkey),
+		File_name:   types.Bytes(filename),
+		Bucket_name: types.Bytes(bucketName),
+	}
 	// Declaration file
-	txhash, err := chain.UploadDeclaration(configs.C.AccountSeed, fileid, filename)
+	txhash, err := n.Chain.DeclarationFile(hashtree, userBrief)
 	if txhash == "" {
-		Uld.Sugar().Infof("[%v] %v", usertoken.Mailbox, err)
-		resp.Msg = Status_500_db
-		c.JSON(http.StatusInternalServerError, resp)
+		//Uld.Sugar().Infof("[%v] %v", usertoken.Mailbox, err)
+		c.JSON(500, err.Error())
 		return
 	}
+	go n.task_StoreFile(newChunksPath, hashtree, filename, fstat.Size())
+
+	c.JSON(http.StatusOK, hashtree)
+	return
+
+}
+
+func (n *Node) task_StoreFile(fpath []string, fid, fname string, fsize int64) {
+	defer func() {
+		if err := recover(); err != nil {
+			n.Logs.Pnc("error", utils.RecoverError(err))
+		}
+	}()
+	var channel_1 = make(chan uint8, 1)
+	//Uld.Sugar().Infof("[%v] Start the file backup management process", fid)
+	go n.uploadToStorage(channel_1, fpath, fid, fname, fsize)
+	for {
+		select {
+		case result := <-channel_1:
+			if result == 1 {
+				go n.uploadToStorage(channel_1, fpath, fid, fname, fsize)
+				time.Sleep(time.Second * 6)
+			}
+			if result == 2 {
+				//Uld.Sugar().Infof("[%v] File save successfully", fid)
+				return
+			}
+			if result == 3 {
+				//Uld.Sugar().Infof("[%v] File save failed", fid)
+				return
+			}
+		}
+	}
+}
+
+// Upload files to cess storage system
+func (n *Node) uploadToStorage(ch chan uint8, fpath []string, fid, fname string, fsize int64) {
+	defer func() {
+		err := recover()
+		if err != nil {
+			ch <- 1
+			n.Logs.Pnc("error", utils.RecoverError(err))
+		}
+	}()
+
+	var existFile = make([]string, 0)
+	for i := 0; i < len(fpath); i++ {
+		_, err := os.Stat(filepath.Join(n.FileDir, fpath[i]))
+		if err != nil {
+			continue
+		}
+		existFile = append(existFile, fpath[i])
+	}
+
+	msg := utils.GetRandomcode(16)
+
+	kr, _ := cesskeyring.FromURI(n.Confile.GetCtrlPrk(), cesskeyring.NetSubstrate{})
+	// sign message
+	sign, err := kr.Sign(kr.SigningContext([]byte(msg)))
+	if err != nil {
+		ch <- 1
+		//Uld.Sugar().Infof("[%v] %v", mailbox, err)
+		return
+	}
+
+	// Get all scheduler
+	schds, err := n.Chain.GetSchedulerList()
+	if err != nil {
+		ch <- 1
+		//Uld.Sugar().Infof("[%v] %v", mailbox, err)
+		return
+	}
+
+	utils.RandSlice(schds)
+
+	for i := 0; i < len(schds); i++ {
+		wsURL := fmt.Sprintf("%d.%d.%d.%d:%d",
+			schds[i].Ip.Value[0],
+			schds[i].Ip.Value[1],
+			schds[i].Ip.Value[2],
+			schds[i].Ip.Value[3],
+			schds[i].Ip.Port,
+		)
+
+		tcpAddr, err := net.ResolveTCPAddr("tcp", wsURL)
+		if err != nil {
+			//Uld.Sugar().Infof("[%v] %v", mailbox, err)
+			continue
+		}
+		dialer := net.Dialer{Timeout: time.Duration(time.Second * 5)}
+		netConn, err := dialer.Dial("tcp", tcpAddr.String())
+		if err != nil {
+			//Uld.Sugar().Infof("[%v] %v", mailbox, err)
+			continue
+		}
+
+		conTcp, ok := netConn.(*net.TCPConn)
+		if !ok {
+			//Uld.Sugar().Infof("[%v] ", err)
+			continue
+		}
+
+		tcpCon := NewTcp(conTcp)
+		srv := NewClient(tcpCon, n.FileDir, existFile)
+		// fmt.Println(configs.FileCacheDir)
+		// fmt.Println(existFile)
+		err = srv.SendFile(fid, fsize, configs.PublicKey, []byte(msg), sign[:])
+		if err != nil {
+			//Uld.Sugar().Infof("[%v] %v", mailbox, err)
+			continue
+		}
+		ch <- 2
+		return
+	}
+	ch <- 1
 }

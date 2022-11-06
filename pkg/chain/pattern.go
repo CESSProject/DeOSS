@@ -141,3 +141,9 @@ type BucketInfo struct {
 	Objects_list       []FileHash
 	Authority          []types.AccountID
 }
+
+type UserBrief struct {
+	User        types.AccountID
+	File_name   types.Bytes
+	Bucket_name types.Bytes
+}

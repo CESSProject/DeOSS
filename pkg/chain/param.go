@@ -38,8 +38,8 @@ const (
 	segInfo       = "SegInfo"
 
 	// FileMap
-	fileMetaInfo  = "File"
-	schedulerInfo = "SchedulerMap"
+	fileMetaInfo = "File"
+	schedulerMap = "SchedulerMap"
 
 	// FileBank
 	fileBank_UserFilelist = "UserHoldFileList"
@@ -53,10 +53,11 @@ const (
 // Extrinsics
 const (
 	// FileBank
-	tx_FileBank_Update    = "FileBank.update"
-	tx_FileBank_Upload    = "FileBank.upload"
-	FileBank_CreateBucket = "FileBank.create_bucket"
-	FileBank_DeleteBucket = "fileBank.delete_bucket"
+	tx_FileBank_Update         = "FileBank.update"
+	tx_FileBank_Upload         = "FileBank.upload"
+	FileBank_CreateBucket      = "FileBank.create_bucket"
+	FileBank_DeleteBucket      = "fileBank.delete_bucket"
+	FileBank_UploadDeclaration = "FileBank.upload_declaration"
 	// SegmentBook
 	tx_SegmentBook_VerifyProof = "SegmentBook.verify_proof"
 	// Oss

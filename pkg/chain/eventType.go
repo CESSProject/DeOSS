@@ -266,7 +266,8 @@ type Event_ReceiveSpace struct {
 type Event_UploadDeclaration struct {
 	Phase     types.Phase
 	Acc       types.AccountID
-	File_hash [64]types.U8
+	Owner     types.AccountID
+	File_hash FileHash
 	File_name types.Bytes
 	Topics    []types.Hash
 }
