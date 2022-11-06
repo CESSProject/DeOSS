@@ -42,7 +42,7 @@ type Chainer interface {
 	// Getallstorageminer is used to obtain the AccountID of all miners
 	GetAllStorageMiner() ([]types.AccountID, error)
 	// GetFileMetaInfo is used to get the meta information of the file
-	GetFileMetaInfo(fid types.Bytes) (FileMetaInfo, error)
+	GetFileMetaInfo(fid string) (FileMetaInfo, error)
 	// GetCessAccount is used to get the account in cess chain format
 	GetCessAccount() (string, error)
 	// GetAccountInfo is used to get account information

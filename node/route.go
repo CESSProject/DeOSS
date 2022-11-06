@@ -24,6 +24,13 @@ func (n *Node) addRoute() {
 	// 	authG.POST("/message")
 	// }
 	n.Handle.POST("/auth", n.authHandle)
+
 	n.Handle.PUT("/bucket", n.newBucketHandle)
+	n.Handle.PUT("", n.upfileHandle)
+
+	n.Handle.DELETE("", n.delBucketHandle)
+
+	n.Handle.GET("", n.viewBucketListHandle)
 	n.Handle.GET("/bucket", n.viewBucketHandle)
+	n.Handle.GET("/", n.viewFileListHandle)
 }

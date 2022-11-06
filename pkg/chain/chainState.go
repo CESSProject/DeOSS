@@ -108,7 +108,7 @@ func (c *chainClient) GetAllStorageMiner() ([]types.AccountID, error) {
 }
 
 // Query file meta info
-func (c *chainClient) GetFileMetaInfo(fid types.Bytes) (FileMetaInfo, error) {
+func (c *chainClient) GetFileMetaInfo(fid string) (FileMetaInfo, error) {
 	var (
 		data FileMetaInfo
 		hash FileHash
@@ -120,8 +120,8 @@ func (c *chainClient) GetFileMetaInfo(fid types.Bytes) (FileMetaInfo, error) {
 	}
 	c.SetChainState(true)
 
-	if len(fid) != len(hash) {
-		return data, errors.New(ERR_Failed)
+	if len(hash) != len(fid) {
+		return data, errors.New("invalid filehash")
 	}
 
 	for i := 0; i < len(hash); i++ {
