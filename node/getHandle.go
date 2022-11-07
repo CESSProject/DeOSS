@@ -56,67 +56,19 @@ type RtnBlockInfo struct {
 
 // It is used to authorize users
 func (n *Node) GetHandle(c *gin.Context) {
-	// account
-	account := c.Request.Header.Get(configs.Header_Account)
-	if account == "" {
-		c.JSON(400, "InvalidHead.Account")
-		return
-	}
-
+	getName := c.Param("name")
 	// operation
 	operation := c.Request.Header.Get(configs.Header_Operation)
-
-	pkey, err := utils.DecodePublicKeyOfCessAccount(account)
-	if err != nil {
-		c.JSON(400, "InvalidHead.Account")
-		return
-	}
-
-	getName := c.Param("name")
-
-	// view bucket
-	if VerifyBucketName(getName) {
-		bucketInfo, err := n.Chain.GetBucketInfo(pkey, getName)
-		if err != nil {
-			c.JSON(400, err.Error())
-			return
-		}
-		filesHash := make([]string, len(bucketInfo.Objects_list))
-		for i := 0; i < len(bucketInfo.Objects_list); i++ {
-			filesHash[i] = string(bucketInfo.Objects_list[i][:])
-		}
-		data := struct {
-			Num   uint32
-			Files []string
-		}{
-			Num:   uint32(bucketInfo.Objects_num),
-			Files: filesHash,
-		}
-		c.JSON(http.StatusOK, data)
-		return
-	}
-
-	// view bucket list
-	if getName == "*" {
-		bucketList, err := n.Chain.GetBucketList(pkey)
-		if err != nil {
-			c.JSON(400, err.Error())
-			return
-		}
-		bucket := make([]string, len(bucketList))
-		for i := 0; i < len(bucketList); i++ {
-			bucket[i] = string(bucketList[i][:])
-		}
-		c.JSON(http.StatusOK, bucket)
-		return
-	}
-
 	// view file
-	if len(getName) == int(unsafe.Sizeof(chain.FileHash{})) {
+	if len(getName) == int(unsafe.Sizeof(chain.FileHash{})) && operation != "" {
 		if operation == "view" {
 			fmeta, err := n.Chain.GetFileMetaInfo(getName)
 			if err != nil {
-				c.JSON(400, err.Error())
+				if err.Error() == chain.ERR_Empty {
+					c.JSON(404, "NotFound")
+					return
+				}
+				c.JSON(500, "InternalError")
 				return
 			}
 			var fileInfo RtnFileType
@@ -229,6 +181,66 @@ func (n *Node) GetHandle(c *gin.Context) {
 			c.File(fpath)
 			return
 		}
+		c.JSON(400, "InvalidHead.Operation")
+		return
+	}
+
+	// account
+	account := c.Request.Header.Get(configs.Header_Account)
+	if account == "" {
+		c.JSON(400, "InvalidHead.MissingAccount")
+		return
+	}
+
+	pkey, err := utils.DecodePublicKeyOfCessAccount(account)
+	if err != nil {
+		c.JSON(400, "InvalidHead.Account")
+		return
+	}
+
+	// view bucket
+	if VerifyBucketName(getName) {
+		bucketInfo, err := n.Chain.GetBucketInfo(pkey, getName)
+		if err != nil {
+			if err.Error() == chain.ERR_Empty {
+				c.JSON(404, "NotFound")
+				return
+			}
+			c.JSON(500, "InternalError")
+			return
+		}
+		filesHash := make([]string, len(bucketInfo.Objects_list))
+		for i := 0; i < len(bucketInfo.Objects_list); i++ {
+			filesHash[i] = string(bucketInfo.Objects_list[i][:])
+		}
+		data := struct {
+			Num   uint32
+			Files []string
+		}{
+			Num:   uint32(bucketInfo.Objects_num),
+			Files: filesHash,
+		}
+		c.JSON(http.StatusOK, data)
+		return
+	}
+
+	// view bucket list
+	if getName == "*" {
+		bucketList, err := n.Chain.GetBucketList(pkey)
+		if err != nil {
+			if err.Error() == chain.ERR_Empty {
+				c.JSON(404, "NotFound")
+				return
+			}
+			c.JSON(500, "InternalError")
+			return
+		}
+		bucket := make([]string, len(bucketList))
+		for i := 0; i < len(bucketList); i++ {
+			bucket[i] = string(bucketList[i][:])
+		}
+		c.JSON(http.StatusOK, bucket)
+		return
 	}
 
 	c.JSON(400, "InvalidParameter.Name")
