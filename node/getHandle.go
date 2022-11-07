@@ -17,6 +17,7 @@
 package node
 
 import (
+	"fmt"
 	"net/http"
 	"unsafe"
 
@@ -26,24 +27,45 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+type RtnFileType struct {
+	FileSize   uint64
+	FileState  string
+	UserBriefs []RtnUserBrief
+	BlockInfo  []RtnBlockInfo
+}
+
+type RtnUserBrief struct {
+	User       string
+	FileName   string
+	BucketName string
+}
+
+// file block info
+type RtnBlockInfo struct {
+	MinerId  uint64
+	BlockId  string
+	MinerIp  string
+	MinerAcc string
+}
+
 // It is used to authorize users
 func (n *Node) GetHandle(c *gin.Context) {
 	// account
 	account := c.Request.Header.Get(configs.Header_Account)
 	if account == "" {
-		//Uld.Sugar().Infof("[%v] head missing token", c.ClientIP())
-		c.JSON(400, "Invalid.Account")
+		c.JSON(400, "InvalidHead.Account")
 		return
 	}
 
 	pkey, err := utils.DecodePublicKeyOfCessAccount(account)
 	if err != nil {
-		c.JSON(400, "InvalidParameter.Account")
+		c.JSON(400, "InvalidHead.Account")
 		return
 	}
 
 	getName := c.Param("name")
 
+	// view bucket
 	if VerifyBucketName(getName) {
 		bucketInfo, err := n.Chain.GetBucketInfo(pkey, getName)
 		if err != nil {
@@ -64,24 +86,58 @@ func (n *Node) GetHandle(c *gin.Context) {
 		c.JSON(http.StatusOK, data)
 		return
 	}
-	//
+
+	// view file
 	if len(getName) == int(unsafe.Sizeof(chain.FileHash{})) {
 		fmeta, err := n.Chain.GetFileMetaInfo(getName)
 		if err != nil {
 			c.JSON(400, err.Error())
 			return
 		}
-		c.JSON(http.StatusOK, fmeta)
-	}
-	//
-	bucketList, err := n.Chain.GetBucketList(pkey)
-	if err != nil {
-		c.JSON(400, err.Error())
+		var fileInfo RtnFileType
+		fileInfo.UserBriefs = make([]RtnUserBrief, len(fmeta.UserBriefs))
+		fileInfo.BlockInfo = make([]RtnBlockInfo, len(fmeta.BlockInfo))
+		fileInfo.FileSize = uint64(fmeta.Size)
+		fileInfo.FileState = string(fmeta.State)
+		for i := 0; i < len(fmeta.UserBriefs); i++ {
+			var userAcc string
+			fileInfo.UserBriefs[i].BucketName = string(fmeta.UserBriefs[i].Bucket_name)
+			fileInfo.UserBriefs[i].FileName = string(fmeta.UserBriefs[i].File_name)
+			userAcc, _ = utils.EncodePublicKeyAsCessAccount(fmeta.UserBriefs[i].User[:])
+			fileInfo.UserBriefs[i].User = userAcc
+		}
+		for i := 0; i < len(fmeta.BlockInfo); i++ {
+			var userAcc string
+			var contact string
+			fileInfo.BlockInfo[i].BlockId = string(fmeta.BlockInfo[i].BlockId[len(fmeta.BlockInfo[i].BlockId)-2:])
+			fileInfo.BlockInfo[i].MinerId = uint64(fmeta.BlockInfo[i].MinerId)
+			userAcc, _ = utils.EncodePublicKeyAsCessAccount(fmeta.BlockInfo[i].MinerAcc[:])
+			fileInfo.BlockInfo[i].MinerAcc = userAcc
+			contact = fmt.Sprintf("%d.%d.%d.%d:%d",
+				fmeta.BlockInfo[i].MinerIp.Value[0],
+				fmeta.BlockInfo[i].MinerIp.Value[1],
+				fmeta.BlockInfo[i].MinerIp.Value[2],
+				fmeta.BlockInfo[i].MinerIp.Value[3],
+				fmeta.BlockInfo[i].MinerIp.Port)
+			fileInfo.BlockInfo[i].MinerIp = contact
+		}
+		c.JSON(http.StatusOK, fileInfo)
 		return
 	}
-	bucket := make([]string, len(bucketList))
-	for i := 0; i < len(bucketList); i++ {
-		bucket[i] = string(bucketList[i][:])
+
+	// view bucket list
+	if getName == "*" {
+		bucketList, err := n.Chain.GetBucketList(pkey)
+		if err != nil {
+			c.JSON(400, err.Error())
+			return
+		}
+		bucket := make([]string, len(bucketList))
+		for i := 0; i < len(bucketList); i++ {
+			bucket[i] = string(bucketList[i][:])
+		}
+		c.JSON(http.StatusOK, bucket)
+		return
 	}
-	c.JSON(http.StatusOK, bucket)
+	c.JSON(400, "InvalidParameter.Name")
 }

@@ -17,10 +17,6 @@
 package node
 
 import (
-	"log"
-	"net/http"
-	"os"
-
 	"github.com/CESSProject/cess-oss/configs"
 	"github.com/CESSProject/cess-oss/pkg/chain"
 	"github.com/CESSProject/cess-oss/pkg/confile"
@@ -54,22 +50,15 @@ func (n *Node) Run() {
 	config := cors.DefaultConfig()
 	config.AllowAllOrigins = true
 	config.AllowMethods = []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"}
-	config.AddAllowHeaders("Authorization", "*")
+	config.AddAllowHeaders(
+		configs.Header_Auth,
+		configs.Header_Account,
+		configs.Header_BucketName,
+		"*",
+	)
 	n.Handle.Use(cors.New(config))
 	// Add route
 	n.addRoute()
-	// Server
-	s := &http.Server{
-		Addr:           ":" + n.Confile.GetServicePort(),
-		Handler:        n.Handle,
-		ReadTimeout:    configs.Http_ReadTimeout,
-		WriteTimeout:   configs.Http_WriteTimeout,
-		MaxHeaderBytes: configs.Http_MaximumHead,
-	}
-
-	err := s.ListenAndServe()
-	if err != nil {
-		log.Fatalf("Service startup failed: %v", err)
-		os.Exit(1)
-	}
+	// Run
+	n.Handle.Run(":" + n.Confile.GetServicePort())
 }

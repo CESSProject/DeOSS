@@ -50,14 +50,15 @@ func (n *Node) putHandle(c *gin.Context) {
 	// token
 	tokenString := c.Request.Header.Get(configs.Header_Auth)
 	if tokenString == "" {
-		//Uld.Sugar().Infof("[%v] head missing token", c.ClientIP())
-		c.JSON(403, "NoPermission")
+		n.Logs.Upfile("error", fmt.Errorf("[%v] missing token", c.ClientIP()))
+		c.JSON(400, "InvalidHead.Token")
 		return
 	}
 
-	mySigningKey, err := n.Cache.Get([]byte("SigningKey"))
+	signKey, err := utils.CalcMD5(n.Confile.GetCtrlPrk())
 	if err != nil {
-		c.JSON(400, "InternalError")
+		n.Logs.Upfile("error", fmt.Errorf("[%v] %v", c.ClientIP(), err))
+		c.JSON(500, "InvalidProfile")
 		return
 	}
 
@@ -65,56 +66,64 @@ func (n *Node) putHandle(c *gin.Context) {
 		tokenString,
 		&CustomClaims{},
 		func(token *jwt.Token) (interface{}, error) {
-			return mySigningKey, nil
+			return signKey, nil
 		})
 
 	if claims, ok := token.Claims.(*CustomClaims); ok && token.Valid {
 		acc = claims.Account
 	} else {
-		c.JSON(403, "NoPermission")
+		n.Logs.Upfile("error", fmt.Errorf("[%v] Token verification failed", c.ClientIP()))
+		c.JSON(403, "InvalidHead.Token")
 		return
 	}
 
 	pkey, err := utils.DecodePublicKeyOfCessAccount(acc)
 	if err != nil {
-		c.JSON(400, "InvalidParameter.Token")
+		n.Logs.Upfile("error", fmt.Errorf("[%v] Account decode failed", c.ClientIP()))
+		c.JSON(400, "InvalidHead.Token")
 		return
 	}
 
 	putName := c.Param("name")
 	if putName == "" {
-		//Uld.Sugar().Infof("[%v] no file name", usertoken.Mailbox)
-		c.JSON(400, "Invalid.Parameter")
+		n.Logs.Upfile("error", fmt.Errorf("[%v] Empty name", c.ClientIP()))
+		c.JSON(400, "InvalidParameter.Name")
 		return
 	}
 
-	if VerifyBucketName(putName) {
-		txHash, err := n.Chain.CreateBucket(pkey, putName)
-		if err != nil {
-			c.JSON(400, err.Error())
+	fileHead, err := c.FormFile("file")
+	if err != nil {
+		if VerifyBucketName(putName) {
+			txHash, err := n.Chain.CreateBucket(pkey, putName)
+			if err != nil {
+				n.Logs.Upfile("error", fmt.Errorf("[%v] %v", c.ClientIP(), err))
+				c.JSON(400, err.Error())
+				return
+			}
+			c.JSON(http.StatusOK, map[string]string{"Block hash:": txHash})
 			return
 		}
-		c.JSON(http.StatusOK, map[string]string{"Block hash:": txHash})
-		return
 	}
 
 	// bucket name
 	bucketName := c.Request.Header.Get(configs.Header_BucketName)
 	if bucketName == "" {
-		//Uld.Sugar().Infof("[%v] head missing token", c.ClientIP())
-		c.JSON(400, "Invalid.BucketName")
+		n.Logs.Upfile("error", fmt.Errorf("[%v] Empty BucketName", c.ClientIP()))
+		c.JSON(400, "InvalidHead.BucketName")
 		return
 	}
 
 	if !VerifyBucketName(bucketName) {
-		c.JSON(400, "Invalid.BucketName")
+		n.Logs.Upfile("error", fmt.Errorf("[%v] Wrong BucketName", c.ClientIP()))
+		c.JSON(400, "InvalidHead.BucketName")
 		return
 	}
 
 	//
 	grantor, err := n.Chain.GetGrantor(pkey)
 	if err != nil {
-		c.JSON(400, err.Error())
+		n.Logs.Upfile("error", fmt.Errorf("[%v] %v", c.ClientIP(), err))
+		c.JSON(400, "Unauthorized")
 		return
 	}
 
@@ -122,6 +131,7 @@ func (n *Node) putHandle(c *gin.Context) {
 	account_local, _ := n.Chain.GetCessAccount()
 	if account_chain != account_local {
 		if err != nil {
+			n.Logs.Upfile("error", fmt.Errorf("[%v] %v", c.ClientIP(), err))
 			c.JSON(400, "Unauthorized")
 			return
 		}
@@ -129,7 +139,7 @@ func (n *Node) putHandle(c *gin.Context) {
 
 	content_length := c.Request.ContentLength
 	if content_length <= 0 {
-		//Uld.Sugar().Infof("[%v] contentLength <= 0", usertoken.Mailbox)
+		n.Logs.Upfile("error", fmt.Errorf("[%v] Empty file", c.ClientIP()))
 		c.JSON(400, "Empty file")
 		return
 	}
@@ -137,7 +147,7 @@ func (n *Node) putHandle(c *gin.Context) {
 	// save file
 	file_c, _, err := c.Request.FormFile("file")
 	if err != nil {
-		//Uld.Sugar().Infof("[%v] %v", usertoken.Mailbox, err)
+		n.Logs.Upfile("error", fmt.Errorf("[%v] %v", c.ClientIP(), err))
 		c.JSON(400, err.Error())
 		return
 	}
@@ -146,7 +156,7 @@ func (n *Node) putHandle(c *gin.Context) {
 	if err != nil {
 		err = os.MkdirAll(n.FileDir, os.ModeDir)
 		if err != nil {
-			//Uld.Sugar().Infof("[%v] %v", usertoken.Mailbox, err)
+			n.Logs.Upfile("error", fmt.Errorf("[%v] %v", c.ClientIP(), err))
 			c.JSON(500, err.Error())
 			return
 		}
@@ -158,7 +168,7 @@ func (n *Node) putHandle(c *gin.Context) {
 	// Create file
 	f, err := os.Create(fpath)
 	if err != nil {
-		//Uld.Sugar().Infof("[%v] %v", usertoken.Mailbox, err)
+		n.Logs.Upfile("error", fmt.Errorf("[%v] %v", c.ClientIP(), err))
 		c.JSON(500, err.Error())
 		return
 	}
@@ -166,44 +176,45 @@ func (n *Node) putHandle(c *gin.Context) {
 	// Save file
 	buf := make([]byte, 4*1024*1024)
 	for {
-		n, err := file_c.Read(buf)
+		num, err := file_c.Read(buf)
 		if err == io.EOF {
 			break
 		}
 		if err != nil {
+			n.Logs.Upfile("error", fmt.Errorf("[%v] %v", c.ClientIP(), err))
 			c.JSON(400, err.Error())
 			return
 		}
-		if n == 0 {
+		if num == 0 {
 			continue
 		}
-		f.Write(buf[:n])
+		f.Write(buf[:num])
 	}
 	f.Close()
 
 	// Calc file state
 	fstat, err := os.Stat(fpath)
 	if err != nil {
-		//Uld.Sugar().Infof("[%v] %v", usertoken.Mailbox, err)
+		n.Logs.Upfile("error", fmt.Errorf("[%v] %v", c.ClientIP(), err))
 		c.JSON(500, "UnexpectedError")
 	}
 
 	// Calc reedsolomon
-	chunkPath, datachunkLen, rduchunkLen, err := erasure.ReedSolomon(fpath)
+	chunkPath, datachunkLen, rduchunkLen, err := erasure.ReedSolomon(fpath, fileHead.Size)
 	if err != nil {
-		//Uld.Sugar().Infof("[%v] %v", usertoken.Mailbox, err)
+		n.Logs.Upfile("error", fmt.Errorf("[%v] %v", c.ClientIP(), err))
 		c.JSON(500, err.Error())
 	}
 
 	if len(chunkPath) != (datachunkLen + rduchunkLen) {
-		//Uld.Sugar().Infof("[%v] %v", usertoken.Mailbox, "ReedSolomon failed")
+		n.Logs.Upfile("error", fmt.Errorf("[%v] UnexpectedError", c.ClientIP()))
 		c.JSON(500, "UnexpectedError")
 	}
 
 	// Calc merkle hash tree
 	hTree, err := hashtree.NewHashTree(chunkPath)
 	if err != nil {
-		//Uld.Sugar().Infof("[%v] %v", usertoken.Mailbox, err)
+		n.Logs.Upfile("error", fmt.Errorf("[%v] NewHashTree", c.ClientIP()))
 		c.JSON(500, "UnexpectedError")
 	}
 
@@ -232,16 +243,15 @@ func (n *Node) putHandle(c *gin.Context) {
 	}
 	// Declaration file
 	txhash, err := n.Chain.DeclarationFile(hashtree, userBrief)
-	if txhash == "" {
-		//Uld.Sugar().Infof("[%v] %v", usertoken.Mailbox, err)
-		c.JSON(500, err.Error())
+	if err != nil || txhash == "" {
+		n.Logs.Upfile("error", fmt.Errorf("[%v] %v", c.ClientIP(), err))
+		c.JSON(400, err.Error())
 		return
 	}
 	go n.task_StoreFile(newChunksPath, hashtree, putName, fstat.Size())
-
+	n.Logs.Upfile("info", fmt.Errorf("[%v] Upload success", hashtree))
 	c.JSON(http.StatusOK, hashtree)
 	return
-
 }
 
 func (n *Node) task_StoreFile(fpath []string, fid, fname string, fsize int64) {
@@ -251,7 +261,8 @@ func (n *Node) task_StoreFile(fpath []string, fid, fname string, fsize int64) {
 		}
 	}()
 	var channel_1 = make(chan uint8, 1)
-	//Uld.Sugar().Infof("[%v] Start the file backup management process", fid)
+
+	n.Logs.Upfile("info", fmt.Errorf("[%v] Start the file backup management process", fid))
 	go n.uploadToStorage(channel_1, fpath, fid, fsize)
 	for {
 		select {
@@ -261,11 +272,11 @@ func (n *Node) task_StoreFile(fpath []string, fid, fname string, fsize int64) {
 				time.Sleep(time.Second * 6)
 			}
 			if result == 2 {
-				//Uld.Sugar().Infof("[%v] File save successfully", fid)
+				n.Logs.Upfile("info", fmt.Errorf("[%v] File save successfully", fid))
 				return
 			}
 			if result == 3 {
-				//Uld.Sugar().Infof("[%v] File save failed", fid)
+				n.Logs.Upfile("info", fmt.Errorf("[%v] File save failed", fid))
 				return
 			}
 		}
@@ -298,7 +309,6 @@ func (n *Node) uploadToStorage(ch chan uint8, fpath []string, fid string, fsize 
 	sign, err := kr.Sign(kr.SigningContext([]byte(msg)))
 	if err != nil {
 		ch <- 1
-		//Uld.Sugar().Infof("[%v] %v", mailbox, err)
 		return
 	}
 
@@ -306,7 +316,6 @@ func (n *Node) uploadToStorage(ch chan uint8, fpath []string, fid string, fsize 
 	schds, err := n.Chain.GetSchedulerList()
 	if err != nil {
 		ch <- 1
-		//Uld.Sugar().Infof("[%v] %v", mailbox, err)
 		return
 	}
 
@@ -323,29 +332,22 @@ func (n *Node) uploadToStorage(ch chan uint8, fpath []string, fid string, fsize 
 
 		tcpAddr, err := net.ResolveTCPAddr("tcp", wsURL)
 		if err != nil {
-			//Uld.Sugar().Infof("[%v] %v", mailbox, err)
 			continue
 		}
 		dialer := net.Dialer{Timeout: time.Duration(time.Second * 5)}
 		netConn, err := dialer.Dial("tcp", tcpAddr.String())
 		if err != nil {
-			//Uld.Sugar().Infof("[%v] %v", mailbox, err)
 			continue
 		}
 
 		conTcp, ok := netConn.(*net.TCPConn)
 		if !ok {
-			//Uld.Sugar().Infof("[%v] ", err)
 			continue
 		}
 
-		tcpCon := NewTcp(conTcp)
-		srv := NewClient(tcpCon, n.FileDir, existFile)
-		// fmt.Println(configs.FileCacheDir)
-		// fmt.Println(existFile)
-		err = srv.SendFile(fid, fsize, configs.PublicKey, []byte(msg), sign[:])
+		srv := NewClient(NewTcp(conTcp), n.FileDir, existFile)
+		err = srv.SendFile(fid, fsize, n.Chain.GetPublicKey(), []byte(msg), sign[:])
 		if err != nil {
-			//Uld.Sugar().Infof("[%v] %v", mailbox, err)
 			continue
 		}
 		ch <- 2

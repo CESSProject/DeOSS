@@ -87,7 +87,7 @@ func Command_Run() *cobra.Command {
 
 func Command_Update() *cobra.Command {
 	cc := &cobra.Command{
-		Use:                   "update",
+		Use:                   "update <ip> <port>",
 		Short:                 "Update information",
 		Run:                   Command_Update_Runfunc,
 		DisableFlagsInUseLine: true,

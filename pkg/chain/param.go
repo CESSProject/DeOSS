@@ -44,7 +44,7 @@ const (
 	// FileBank
 	fileBank_UserFilelist = "UserHoldFileList"
 	fileBank_Bucket       = "Bucket"
-	fileBank_BucketList   = "BucketList"
+	fileBank_BucketList   = "UserBucketList"
 	// Oss
 	oss     = "Oss"
 	Grantor = "AuthorityList"
@@ -56,7 +56,7 @@ const (
 	tx_FileBank_Update         = "FileBank.update"
 	tx_FileBank_Upload         = "FileBank.upload"
 	FileBank_CreateBucket      = "FileBank.create_bucket"
-	FileBank_DeleteBucket      = "fileBank.delete_bucket"
+	FileBank_DeleteBucket      = "FileBank.delete_bucket"
 	FileBank_DeleteFile        = "FileBank.delete_file"
 	FileBank_UploadDeclaration = "FileBank.upload_declaration"
 	// SegmentBook

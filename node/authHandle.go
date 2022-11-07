@@ -87,13 +87,14 @@ func (n *Node) authHandle(c *gin.Context) {
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	mySigningKey, err := n.Cache.Get([]byte("SigningKey"))
+
+	signKey, err := utils.CalcMD5(n.Confile.GetCtrlPrk())
 	if err != nil {
-		c.JSON(500, "InternalError")
+		c.JSON(400, "InvalidProfile")
 		return
 	}
 
-	tokenString, err := token.SignedString(string(mySigningKey))
+	tokenString, err := token.SignedString(signKey)
 	if err != nil {
 		c.JSON(500, "InternalError")
 		return
@@ -105,7 +106,7 @@ func (n *Node) authHandle(c *gin.Context) {
 
 func VerifySign(pkey, signmsg, sign []byte) (bool, error) {
 	if len(signmsg) == 0 || len(sign) < 64 {
-		return false, errors.New("Invalid signature")
+		return false, errors.New("Invalid.Signature")
 	}
 
 	ss58, err := utils.EncodePublicKeyAsSubstrateAccount(pkey)

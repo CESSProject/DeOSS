@@ -27,10 +27,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// type DelFileType struct {
-// 	FileHash string `json:"file_hash"`
-// }
-
 // delHandle is used to delete buckets or files
 func (n *Node) delHandle(c *gin.Context) {
 	var (
@@ -42,14 +38,13 @@ func (n *Node) delHandle(c *gin.Context) {
 	// token
 	tokenString := c.Request.Header.Get(configs.Header_Auth)
 	if tokenString == "" {
-		//Uld.Sugar().Infof("[%v] head missing token", c.ClientIP())
-		c.JSON(403, "NoPermission")
+		c.JSON(403, "InvalidHead.Token")
 		return
 	}
 
-	mySigningKey, err := n.Cache.Get([]byte("SigningKey"))
+	signKey, err := utils.CalcMD5(n.Confile.GetCtrlPrk())
 	if err != nil {
-		c.JSON(400, "InternalError")
+		c.JSON(400, "InvalidProfile")
 		return
 	}
 
@@ -57,7 +52,7 @@ func (n *Node) delHandle(c *gin.Context) {
 		tokenString,
 		&CustomClaims{},
 		func(token *jwt.Token) (interface{}, error) {
-			return mySigningKey, nil
+			return signKey, nil
 		})
 
 	if claims, ok := token.Claims.(*CustomClaims); ok && token.Valid {
@@ -69,25 +64,25 @@ func (n *Node) delHandle(c *gin.Context) {
 
 	pkey, err := utils.DecodePublicKeyOfCessAccount(acc)
 	if err != nil {
-		c.JSON(400, "InvalidParameter.Token")
+		c.JSON(400, "InvalidHead.Token")
 		return
 	}
 
 	deleteName := c.Param("name")
-	if VerifyBucketName(deleteName) {
-		txHash, err = n.Chain.DeleteBucket(pkey, deleteName)
-		if err != nil {
-			c.JSON(400, err.Error())
-			return
-		}
-	} else if len(deleteName) == int(unsafe.Sizeof(chain.FileHash{})) {
+	if len(deleteName) == int(unsafe.Sizeof(chain.FileHash{})) {
 		txHash, err = n.Chain.DeleteFile(pkey, deleteName)
 		if err != nil {
 			c.JSON(400, err.Error())
 			return
 		}
+	} else if VerifyBucketName(deleteName) {
+		txHash, err = n.Chain.DeleteBucket(pkey, deleteName)
+		if err != nil {
+			c.JSON(400, err.Error())
+			return
+		}
 	} else {
-		c.JSON(400, "Invalid.Parameter")
+		c.JSON(400, "InvalidParameter.Name")
 		return
 	}
 
