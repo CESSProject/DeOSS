@@ -305,6 +305,14 @@ type Event_CreateBucket struct {
 	Topics      []types.Hash
 }
 
+type Event_DeleteBucket struct {
+	Phase       types.Phase
+	Acc         types.AccountID
+	Owner       types.AccountID
+	Bucket_name types.Bytes
+	Topics      []types.Hash
+}
+
 // ------------------------FileMap--------------------------------
 type Event_RegistrationScheduler struct {
 	Phase  types.Phase
@@ -412,12 +420,13 @@ type CessEventRecords struct {
 	FileBank_PackageUpgrade       []Event_PackageUpgrade
 	FileBank_PackageRenewal       []Event_PackageRenewal
 	FilBank_CreateBucket          []Event_CreateBucket
+	FilBank_DeleteBucket          []Event_DeleteBucket
 	//FileMap
 	FileMap_RegistrationScheduler []Event_RegistrationScheduler
 	FileMap_UpdateScheduler       []Event_UpdateScheduler
 	//OSS
-	Oss_Register []Event_OssRegister
-	Oss_Update   []Event_OssUpdate
+	Oss_OssRegister []Event_OssRegister
+	Oss_OssUpdate   []Event_OssUpdate
 	//other system
 	ElectionProviderMultiPhase_UnsignedPhaseStarted []Event_UnsignedPhaseStarted
 	ElectionProviderMultiPhase_SignedPhaseStarted   []Event_SignedPhaseStarted

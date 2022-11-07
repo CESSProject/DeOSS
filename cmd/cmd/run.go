@@ -99,7 +99,6 @@ func buildConfigFile(cmd *cobra.Command) (confile.Confiler, error) {
 }
 
 func buildChain(cfg confile.Confiler, timeout time.Duration) (chain.Chainer, error) {
-	var isReg bool
 	// connecting chain
 	client, err := chain.NewChainClient(cfg.GetRpcAddr(), cfg.GetCtrlPrk(), timeout)
 	if err != nil {
@@ -131,20 +130,13 @@ func buildChain(cfg confile.Confiler, timeout time.Duration) (chain.Chainer, err
 	log.Println("Complete synchronization of primary network block data")
 
 	// whether to register
-	schelist, err := client.GetSchedulerList()
+	ossStata, err := client.GetState(client.GetPublicKey())
 	if err != nil && err.Error() != chain.ERR_RPC_EMPTY_VALUE.Error() {
 		return nil, err
 	}
 
-	for _, v := range schelist {
-		if v.ControllerUser == client.NewAccountId(client.GetPublicKey()) {
-			isReg = true
-			break
-		}
-	}
-
 	// register
-	if !isReg {
+	if ossStata == "" {
 		if err := register(cfg, client); err != nil {
 			return nil, err
 		}

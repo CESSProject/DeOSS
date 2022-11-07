@@ -49,7 +49,7 @@ func New() *Node {
 }
 
 func (n *Node) Run() {
-	gin.SetMode(gin.ReleaseMode)
+	//gin.SetMode(gin.ReleaseMode)
 	n.Handle = gin.Default()
 	config := cors.DefaultConfig()
 	config.AllowAllOrigins = true

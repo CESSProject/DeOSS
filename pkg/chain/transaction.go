@@ -143,7 +143,7 @@ func (c *chainClient) Register(ip, port string) (string, error) {
 
 				types.EventRecordsRaw(*h).DecodeEventRecords(c.metadata, &events)
 
-				if len(events.Oss_Register) > 0 {
+				if len(events.Oss_OssRegister) > 0 {
 					return txhash, nil
 				}
 				return txhash, errors.New(ERR_Failed)
@@ -272,7 +272,7 @@ func (c *chainClient) Update(ip, port string) (string, error) {
 
 				types.EventRecordsRaw(*h).DecodeEventRecords(c.metadata, &events)
 
-				if len(events.Oss_Update) > 0 {
+				if len(events.Oss_OssUpdate) > 0 {
 					return txhash, nil
 				}
 				return txhash, errors.New(ERR_Failed)
@@ -392,7 +392,7 @@ func (c *chainClient) CreateBucket(owner_pkey []byte, name string) (string, erro
 
 				types.EventRecordsRaw(*h).DecodeEventRecords(c.metadata, &events)
 
-				if len(events.Oss_Update) > 0 {
+				if len(events.FilBank_CreateBucket) > 0 {
 					return txhash, nil
 				}
 				return txhash, errors.New(ERR_Failed)
@@ -512,7 +512,7 @@ func (c *chainClient) DeleteBucket(owner_pkey []byte, name string) (string, erro
 
 				types.EventRecordsRaw(*h).DecodeEventRecords(c.metadata, &events)
 
-				if len(events.Oss_Update) > 0 {
+				if len(events.FilBank_DeleteBucket) > 0 {
 					return txhash, nil
 				}
 				return txhash, errors.New(ERR_Failed)
