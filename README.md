@@ -55,7 +55,8 @@ go build -o oss cmd/main.go
 ```
 If all goes well, you will get a program called `oss`.
 
-## Get started with gateway
+
+## Get started with oss
 
 ### Step 1: Register a polka wallet
 
@@ -174,7 +175,7 @@ Response schema: `application/json`
 - Request example
 
 ```shell
-# curl -X POST URL/auth -d '{"account": "cXgfFbnV9H......PMQLoKbjfR", "message": "123456", "signature": [44,30,117,29,228,188,147,252,18,......,76,20,196,4,194,109,141]}' -H "Content-Type: application/json"
+# curl -X POST URL/auth -d '{"account": "cXgfFb...bjfR", "message": "123456", "signature": [44,30,117,...,109,141]}' -H "Content-Type: application/json"
 ```
 
 
@@ -261,7 +262,7 @@ Response schema: `application/json`
 - Request example
 
 ```
-# curl -X PUT URL/test.log -F 'file=@test.log;type=application/octet-stream' -H "Authorization: eyJhbGciOiJIUzI1NiIsI......AXpBWFPP0Jrg-hX4bXlIyn5I8ML1g" -H "BucketName: bucket1"
+# curl -X PUT URL/test.log -F 'file=@test.log;type=application/octet-stream' -H "Authorization: eyJhbGciOiJIUzI...Iyn5I8ML1g" -H "BucketName: bucket1"
 ```
 
 
