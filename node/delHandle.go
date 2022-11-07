@@ -74,20 +74,20 @@ func (n *Node) delHandle(c *gin.Context) {
 	}
 
 	deleteName := c.Param("name")
-	if VerifyBucketName(deleteName) {
-		txHash, err = n.Chain.DeleteBucket(pkey, deleteName)
-		if err != nil {
-			c.JSON(400, err.Error())
-			return
-		}
-	} else if len(deleteName) == int(unsafe.Sizeof(chain.FileHash{})) {
+	if len(deleteName) == int(unsafe.Sizeof(chain.FileHash{})) {
 		txHash, err = n.Chain.DeleteFile(pkey, deleteName)
 		if err != nil {
 			c.JSON(400, err.Error())
 			return
 		}
+	} else if VerifyBucketName(deleteName) {
+		txHash, err = n.Chain.DeleteBucket(pkey, deleteName)
+		if err != nil {
+			c.JSON(400, err.Error())
+			return
+		}
 	} else {
-		c.JSON(400, "Invalid.Parameter")
+		c.JSON(400, "InvalidParameter.Name")
 		return
 	}
 

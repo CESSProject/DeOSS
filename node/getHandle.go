@@ -127,14 +127,18 @@ func (n *Node) GetHandle(c *gin.Context) {
 	}
 
 	// view bucket list
-	bucketList, err := n.Chain.GetBucketList(pkey)
-	if err != nil {
-		c.JSON(400, err.Error())
+	if getName == "*" {
+		bucketList, err := n.Chain.GetBucketList(pkey)
+		if err != nil {
+			c.JSON(400, err.Error())
+			return
+		}
+		bucket := make([]string, len(bucketList))
+		for i := 0; i < len(bucketList); i++ {
+			bucket[i] = string(bucketList[i][:])
+		}
+		c.JSON(http.StatusOK, bucket)
 		return
 	}
-	bucket := make([]string, len(bucketList))
-	for i := 0; i < len(bucketList); i++ {
-		bucket[i] = string(bucketList[i][:])
-	}
-	c.JSON(http.StatusOK, bucket)
+	c.JSON(400, "InvalidParameter.Name")
 }
