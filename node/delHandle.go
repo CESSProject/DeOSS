@@ -38,13 +38,13 @@ func (n *Node) delHandle(c *gin.Context) {
 	// token
 	tokenString := c.Request.Header.Get(configs.Header_Auth)
 	if tokenString == "" {
-		c.JSON(403, "InvalidHead.Token")
+		c.JSON(400, "InvalidHead.MissToken")
 		return
 	}
 
 	signKey, err := utils.CalcMD5(n.Confile.GetCtrlPrk())
 	if err != nil {
-		c.JSON(400, "InvalidProfile")
+		c.JSON(500, "InternalError")
 		return
 	}
 
