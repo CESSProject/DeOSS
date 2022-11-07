@@ -18,6 +18,7 @@ package node
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -87,14 +88,21 @@ func (n *Node) authHandle(c *gin.Context) {
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	mySigningKey, err := n.Cache.Get([]byte("SigningKey"))
+	// mySigningKey, err := n.Cache.Get([]byte("SigningKey"))
+	// if err != nil {
+	// 	fmt.Println(err.Error())
+	// 	c.JSON(500, "InternalError")
+	// 	return
+	// }
+	signKey, err := utils.CalcMD5(n.Confile.GetCtrlPrk())
 	if err != nil {
-		c.JSON(500, "InternalError")
+		c.JSON(400, "Invalid.Profile")
 		return
 	}
 
-	tokenString, err := token.SignedString(string(mySigningKey))
+	tokenString, err := token.SignedString(signKey)
 	if err != nil {
+		fmt.Println("err: ", err.Error())
 		c.JSON(500, "InternalError")
 		return
 	}

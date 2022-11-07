@@ -55,9 +55,9 @@ func (n *Node) putHandle(c *gin.Context) {
 		return
 	}
 
-	mySigningKey, err := n.Cache.Get([]byte("SigningKey"))
+	signKey, err := utils.CalcMD5(n.Confile.GetCtrlPrk())
 	if err != nil {
-		c.JSON(400, "InternalError")
+		c.JSON(400, "Invalid.Profile")
 		return
 	}
 
@@ -65,7 +65,7 @@ func (n *Node) putHandle(c *gin.Context) {
 		tokenString,
 		&CustomClaims{},
 		func(token *jwt.Token) (interface{}, error) {
-			return mySigningKey, nil
+			return signKey, nil
 		})
 
 	if claims, ok := token.Claims.(*CustomClaims); ok && token.Valid {
@@ -88,14 +88,17 @@ func (n *Node) putHandle(c *gin.Context) {
 		return
 	}
 
-	if VerifyBucketName(putName) {
-		txHash, err := n.Chain.CreateBucket(pkey, putName)
-		if err != nil {
-			c.JSON(400, err.Error())
+	_, err = c.FormFile("file")
+	if err != nil {
+		if VerifyBucketName(putName) {
+			txHash, err := n.Chain.CreateBucket(pkey, putName)
+			if err != nil {
+				c.JSON(400, err.Error())
+				return
+			}
+			c.JSON(http.StatusOK, map[string]string{"Block hash:": txHash})
 			return
 		}
-		c.JSON(http.StatusOK, map[string]string{"Block hash:": txHash})
-		return
 	}
 
 	// bucket name

@@ -47,9 +47,9 @@ func (n *Node) delHandle(c *gin.Context) {
 		return
 	}
 
-	mySigningKey, err := n.Cache.Get([]byte("SigningKey"))
+	signKey, err := utils.CalcMD5(n.Confile.GetCtrlPrk())
 	if err != nil {
-		c.JSON(400, "InternalError")
+		c.JSON(400, "Invalid.Profile")
 		return
 	}
 
@@ -57,7 +57,7 @@ func (n *Node) delHandle(c *gin.Context) {
 		tokenString,
 		&CustomClaims{},
 		func(token *jwt.Token) (interface{}, error) {
-			return mySigningKey, nil
+			return signKey, nil
 		})
 
 	if claims, ok := token.Claims.(*CustomClaims); ok && token.Valid {

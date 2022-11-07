@@ -27,7 +27,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// Generate configuration file template
+// Command_ State_ Runfunc is used to view basic OSS service information
 func Command_State_Runfunc(cmd *cobra.Command, args []string) {
 	if len(os.Args) >= 2 {
 		// config file

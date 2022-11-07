@@ -17,11 +17,6 @@
 package node
 
 import (
-	"log"
-	"net/http"
-	"os"
-
-	"github.com/CESSProject/cess-oss/configs"
 	"github.com/CESSProject/cess-oss/pkg/chain"
 	"github.com/CESSProject/cess-oss/pkg/confile"
 	"github.com/CESSProject/cess-oss/pkg/db"
@@ -58,18 +53,19 @@ func (n *Node) Run() {
 	n.Handle.Use(cors.New(config))
 	// Add route
 	n.addRoute()
+	n.Handle.Run(":" + n.Confile.GetServicePort())
 	// Server
-	s := &http.Server{
-		Addr:           ":" + n.Confile.GetServicePort(),
-		Handler:        n.Handle,
-		ReadTimeout:    configs.Http_ReadTimeout,
-		WriteTimeout:   configs.Http_WriteTimeout,
-		MaxHeaderBytes: configs.Http_MaximumHead,
-	}
+	// s := &http.Server{
+	// 	Addr:           ":" + n.Confile.GetServicePort(),
+	// 	Handler:        n.Handle,
+	// 	ReadTimeout:    configs.Http_ReadTimeout,
+	// 	WriteTimeout:   configs.Http_WriteTimeout,
+	// 	MaxHeaderBytes: configs.Http_MaximumHead,
+	// }
 
-	err := s.ListenAndServe()
-	if err != nil {
-		log.Fatalf("Service startup failed: %v", err)
-		os.Exit(1)
-	}
+	// err := s.ListenAndServe()
+	// if err != nil {
+	// 	log.Fatalf("Service startup failed: %v", err)
+	// 	os.Exit(1)
+	// }
 }

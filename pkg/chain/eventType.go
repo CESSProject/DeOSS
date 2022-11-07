@@ -419,8 +419,8 @@ type CessEventRecords struct {
 	FileBank_BuyPackage           []Event_BuyPackage
 	FileBank_PackageUpgrade       []Event_PackageUpgrade
 	FileBank_PackageRenewal       []Event_PackageRenewal
-	FilBank_CreateBucket          []Event_CreateBucket
-	FilBank_DeleteBucket          []Event_DeleteBucket
+	FileBank_CreateBucket         []Event_CreateBucket
+	FileBank_DeleteBucket         []Event_DeleteBucket
 	//FileMap
 	FileMap_RegistrationScheduler []Event_RegistrationScheduler
 	FileMap_UpdateScheduler       []Event_UpdateScheduler

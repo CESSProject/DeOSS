@@ -300,15 +300,15 @@ func (c *chainClient) CreateBucket(owner_pkey []byte, name string) (string, erro
 	}
 	c.SetChainState(true)
 
-	b, err := types.Encode(name)
-	if err != nil {
-		return txhash, errors.Wrap(err, "[Encode]")
-	}
+	// b, err := types.Encode(name)
+	// if err != nil {
+	// 	return txhash, errors.Wrap(err, "[Encode]")
+	// }
 	call, err := types.NewCall(
 		c.metadata,
 		FileBank_CreateBucket,
 		types.NewAccountID(owner_pkey),
-		b,
+		types.NewBytes([]byte(name)),
 	)
 	if err != nil {
 		return txhash, errors.Wrap(err, "[NewCall]")
@@ -392,7 +392,7 @@ func (c *chainClient) CreateBucket(owner_pkey []byte, name string) (string, erro
 
 				types.EventRecordsRaw(*h).DecodeEventRecords(c.metadata, &events)
 
-				if len(events.FilBank_CreateBucket) > 0 {
+				if len(events.FileBank_CreateBucket) > 0 {
 					return txhash, nil
 				}
 				return txhash, errors.New(ERR_Failed)
@@ -512,7 +512,7 @@ func (c *chainClient) DeleteBucket(owner_pkey []byte, name string) (string, erro
 
 				types.EventRecordsRaw(*h).DecodeEventRecords(c.metadata, &events)
 
-				if len(events.FilBank_DeleteBucket) > 0 {
+				if len(events.FileBank_DeleteBucket) > 0 {
 					return txhash, nil
 				}
 				return txhash, errors.New(ERR_Failed)

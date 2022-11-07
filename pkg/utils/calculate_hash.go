@@ -17,6 +17,7 @@
 package utils
 
 import (
+	"crypto/md5"
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
@@ -57,4 +58,14 @@ func CalcSHA256(data []byte) (string, error) {
 		return "", err
 	}
 	return hex.EncodeToString(h.Sum(nil)), nil
+}
+
+// CalcSHA256 is used to calculate the sha256 value
+// of the data.
+func CalcMD5(data string) ([]byte, error) {
+	if len(data) <= 0 {
+		return nil, errors.New("data is nil")
+	}
+	m := md5.Sum([]byte(data))
+	return m[:], nil
 }
