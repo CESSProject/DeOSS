@@ -90,7 +90,7 @@ func (n *Node) authHandle(c *gin.Context) {
 
 	signKey, err := utils.CalcMD5(n.Confile.GetCtrlPrk())
 	if err != nil {
-		c.JSON(400, "InvalidProfile")
+		c.JSON(500, "InvalidProfile")
 		return
 	}
 

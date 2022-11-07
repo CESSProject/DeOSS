@@ -39,6 +39,7 @@ const (
 	Header_Auth       = "Authorization"
 	Header_BucketName = "BucketName"
 	Header_Account    = "Account"
+	Header_Operation  = "Operation"
 	TokenDated        = 60 * 60 * 24 * 30
 )
 

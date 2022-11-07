@@ -51,7 +51,7 @@ func (n *Node) putHandle(c *gin.Context) {
 	tokenString := c.Request.Header.Get(configs.Header_Auth)
 	if tokenString == "" {
 		n.Logs.Upfile("error", fmt.Errorf("[%v] missing token", c.ClientIP()))
-		c.JSON(400, "InvalidHead.Token")
+		c.JSON(400, "InvalidHead.MissToken")
 		return
 	}
 
@@ -73,7 +73,7 @@ func (n *Node) putHandle(c *gin.Context) {
 		acc = claims.Account
 	} else {
 		n.Logs.Upfile("error", fmt.Errorf("[%v] Token verification failed", c.ClientIP()))
-		c.JSON(403, "InvalidHead.Token")
+		c.JSON(403, "NoPermission")
 		return
 	}
 
@@ -109,7 +109,7 @@ func (n *Node) putHandle(c *gin.Context) {
 	bucketName := c.Request.Header.Get(configs.Header_BucketName)
 	if bucketName == "" {
 		n.Logs.Upfile("error", fmt.Errorf("[%v] Empty BucketName", c.ClientIP()))
-		c.JSON(400, "InvalidHead.BucketName")
+		c.JSON(400, "InvalidHead.MissingBucketName")
 		return
 	}
 
@@ -140,7 +140,7 @@ func (n *Node) putHandle(c *gin.Context) {
 	content_length := c.Request.ContentLength
 	if content_length <= 0 {
 		n.Logs.Upfile("error", fmt.Errorf("[%v] Empty file", c.ClientIP()))
-		c.JSON(400, "Empty file")
+		c.JSON(400, "InvalidParameter.EmptyFile")
 		return
 	}
 
@@ -148,7 +148,7 @@ func (n *Node) putHandle(c *gin.Context) {
 	file_c, _, err := c.Request.FormFile("file")
 	if err != nil {
 		n.Logs.Upfile("error", fmt.Errorf("[%v] %v", c.ClientIP(), err))
-		c.JSON(400, err.Error())
+		c.JSON(400, "InvalidParameter.FormFile")
 		return
 	}
 
@@ -157,7 +157,7 @@ func (n *Node) putHandle(c *gin.Context) {
 		err = os.MkdirAll(n.FileDir, os.ModeDir)
 		if err != nil {
 			n.Logs.Upfile("error", fmt.Errorf("[%v] %v", c.ClientIP(), err))
-			c.JSON(500, err.Error())
+			c.JSON(500, "InternalError")
 			return
 		}
 	}
@@ -169,7 +169,7 @@ func (n *Node) putHandle(c *gin.Context) {
 	f, err := os.Create(fpath)
 	if err != nil {
 		n.Logs.Upfile("error", fmt.Errorf("[%v] %v", c.ClientIP(), err))
-		c.JSON(500, err.Error())
+		c.JSON(500, "InternalError")
 		return
 	}
 
@@ -182,7 +182,7 @@ func (n *Node) putHandle(c *gin.Context) {
 		}
 		if err != nil {
 			n.Logs.Upfile("error", fmt.Errorf("[%v] %v", c.ClientIP(), err))
-			c.JSON(400, err.Error())
+			c.JSON(400, "InvalidParameter.File")
 			return
 		}
 		if num == 0 {
@@ -196,7 +196,7 @@ func (n *Node) putHandle(c *gin.Context) {
 	fstat, err := os.Stat(fpath)
 	if err != nil {
 		n.Logs.Upfile("error", fmt.Errorf("[%v] %v", c.ClientIP(), err))
-		c.JSON(500, "UnexpectedError")
+		c.JSON(500, "InternalError")
 	}
 
 	// Calc reedsolomon
@@ -207,15 +207,15 @@ func (n *Node) putHandle(c *gin.Context) {
 	}
 
 	if len(chunkPath) != (datachunkLen + rduchunkLen) {
-		n.Logs.Upfile("error", fmt.Errorf("[%v] UnexpectedError", c.ClientIP()))
-		c.JSON(500, "UnexpectedError")
+		n.Logs.Upfile("error", fmt.Errorf("[%v] InternalError", c.ClientIP()))
+		c.JSON(500, "InternalError")
 	}
 
 	// Calc merkle hash tree
 	hTree, err := hashtree.NewHashTree(chunkPath)
 	if err != nil {
 		n.Logs.Upfile("error", fmt.Errorf("[%v] NewHashTree", c.ClientIP()))
-		c.JSON(500, "UnexpectedError")
+		c.JSON(500, "InternalError")
 	}
 
 	// Merkel root hash
