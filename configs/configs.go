@@ -88,13 +88,9 @@ const (
 // log file
 var (
 	LogFiles = []string{
-		"common",     //General log
-		"upfile",     //Upload file log
-		"panic",      //Panic log
-		"verify",     //Verify proof log
-		"minerCache", //Miner cache log
-		"fillerMeta", //Submit filler meta log
-		"genFiller",  //Generate filler log
-		"speed",      //Record transmission time and speed
+		"common",   //General log
+		"upfile",   //Upload file log
+		"panic",    //Panic log
+		"downfile", //Download log
 	}
 )
