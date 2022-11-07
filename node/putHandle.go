@@ -88,7 +88,7 @@ func (n *Node) putHandle(c *gin.Context) {
 		return
 	}
 
-	_, err = c.FormFile("file")
+	fileHead, err := c.FormFile("file")
 	if err != nil {
 		if VerifyBucketName(putName) {
 			txHash, err := n.Chain.CreateBucket(pkey, putName)
@@ -192,7 +192,7 @@ func (n *Node) putHandle(c *gin.Context) {
 	}
 
 	// Calc reedsolomon
-	chunkPath, datachunkLen, rduchunkLen, err := erasure.ReedSolomon(fpath)
+	chunkPath, datachunkLen, rduchunkLen, err := erasure.ReedSolomon(fpath, fileHead.Size)
 	if err != nil {
 		//Uld.Sugar().Infof("[%v] %v", usertoken.Mailbox, err)
 		c.JSON(500, err.Error())
@@ -346,7 +346,7 @@ func (n *Node) uploadToStorage(ch chan uint8, fpath []string, fid string, fsize 
 		srv := NewClient(tcpCon, n.FileDir, existFile)
 		// fmt.Println(configs.FileCacheDir)
 		// fmt.Println(existFile)
-		err = srv.SendFile(fid, fsize, configs.PublicKey, []byte(msg), sign[:])
+		err = srv.SendFile(fid, fsize, n.Chain.GetPublicKey(), []byte(msg), sign[:])
 		if err != nil {
 			//Uld.Sugar().Infof("[%v] %v", mailbox, err)
 			continue

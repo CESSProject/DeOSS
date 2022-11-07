@@ -420,15 +420,11 @@ func (c *chainClient) DeleteBucket(owner_pkey []byte, name string) (string, erro
 	}
 	c.SetChainState(true)
 
-	b, err := types.Encode(name)
-	if err != nil {
-		return txhash, errors.Wrap(err, "[Encode]")
-	}
 	call, err := types.NewCall(
 		c.metadata,
 		FileBank_DeleteBucket,
 		types.NewAccountID(owner_pkey),
-		b,
+		types.NewBytes([]byte(name)),
 	)
 	if err != nil {
 		return txhash, errors.Wrap(err, "[NewCall]")

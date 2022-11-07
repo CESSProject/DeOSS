@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"math"
 	"os"
 	"path/filepath"
 
@@ -35,18 +34,15 @@ import (
 //  2. Number of data blocks
 //  3. Number of redundant blocks
 //  4. Error message
-func ReedSolomon(fpath string) ([]string, int, int, error) {
+func ReedSolomon(fpath string, size int64) ([]string, int, int, error) {
 	var shardspath = make([]string, 0)
-	fstat, err := os.Stat(fpath)
-	if err != nil {
-		return nil, 0, 0, err
-	}
-	datashards, rdunshards, err := reedSolomonRule(fstat.Size())
-	if err != nil {
-		return shardspath, datashards, rdunshards, err
+	datashards, rdunshards := reedSolomonRule(size)
+	if rdunshards == 0 {
+		shardspath = append(shardspath, fpath)
+		return shardspath, datashards, rdunshards, nil
 	}
 
-	if datashards+rdunshards <= 3 {
+	if datashards+rdunshards <= 6 {
 		enc, err := reedsolomon.New(datashards, rdunshards)
 		if err != nil {
 			return shardspath, datashards, rdunshards, err
@@ -112,6 +108,7 @@ func ReedSolomon(fpath string) ([]string, int, int, error) {
 		if err != nil {
 			return shardspath, datashards, rdunshards, err
 		}
+		out[i].Close()
 		shardspath = append(shardspath, filepath.Join(dir, outfn))
 	}
 
@@ -130,7 +127,6 @@ func ReedSolomon(fpath string) ([]string, int, int, error) {
 	input := make([]io.Reader, datashards)
 
 	for i := range data {
-		out[i].Close()
 		f, err := os.Open(out[i].Name())
 		if err != nil {
 			return shardspath, datashards, rdunshards, err
@@ -155,13 +151,14 @@ func ReedSolomon(fpath string) ([]string, int, int, error) {
 	return shardspath, datashards, rdunshards, nil
 }
 
-// ReedSolomon_Restore uses reed-solomon algorithm to restore files
-// which are located in the dir directory and named fid.
-func ReedSolomon_Restore(dir, fid string, datashards, rdushards int) error {
+func ReedSolomon_Restore(dir, fid string, datashards, rdushards int, fsize uint64) error {
 	outfn := filepath.Join(dir, fid)
-	if rdushards == 0 {
-		return os.Rename(outfn+".000", outfn)
+
+	_, err := os.Stat(outfn)
+	if err == nil {
+		return nil
 	}
+
 	if datashards+rdushards <= 6 {
 		enc, err := reedsolomon.New(datashards, rdushards)
 		if err != nil {
@@ -192,7 +189,7 @@ func ReedSolomon_Restore(dir, fid string, datashards, rdushards int) error {
 		if err != nil {
 			return err
 		}
-
+		defer f.Close()
 		err = enc.Join(f, shards, len(shards[0])*datashards)
 		return err
 	}
@@ -258,7 +255,7 @@ func ReedSolomon_Restore(dir, fid string, datashards, rdushards int) error {
 	if err != nil {
 		return err
 	}
-
+	defer f.Close()
 	shards, size, err = openInput(datashards, rdushards, outfn)
 	if err != nil {
 		return err
@@ -266,43 +263,6 @@ func ReedSolomon_Restore(dir, fid string, datashards, rdushards int) error {
 
 	err = enc.Join(f, shards, int64(datashards)*size)
 	return err
-}
-
-func reedSolomonRule(fsize int64) (int, int, error) {
-	var count int64
-	datachunk := int64(1)
-
-	if fsize <= configs.SIZE_1KiB {
-		if fsize <= 1 {
-			return 1, 0, nil
-		}
-		datachunk = 2
-		goto result
-	}
-
-	count = fsize / configs.SIZE_1GiB
-	if count <= 1 {
-		datachunk = 4
-	} else {
-		if count%2 == 0 {
-			datachunk = count + 4
-		} else {
-			datachunk = count + 3
-		}
-	}
-
-result:
-
-	if datachunk > 20 {
-		datachunk = 20
-	}
-
-	rdchunks := datachunk / 2
-
-	if math.Ceil(float64(fsize)/float64(datachunk)*float64(datachunk+rdchunks)) > float64(fsize)*float64(1.5) {
-		datachunk -= 1
-	}
-	return int(datachunk), int(datachunk / 2), nil
 }
 
 func openInput(dataShards, parShards int, fname string) (r []io.Reader, size int64, err error) {
@@ -332,4 +292,48 @@ func openInput(dataShards, parShards int, fname string) (r []io.Reader, size int
 		}
 	}
 	return shards, size, nil
+}
+
+func reedSolomonRule(fsize int64) (int, int) {
+	if fsize <= configs.SIZE_1MiB*2560 {
+		if fsize <= configs.SIZE_1KiB {
+			return 1, 0
+		}
+
+		if fsize <= configs.SIZE_1MiB*8 {
+			return 2, 1
+		}
+
+		if fsize <= configs.SIZE_1MiB*64 {
+			return 4, 2
+		}
+
+		if fsize <= configs.SIZE_1MiB*384 {
+			return 6, 3
+		}
+
+		if fsize <= configs.SIZE_1MiB*1024 {
+			return 8, 4
+		}
+
+		return 10, 5
+	}
+
+	if fsize <= configs.SIZE_1MiB*6144 {
+		return 12, 6
+	}
+
+	if fsize <= configs.SIZE_1MiB*7168 {
+		return 14, 7
+	}
+
+	if fsize <= configs.SIZE_1MiB*8192 {
+		return 16, 8
+	}
+
+	if fsize <= configs.SIZE_1MiB*9216 {
+		return 18, 9
+	}
+
+	return 20, 10
 }

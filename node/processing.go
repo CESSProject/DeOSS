@@ -185,6 +185,7 @@ func (c *ConMgr) sendFile(fid string, fsize int64, pkey, signmsg, sign []byte) e
 		fmt.Println("lastmark: ", lastmatrk)
 		err = c.sendSingleFile(filepath.Join(c.dir, c.sendFiles[i]), fid, fsize, lastmatrk, pkey, signmsg, sign)
 		if err != nil {
+			fmt.Println(err)
 			return err
 		}
 		if strings.Contains(c.sendFiles[i], ".") {
@@ -263,7 +264,7 @@ func (c *ConMgr) sendSingleFile(filePath string, fid string, fsize int64, lastma
 	m := NewHeadMsg(fileInfo.Name(), fid, lastmark, pkey, signmsg, sign)
 	c.conn.SendMsg(m)
 
-	timer := time.NewTimer(5 * time.Second)
+	timer := time.NewTimer(15 * time.Second)
 	select {
 	case ok := <-c.waitNotify:
 		if !ok {
