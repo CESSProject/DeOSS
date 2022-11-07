@@ -53,14 +53,13 @@ func (n *Node) GetHandle(c *gin.Context) {
 	// account
 	account := c.Request.Header.Get(configs.Header_Account)
 	if account == "" {
-		//Uld.Sugar().Infof("[%v] head missing token", c.ClientIP())
-		c.JSON(400, "Invalid.Account")
+		c.JSON(400, "InvalidHead.Account")
 		return
 	}
 
 	pkey, err := utils.DecodePublicKeyOfCessAccount(account)
 	if err != nil {
-		c.JSON(400, "InvalidParameter.Account")
+		c.JSON(400, "InvalidHead.Account")
 		return
 	}
 

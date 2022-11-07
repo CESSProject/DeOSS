@@ -17,6 +17,7 @@
 package node
 
 import (
+	"github.com/CESSProject/cess-oss/configs"
 	"github.com/CESSProject/cess-oss/pkg/chain"
 	"github.com/CESSProject/cess-oss/pkg/confile"
 	"github.com/CESSProject/cess-oss/pkg/db"
@@ -44,28 +45,20 @@ func New() *Node {
 }
 
 func (n *Node) Run() {
-	//gin.SetMode(gin.ReleaseMode)
+	gin.SetMode(gin.ReleaseMode)
 	n.Handle = gin.Default()
 	config := cors.DefaultConfig()
 	config.AllowAllOrigins = true
 	config.AllowMethods = []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"}
-	config.AddAllowHeaders("Authorization", "*")
+	config.AddAllowHeaders(
+		configs.Header_Auth,
+		configs.Header_Account,
+		configs.Header_BucketName,
+		"*",
+	)
 	n.Handle.Use(cors.New(config))
 	// Add route
 	n.addRoute()
+	// Run
 	n.Handle.Run(":" + n.Confile.GetServicePort())
-	// Server
-	// s := &http.Server{
-	// 	Addr:           ":" + n.Confile.GetServicePort(),
-	// 	Handler:        n.Handle,
-	// 	ReadTimeout:    configs.Http_ReadTimeout,
-	// 	WriteTimeout:   configs.Http_WriteTimeout,
-	// 	MaxHeaderBytes: configs.Http_MaximumHead,
-	// }
-
-	// err := s.ListenAndServe()
-	// if err != nil {
-	// 	log.Fatalf("Service startup failed: %v", err)
-	// 	os.Exit(1)
-	// }
 }

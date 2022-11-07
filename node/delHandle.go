@@ -27,10 +27,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// type DelFileType struct {
-// 	FileHash string `json:"file_hash"`
-// }
-
 // delHandle is used to delete buckets or files
 func (n *Node) delHandle(c *gin.Context) {
 	var (
@@ -42,14 +38,13 @@ func (n *Node) delHandle(c *gin.Context) {
 	// token
 	tokenString := c.Request.Header.Get(configs.Header_Auth)
 	if tokenString == "" {
-		//Uld.Sugar().Infof("[%v] head missing token", c.ClientIP())
-		c.JSON(403, "NoPermission")
+		c.JSON(403, "InvalidHead.Token")
 		return
 	}
 
 	signKey, err := utils.CalcMD5(n.Confile.GetCtrlPrk())
 	if err != nil {
-		c.JSON(400, "Invalid.Profile")
+		c.JSON(400, "InvalidProfile")
 		return
 	}
 
@@ -69,7 +64,7 @@ func (n *Node) delHandle(c *gin.Context) {
 
 	pkey, err := utils.DecodePublicKeyOfCessAccount(acc)
 	if err != nil {
-		c.JSON(400, "InvalidParameter.Token")
+		c.JSON(400, "InvalidHead.Token")
 		return
 	}
 

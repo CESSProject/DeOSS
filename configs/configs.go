@@ -36,9 +36,6 @@ const (
 
 // http
 const (
-	Http_ReadTimeout  = 60
-	Http_WriteTimeout = 60
-	Http_MaximumHead  = SIZE_1MiB
 	Header_Auth       = "Authorization"
 	Header_BucketName = "BucketName"
 	Header_Account    = "Account"
@@ -66,10 +63,6 @@ const (
 const (
 	// Time out waiting for transaction completion
 	TimeOut_WaitBlock = time.Duration(time.Second * 15)
-	// Submit fillermeta interval
-	SubmitFillermetaInterval = 60
-	// The maximum number of proof results submitted in a transaction
-	Max_SubProofResults = 40
 )
 
 // explanation

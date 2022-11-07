@@ -41,23 +41,9 @@ const (
 	Cache = "cache"
 	// file dir
 	File = "file"
-
-	// random number valid time, the unit is minutes
-	RandomValidTime = 5.0
-
-	// the time to wait for the event, in seconds
-	TimeToWaitEvents = time.Duration(time.Second * 15)
-
-	// The validity period of the token, the default is 30 days
-	ValidTimeOfToken = time.Duration(time.Hour * 24 * 30)
-
-	// Valid Time Of Captcha
-	ValidTimeOfCaptcha = time.Duration(time.Minute * 5)
 )
 
 const (
 	// BlockInterval is the time interval for generating blocks, in seconds
 	BlockInterval = time.Second * time.Duration(6)
 )
-
-var PublicKey []byte

@@ -51,14 +51,14 @@ func (n *Node) putHandle(c *gin.Context) {
 	tokenString := c.Request.Header.Get(configs.Header_Auth)
 	if tokenString == "" {
 		n.Logs.Upfile("error", fmt.Errorf("[%v] missing token", c.ClientIP()))
-		c.JSON(400, "InvalidParameter.Token")
+		c.JSON(400, "InvalidHead.Token")
 		return
 	}
 
 	signKey, err := utils.CalcMD5(n.Confile.GetCtrlPrk())
 	if err != nil {
 		n.Logs.Upfile("error", fmt.Errorf("[%v] %v", c.ClientIP(), err))
-		c.JSON(500, "InvalidParameter.Profile")
+		c.JSON(500, "InvalidProfile")
 		return
 	}
 
@@ -73,14 +73,14 @@ func (n *Node) putHandle(c *gin.Context) {
 		acc = claims.Account
 	} else {
 		n.Logs.Upfile("error", fmt.Errorf("[%v] Token verification failed", c.ClientIP()))
-		c.JSON(403, "InvalidParameter.Token")
+		c.JSON(403, "InvalidHead.Token")
 		return
 	}
 
 	pkey, err := utils.DecodePublicKeyOfCessAccount(acc)
 	if err != nil {
 		n.Logs.Upfile("error", fmt.Errorf("[%v] Account decode failed", c.ClientIP()))
-		c.JSON(400, "InvalidParameter.Token")
+		c.JSON(400, "InvalidHead.Token")
 		return
 	}
 
@@ -109,13 +109,13 @@ func (n *Node) putHandle(c *gin.Context) {
 	bucketName := c.Request.Header.Get(configs.Header_BucketName)
 	if bucketName == "" {
 		n.Logs.Upfile("error", fmt.Errorf("[%v] Empty BucketName", c.ClientIP()))
-		c.JSON(400, "InvalidParameter.BucketName")
+		c.JSON(400, "InvalidHead.BucketName")
 		return
 	}
 
 	if !VerifyBucketName(bucketName) {
 		n.Logs.Upfile("error", fmt.Errorf("[%v] Wrong BucketName", c.ClientIP()))
-		c.JSON(400, "InvalidParameter.BucketName")
+		c.JSON(400, "InvalidHead.BucketName")
 		return
 	}
 

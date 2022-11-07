@@ -3,13 +3,10 @@ package node
 import (
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
-
-	"github.com/google/uuid"
 )
 
 type Server interface {
@@ -74,34 +71,17 @@ func (c *ConMgr) handler() error {
 
 		switch m.MsgType {
 		case MsgHead:
-			// if m.FileName != "" {
-			// 	c.fileName = m.FileName
-			// } else {
-			// 	c.fileName = GenFileName()
-			// }
-
-			// fmt.Println("recv head fileName is", c.fileName)
-			// fs, err = os.OpenFile(filepath.Join(c.dir, c.fileName), os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0777)
-			// if err != nil {
-			// 	fmt.Println("os.Create err =", err)
-			// 	c.conn.SendMsg(NewNotifyMsg(c.fileName, Status_Err))
-			// 	return err
-			// }
-			// fmt.Println("send head is ok")
-
 			c.conn.SendMsg(NewNotifyMsg(c.fileName, Status_Ok))
 		case MsgFile:
 			if recvFile == nil {
 				recvFile, err = os.OpenFile(filepath.Join(c.dir, m.FileName), os.O_RDWR|os.O_TRUNC, os.ModePerm)
 				if err != nil {
-					fmt.Println("open file err =", err)
 					c.conn.SendMsg(NewCloseMsg(c.fileName, Status_Err))
 					return err
 				}
 			}
 			_, err = recvFile.Write(m.Bytes)
 			if err != nil {
-				fmt.Println("file.Write err =", err)
 				c.conn.SendMsg(NewCloseMsg(m.FileName, Status_Err))
 				return err
 			}
@@ -116,17 +96,11 @@ func (c *ConMgr) handler() error {
 				c.conn.SendMsg(NewCloseMsg(c.fileName, Status_Err))
 				return err
 			}
-
-			fmt.Printf("save file %v is success \n", info.Name())
-			//c.conn.SendMsg(NewNotifyMsg(c.fileName, Status_Ok))
-
-			fmt.Printf("close file %v is success \n", c.fileName)
 			_ = recvFile.Close()
 			recvFile = nil
 		case MsgNotify:
 			c.waitNotify <- m.Bytes[0] == byte(Status_Ok)
 		case MsgClose:
-			fmt.Printf("revc close msg ....\n")
 			if m.Bytes[0] != byte(Status_Ok) {
 				return fmt.Errorf("server an error occurred")
 			}
@@ -148,14 +122,12 @@ func NewClient(conn NetConn, dir string, files []string) Client {
 }
 
 func (c *ConMgr) SendFile(fid string, fsize int64, pkey, signmsg, sign []byte) error {
-	fmt.Println("--1--")
 	var err error
 	c.conn.HandlerLoop()
 	go func() {
-		fmt.Println("--2--")
 		_ = c.handler()
 	}()
-	fmt.Println("--3--")
+
 	err = c.sendFile(fid, fsize, pkey, signmsg, sign)
 	return err
 }
@@ -182,7 +154,6 @@ func (c *ConMgr) sendFile(fid string, fsize int64, pkey, signmsg, sign []byte) e
 		if (i + 1) == len(c.sendFiles) {
 			lastmatrk = true
 		}
-		fmt.Println("lastmark: ", lastmatrk)
 		err = c.sendSingleFile(filepath.Join(c.dir, c.sendFiles[i]), fid, fsize, lastmatrk, pkey, signmsg, sign)
 		if err != nil {
 			fmt.Println(err)
@@ -202,7 +173,7 @@ func (c *ConMgr) recvFile(fid string, fsize int64, pkey, signmsg, sign []byte) e
 		_ = c.conn.Close()
 	}()
 
-	log.Println("Ready to recvhead: ", fid)
+	//log.Println("Ready to recvhead: ", fid)
 	m := NewRecvHeadMsg(fid, pkey, signmsg, sign)
 	c.conn.SendMsg(m)
 	timer := time.NewTimer(time.Second * 5)
@@ -220,7 +191,7 @@ func (c *ConMgr) recvFile(fid string, fsize int64, pkey, signmsg, sign []byte) e
 		c.conn.SendMsg(NewCloseMsg(fid, Status_Err))
 		return err
 	}
-	log.Println("Ready to recvfile: ", fid)
+	//log.Println("Ready to recvfile: ", fid)
 	m = NewRecvFileMsg(fid)
 	c.conn.SendMsg(m)
 
@@ -260,7 +231,7 @@ func (c *ConMgr) sendSingleFile(filePath string, fid string, fsize int64, lastma
 	}()
 	fileInfo, _ := file.Stat()
 
-	log.Println("Ready to write file: ", filePath)
+	//log.Println("Ready to write file: ", filePath)
 	m := NewHeadMsg(fileInfo.Name(), fid, lastmark, pkey, signmsg, sign)
 	c.conn.SendMsg(m)
 
@@ -305,20 +276,6 @@ func (c *ConMgr) sendSingleFile(filePath string, fid string, fsize int64, lastma
 		return fmt.Errorf("wait server msg timeout")
 	}
 
-	log.Println("Send " + filePath + " file success...")
+	//log.Println("Send " + filePath + " file success...")
 	return nil
-}
-
-func PathExists(path string) bool {
-	_, err := os.Stat(path)
-	if err != nil && os.IsNotExist(err) {
-		return false
-	}
-	return true
-}
-
-func GenFileName() string {
-	u := uuid.New()
-	return u.String()
-
 }
