@@ -164,6 +164,11 @@ func (n *Node) putHandle(c *gin.Context) {
 
 	// Calc file path
 	fpath := filepath.Join(n.FileDir, url.QueryEscape(putName))
+	_, err = os.Stat(fpath)
+	if err == nil {
+		c.JSON(400, "Invalid.DuplicateFileName")
+		return
+	}
 
 	// Create file
 	f, err := os.Create(fpath)
@@ -220,6 +225,20 @@ func (n *Node) putHandle(c *gin.Context) {
 
 	// Merkel root hash
 	hashtree := hex.EncodeToString(hTree.MerkleRoot())
+
+	// file meta info
+	fmeta, err := n.Chain.GetFileMetaInfo(hashtree)
+	if err != nil {
+		if err.Error() != chain.ERR_Empty {
+			c.JSON(500, "InternalError")
+			return
+		}
+	} else {
+		if string(fmeta.State) == chain.FILE_STATE_ACTIVE {
+			c.JSON(200, hashtree)
+			return
+		}
+	}
 
 	// Rename the file and chunks with root hash
 	var newChunksPath = make([]string, 0)
