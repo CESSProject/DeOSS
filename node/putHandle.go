@@ -233,6 +233,18 @@ func (n *Node) putHandle(c *gin.Context) {
 			c.JSON(500, "InternalError")
 			return
 		}
+		userBrief := chain.UserBrief{
+			User:        types.NewAccountID(pkey),
+			File_name:   types.Bytes(putName),
+			Bucket_name: types.Bytes(bucketName),
+		}
+		// Declaration file
+		txhash, err := n.Chain.DeclarationFile(hashtree, userBrief)
+		if err != nil || txhash == "" {
+			n.Logs.Upfile("error", fmt.Errorf("[%v] %v", c.ClientIP(), err))
+			c.JSON(400, err.Error())
+			return
+		}
 	} else {
 		if string(fmeta.State) == chain.FILE_STATE_ACTIVE {
 			c.JSON(200, hashtree)
@@ -255,18 +267,6 @@ func (n *Node) putHandle(c *gin.Context) {
 		}
 	}
 
-	userBrief := chain.UserBrief{
-		User:        types.NewAccountID(pkey),
-		File_name:   types.Bytes(putName),
-		Bucket_name: types.Bytes(bucketName),
-	}
-	// Declaration file
-	txhash, err := n.Chain.DeclarationFile(hashtree, userBrief)
-	if err != nil || txhash == "" {
-		n.Logs.Upfile("error", fmt.Errorf("[%v] %v", c.ClientIP(), err))
-		c.JSON(400, err.Error())
-		return
-	}
 	go n.task_StoreFile(newChunksPath, hashtree, putName, fstat.Size())
 	n.Logs.Upfile("info", fmt.Errorf("[%v] Upload success", hashtree))
 	c.JSON(http.StatusOK, hashtree)
