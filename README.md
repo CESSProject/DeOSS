@@ -158,6 +158,9 @@ If the mailbox uploaded by the user has been authorized, CESS-Gateway will check
 | message | custom Signature Message      |
 | signature | signature data              |
 
+*Reference for signature calculation method: https://github.com/CESSProject/cess-toolset/tree/main/cess-sign*
+
+
 - Responses
 
 Response schema: `application/json`
