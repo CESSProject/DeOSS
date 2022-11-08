@@ -91,14 +91,19 @@ AccountSeed = ""
 `wss://testnet-rpc0.cess.cloud/ws/`<br>
 `wss://testnet-rpc1.cess.cloud/ws/`
 
+### Step 4: Start the oss service
+
+```shell
+sudo nohup ./oss run 2>&1 &
+```
 
 ## Other usage guidelines for oss
-### Update the OSS address
+### Update the oss address
 ```
 ./oss update <ip> <port>
 ```
 
-### View the OSS address
+### View the oss address
 ```
 ./oss state
 ```
@@ -110,13 +115,13 @@ The public API endpoint URL of CESS-OSS is the server you deploy, All endpoints 
 
 
 
-**Before using OSS, you must authorize it as follows:** 
+**Before using oss, you must authorize it as follows:** 
 
 1. First register your wallet account: [Create an account](https://github.com/CESSProject/W3F-illustration/blob/main/gateway/createAccount.PNG).
 
-2. Buy space:[BuySpace](https://github.com/CESSProject/W3F-illustration/blob/b712b330772912e8e4a84c03afac1d3a224b9488/gateway/buySpace.jpg)
+2. Purchase cess storage space:[BuySpace](https://github.com/CESSProject/W3F-illustration/blob/b712b330772912e8e4a84c03afac1d3a224b9488/gateway/buySpace.jpg)
 
-3. Authorize the use right of the space to OSS:[Authorize](https://github.com/CESSProject/W3F-illustration/blob/b712b330772912e8e4a84c03afac1d3a224b9488/gateway/authorize.jpg)
+3. Authorize the use right of the space to oss:[Authorize](https://github.com/CESSProject/W3F-illustration/blob/b712b330772912e8e4a84c03afac1d3a224b9488/gateway/authorize.jpg)
 
 
 
