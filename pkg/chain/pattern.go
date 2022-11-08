@@ -22,9 +22,9 @@ import (
 )
 
 const (
-	ERR_Failed  = "Failed"
-	ERR_Timeout = "Timeout"
-	ERR_Empty   = "Empty"
+	ERR_Failed  = "failed"
+	ERR_Timeout = "timeout"
+	ERR_Empty   = "empty"
 )
 
 // error type
