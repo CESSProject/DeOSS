@@ -1,6 +1,7 @@
 package node
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -105,6 +106,8 @@ func (c *ConMgr) handler() error {
 				return fmt.Errorf("server an error occurred")
 			}
 			return nil
+		default:
+			return errors.New("Invalid msgType")
 		}
 	}
 
@@ -156,7 +159,6 @@ func (c *ConMgr) sendFile(fid string, fsize int64, pkey, signmsg, sign []byte) e
 		}
 		err = c.sendSingleFile(filepath.Join(c.dir, c.sendFiles[i]), fid, fsize, lastmatrk, pkey, signmsg, sign)
 		if err != nil {
-			fmt.Println(err)
 			return err
 		}
 		if strings.Contains(c.sendFiles[i], ".") {
@@ -174,8 +176,7 @@ func (c *ConMgr) recvFile(fid string, fsize int64, pkey, signmsg, sign []byte) e
 	}()
 
 	//log.Println("Ready to recvhead: ", fid)
-	m := NewRecvHeadMsg(fid, pkey, signmsg, sign)
-	c.conn.SendMsg(m)
+	c.conn.SendMsg(NewRecvHeadMsg(fid, pkey, signmsg, sign))
 	timer := time.NewTimer(time.Second * 5)
 	select {
 	case ok := <-c.waitNotify:
@@ -192,8 +193,7 @@ func (c *ConMgr) recvFile(fid string, fsize int64, pkey, signmsg, sign []byte) e
 		return err
 	}
 	//log.Println("Ready to recvfile: ", fid)
-	m = NewRecvFileMsg(fid)
-	c.conn.SendMsg(m)
+	c.conn.SendMsg(NewRecvFileMsg(fid))
 
 	waitTime := fsize / 1024 / 10
 	if waitTime < 5 {
@@ -232,21 +232,21 @@ func (c *ConMgr) sendSingleFile(filePath string, fid string, fsize int64, lastma
 	fileInfo, _ := file.Stat()
 
 	//log.Println("Ready to write file: ", filePath)
-	m := NewHeadMsg(fileInfo.Name(), fid, lastmark, pkey, signmsg, sign)
-	c.conn.SendMsg(m)
+	c.conn.SendMsg(NewHeadMsg(fileInfo.Name(), fid, lastmark, pkey, signmsg, sign))
 
-	timer := time.NewTimer(15 * time.Second)
+	timerHead := time.NewTimer(10 * time.Second)
+	defer timerHead.Stop()
 	select {
 	case ok := <-c.waitNotify:
 		if !ok {
 			return fmt.Errorf("send err")
 		}
-	case <-timer.C:
+	case <-timerHead.C:
 		return fmt.Errorf("wait server msg timeout")
 	}
 
 	for !c.conn.IsClose() {
-		readBuf := BytesPool.Get().([]byte)
+		readBuf := bytesPool.Get().([]byte)
 
 		n, err := file.Read(readBuf)
 		if err != nil && err != io.EOF {
@@ -266,13 +266,14 @@ func (c *ConMgr) sendSingleFile(filePath string, fid string, fsize int64, lastma
 		waitTime = 5
 	}
 
-	timer = time.NewTimer(time.Second * time.Duration(waitTime))
+	timerFile := time.NewTimer(time.Second * time.Duration(waitTime))
+	defer timerFile.Stop()
 	select {
 	case ok := <-c.waitNotify:
 		if !ok {
 			return fmt.Errorf("send err")
 		}
-	case <-timer.C:
+	case <-timerFile.C:
 		return fmt.Errorf("wait server msg timeout")
 	}
 

@@ -18,6 +18,7 @@ package node
 
 import (
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -321,6 +322,7 @@ func (n *Node) uploadToStorage(ch chan uint8, fpath []string, fid string, fsize 
 		existFile = append(existFile, fpath[i])
 	}
 
+	n.Logs.Upfile("info", fmt.Errorf("files:%v", existFile))
 	msg := utils.GetRandomcode(16)
 
 	kr, _ := cesskeyring.FromURI(n.Confile.GetCtrlPrk(), cesskeyring.NetSubstrate{})
@@ -348,25 +350,18 @@ func (n *Node) uploadToStorage(ch chan uint8, fpath []string, fid string, fsize 
 			schds[i].Ip.Value[3],
 			schds[i].Ip.Port,
 		)
+		n.Logs.Upfile("info", fmt.Errorf("will send to: %v", wsURL))
 
-		tcpAddr, err := net.ResolveTCPAddr("tcp", wsURL)
+		conTcp, err := dialTcpServer(wsURL)
 		if err != nil {
-			continue
-		}
-		dialer := net.Dialer{Timeout: time.Duration(time.Second * 5)}
-		netConn, err := dialer.Dial("tcp", tcpAddr.String())
-		if err != nil {
-			continue
-		}
-
-		conTcp, ok := netConn.(*net.TCPConn)
-		if !ok {
+			n.Logs.Upfile("err", fmt.Errorf("dial %v err: %v", wsURL, err))
 			continue
 		}
 
 		srv := NewClient(NewTcp(conTcp), n.FileDir, existFile)
 		err = srv.SendFile(fid, fsize, n.Chain.GetPublicKey(), []byte(msg), sign[:])
 		if err != nil {
+			n.Logs.Upfile("err", fmt.Errorf("send to %v err: %v", wsURL, err))
 			continue
 		}
 		ch <- 2
@@ -407,4 +402,21 @@ func VerifyBucketName(name string) bool {
 	}
 
 	return !utils.IsIPv4(name)
+}
+
+func dialTcpServer(address string) (*net.TCPConn, error) {
+	tcpAddr, err := net.ResolveTCPAddr("tcp", address)
+	if err != nil {
+		return nil, err
+	}
+	dialer := net.Dialer{Timeout: configs.Tcp_Dial_Timeout}
+	netCon, err := dialer.Dial("tcp", tcpAddr.String())
+	if err != nil {
+		return nil, err
+	}
+	conTcp, ok := netCon.(*net.TCPConn)
+	if !ok {
+		return nil, errors.New("network conversion failed")
+	}
+	return conTcp, nil
 }
