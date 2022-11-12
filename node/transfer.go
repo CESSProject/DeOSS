@@ -3,11 +3,15 @@ package node
 import (
 	"bytes"
 	"encoding/binary"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net"
+	"runtime"
 	"sync"
 	"time"
+
+	"github.com/CESSProject/cess-oss/configs"
 )
 
 type TcpCon struct {
@@ -17,7 +21,8 @@ type TcpCon struct {
 	send chan *Message
 
 	onceStop *sync.Once
-	stop     chan struct{}
+	lock     *sync.RWMutex
+	stop     *bool
 }
 
 var (
@@ -31,7 +36,8 @@ func NewTcp(conn *net.TCPConn) *TcpCon {
 		recv:     make(chan *Message, 5),
 		send:     make(chan *Message, 5),
 		onceStop: &sync.Once{},
-		stop:     make(chan struct{}),
+		lock:     new(sync.RWMutex),
+		stop:     new(bool),
 	}
 }
 
@@ -41,51 +47,47 @@ func (t *TcpCon) HandlerLoop() {
 }
 
 func (t *TcpCon) sendMsg() {
-	var err error
 	defer func() {
-		if err != nil {
-			fmt.Printf("found mistake: %s \n", err)
-		}
 		_ = t.Close()
+		time.Sleep(time.Second)
+		close(t.send)
 	}()
-
-	buf := make([]byte, 64*1024)
-	ticker := time.NewTicker(5 * time.Second)
-	defer ticker.Stop()
 
 	for !t.IsClose() {
 		select {
 		case m := <-t.send:
-			data := m.String()
-			m.GC()
-
-			dataLen := len(data)
-
-			copy(buf[:4], MAGIC_BYTES)
-			binary.BigEndian.PutUint32(buf[4:8], uint32(dataLen))
-			copy(buf[8:], []byte(data))
-
-			_, err = t.conn.Write(buf[:8+dataLen])
+			data, err := json.Marshal(m)
 			if err != nil {
 				return
 			}
-		case <-ticker.C:
 
+			head := make([]byte, len(MAGIC_BYTES)+4+len(data))
+			copy(head[:len(MAGIC_BYTES)], MAGIC_BYTES)
+			binary.BigEndian.PutUint32(head[len(MAGIC_BYTES):len(MAGIC_BYTES)+4], uint32(len(data)))
+			copy(head[len(MAGIC_BYTES)+4:], data)
+
+			_, err = t.conn.Write(head)
+			if err != nil {
+				return
+			}
+		default:
+			time.Sleep(configs.TCP_Message_Interval)
 		}
 	}
 }
 
 func (t *TcpCon) readMsg() {
-	var err error
 	defer func() {
-		if err != nil {
-			fmt.Printf("found mistake: %s \n", err)
-		}
-		_ = t.Close()
+		t.Close()
+		close(t.recv)
 	}()
 
-	header := make([]byte, 4)
-	buf := make([]byte, 64*1024)
+	var (
+		err    error
+		n      int
+		header = make([]byte, 4)
+		buf    = make([]byte, configs.TCP_ReadBuffer)
+	)
 
 	for {
 		// read until we get 4 bytes for the magic
@@ -95,7 +97,6 @@ func (t *TcpCon) readMsg() {
 				err = fmt.Errorf("initial read error: %v \n", err)
 				return
 			}
-			time.Sleep(10 * time.Millisecond)
 			continue
 		}
 
@@ -114,19 +115,16 @@ func (t *TcpCon) readMsg() {
 		// data size
 		msgSize := binary.BigEndian.Uint32(header)
 
-		var n int
-		var m *Message
-
 		n, err = io.ReadFull(t.conn, buf[:msgSize])
 		if err != nil {
 			err = fmt.Errorf("initial read error: %v \n", err)
 			return
 		}
 
-		m, err = Decode(buf[:n])
+		m := &Message{}
+		err = json.Unmarshal(buf[:n], &m)
 		if err != nil {
-			err = fmt.Errorf("read message error: %v \n", err)
-			return
+			runtime.Goexit()
 		}
 
 		t.recv <- m
@@ -150,20 +148,20 @@ func (t *TcpCon) SendMsg(m *Message) {
 
 func (t *TcpCon) Close() error {
 	t.onceStop.Do(func() {
-		fmt.Println("close a connect, addr: ", t.conn.RemoteAddr())
-		_ = t.conn.Close()
-		close(t.stop)
+		t.conn.Close()
+		t.lock.Lock()
+		*t.stop = true
+		t.lock.Unlock()
 	})
 	return nil
 }
 
 func (t *TcpCon) IsClose() bool {
-	select {
-	case <-t.stop:
-		return true
-	default:
-		return false
-	}
+	var ok bool
+	t.lock.RLock()
+	ok = *t.stop
+	t.lock.RUnlock()
+	return ok
 }
 
 var _ = NetConn(&TcpCon{})
