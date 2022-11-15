@@ -10,10 +10,6 @@ import (
 	"time"
 )
 
-type Server interface {
-	Start() error
-}
-
 type Client interface {
 	SendFile(fid string, fsize int64, pkey, signmsg, sign []byte) error
 	RecvFile(fid string, fsize int64, pkey, signmsg, sign []byte) error
@@ -38,24 +34,16 @@ type ConMgr struct {
 	stop       chan struct{}
 }
 
-func NewServer(conn NetConn, dir string) Server {
-	return &ConMgr{
-		conn: conn,
-		dir:  dir,
-		stop: make(chan struct{}),
-	}
-}
-
-func (c *ConMgr) Start() error {
-	c.conn.HandlerLoop()
-	return c.handler()
-}
-
 func (c *ConMgr) handler() error {
-	var recvFile *os.File
-	var err error
+	var (
+		err      error
+		recvFile *os.File
+	)
 
 	defer func() {
+		recover()
+		c.conn.Close()
+		close(c.waitNotify)
 		if recvFile != nil {
 			_ = recvFile.Close()
 		}
@@ -64,7 +52,7 @@ func (c *ConMgr) handler() error {
 	for !c.conn.IsClose() {
 		m, ok := c.conn.GetMsg()
 		if !ok {
-			return fmt.Errorf("close by connect")
+			return fmt.Errorf("Getmsg failed")
 		}
 		if m == nil {
 			continue
@@ -125,29 +113,27 @@ func NewClient(conn NetConn, dir string, files []string) Client {
 }
 
 func (c *ConMgr) SendFile(fid string, fsize int64, pkey, signmsg, sign []byte) error {
-	var err error
 	c.conn.HandlerLoop()
 	go func() {
 		_ = c.handler()
 	}()
 
-	err = c.sendFile(fid, fsize, pkey, signmsg, sign)
+	err := c.sendFile(fid, fsize, pkey, signmsg, sign)
 	return err
 }
 
 func (c *ConMgr) RecvFile(fid string, fsize int64, pkey, signmsg, sign []byte) error {
-	var err error
 	c.conn.HandlerLoop()
 	go func() {
 		_ = c.handler()
 	}()
-	err = c.recvFile(fid, fsize, pkey, signmsg, sign)
+	err := c.recvFile(fid, fsize, pkey, signmsg, sign)
 	return err
 }
 
 func (c *ConMgr) sendFile(fid string, fsize int64, pkey, signmsg, sign []byte) error {
 	defer func() {
-		_ = c.conn.Close()
+		c.conn.Close()
 	}()
 
 	var err error
