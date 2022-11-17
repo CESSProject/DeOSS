@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/CESSProject/cess-oss/configs"
 )
 
 type Client interface {
@@ -60,41 +62,83 @@ func (c *ConMgr) handler() error {
 
 		switch m.MsgType {
 		case MsgHead:
+			switch cap(m.Bytes) {
+			case configs.TCP_ReadBuffer:
+				readBufPool.Put(m.Bytes)
+			default:
+			}
 			c.conn.SendMsg(NewNotifyMsg(c.fileName, Status_Ok))
 		case MsgFile:
 			if recvFile == nil {
 				recvFile, err = os.OpenFile(filepath.Join(c.dir, m.FileName), os.O_RDWR|os.O_TRUNC, os.ModePerm)
 				if err != nil {
-					c.conn.SendMsg(NewCloseMsg(c.fileName, Status_Err))
+					c.conn.SendMsg(NewNotifyMsg("", Status_Err))
+					time.Sleep(configs.TCP_Message_Interval)
+					c.conn.SendMsg(NewCloseMsg("", Status_Err))
+					time.Sleep(configs.TCP_Message_Interval)
 					return err
 				}
 			}
-			_, err = recvFile.Write(m.Bytes)
+			_, err = recvFile.Write(m.Bytes[:m.FileSize])
 			if err != nil {
-				c.conn.SendMsg(NewCloseMsg(m.FileName, Status_Err))
+				c.conn.SendMsg(NewNotifyMsg("", Status_Err))
+				time.Sleep(configs.TCP_Message_Interval)
+				c.conn.SendMsg(NewCloseMsg("", Status_Err))
+				time.Sleep(configs.TCP_Message_Interval)
 				return err
 			}
+			switch cap(m.Bytes) {
+			case configs.TCP_ReadBuffer:
+				readBufPool.Put(m.Bytes)
+			default:
+			}
 		case MsgEnd:
+			switch cap(m.Bytes) {
+			case configs.TCP_ReadBuffer:
+				readBufPool.Put(m.Bytes)
+			default:
+			}
 			info, err := recvFile.Stat()
 			if err != nil {
-				c.conn.SendMsg(NewCloseMsg(c.fileName, Status_Err))
+				c.conn.SendMsg(NewNotifyMsg("", Status_Err))
+				time.Sleep(configs.TCP_Message_Interval)
+				c.conn.SendMsg(NewCloseMsg("", Status_Err))
+				time.Sleep(configs.TCP_Message_Interval)
 				return err
 			}
 			if info.Size() != int64(m.FileSize) {
 				err = fmt.Errorf("file.size %v rece size %v \n", info.Size(), m.FileSize)
-				c.conn.SendMsg(NewCloseMsg(c.fileName, Status_Err))
+				c.conn.SendMsg(NewNotifyMsg("", Status_Err))
+				time.Sleep(configs.TCP_Message_Interval)
+				c.conn.SendMsg(NewCloseMsg("", Status_Err))
+				time.Sleep(configs.TCP_Message_Interval)
 				return err
 			}
-			_ = recvFile.Close()
+			recvFile.Close()
 			recvFile = nil
+
 		case MsgNotify:
 			c.waitNotify <- m.Bytes[0] == byte(Status_Ok)
-		case MsgClose:
-			if m.Bytes[0] != byte(Status_Ok) {
-				return fmt.Errorf("server an error occurred")
+			switch cap(m.Bytes) {
+			case configs.TCP_ReadBuffer:
+				readBufPool.Put(m.Bytes)
+			default:
 			}
-			return nil
+
+		case MsgClose:
+			switch cap(m.Bytes) {
+			case configs.TCP_ReadBuffer:
+				readBufPool.Put(m.Bytes)
+			default:
+			}
+			return errors.New("Close message")
+
 		default:
+			switch cap(m.Bytes) {
+			case configs.TCP_ReadBuffer:
+				readBufPool.Put(m.Bytes)
+			default:
+			}
 			return errors.New("Invalid msgType")
 		}
 	}
@@ -153,23 +197,25 @@ func (c *ConMgr) sendFile(fid string, fsize int64, pkey, signmsg, sign []byte) e
 	}
 
 	c.conn.SendMsg(NewCloseMsg(c.fileName, Status_Ok))
+	time.Sleep(time.Second * 3)
 	return err
 }
 
 func (c *ConMgr) recvFile(fid string, fsize int64, pkey, signmsg, sign []byte) error {
 	defer func() {
-		_ = c.conn.Close()
+		c.conn.Close()
 	}()
 
 	//log.Println("Ready to recvhead: ", fid)
 	c.conn.SendMsg(NewRecvHeadMsg(fid, pkey, signmsg, sign))
-	timer := time.NewTimer(time.Second * 5)
+	timerHead := time.NewTimer(time.Second * 5)
+	defer timerHead.Stop()
 	select {
 	case ok := <-c.waitNotify:
 		if !ok {
 			return fmt.Errorf("send err")
 		}
-	case <-timer.C:
+	case <-timerHead.C:
 		return fmt.Errorf("wait server msg timeout")
 	}
 
@@ -186,21 +232,19 @@ func (c *ConMgr) recvFile(fid string, fsize int64, pkey, signmsg, sign []byte) e
 		waitTime = 5
 	}
 
-	timer = time.NewTimer(time.Second * time.Duration(waitTime))
+	timerFile := time.NewTimer(time.Second * time.Duration(waitTime))
+	defer timerFile.Stop()
 	select {
 	case ok := <-c.waitNotify:
 		if !ok {
 			return fmt.Errorf("send err")
 		}
-	case <-timer.C:
+	case <-timerFile.C:
 		return fmt.Errorf("wait server msg timeout")
 	}
 	c.conn.SendMsg(NewCloseMsg(fid, Status_Ok))
-	timer = time.NewTimer(time.Second * 5)
-	select {
-	case <-timer.C:
-		return nil
-	}
+	time.NewTimer(time.Second * 3)
+	return nil
 }
 
 func (c *ConMgr) sendSingleFile(filePath string, fid string, fsize int64, lastmark bool, pkey, signmsg, sign []byte) error {
@@ -231,25 +275,26 @@ func (c *ConMgr) sendSingleFile(filePath string, fid string, fsize int64, lastma
 		return fmt.Errorf("wait server msg timeout")
 	}
 
-	for !c.conn.IsClose() {
-		readBuf := bytesPool.Get().([]byte)
+	readBuf := sendBufPool.Get().([]byte)
+	defer func() {
+		sendBufPool.Put(readBuf)
+	}()
 
+	for !c.conn.IsClose() {
 		n, err := file.Read(readBuf)
 		if err != nil && err != io.EOF {
 			return err
 		}
-
 		if n == 0 {
 			break
 		}
-
-		c.conn.SendMsg(NewFileMsg(c.fileName, readBuf[:n]))
+		c.conn.SendMsg(NewFileMsg(c.fileName, n, readBuf[:n]))
 	}
 
 	c.conn.SendMsg(NewEndMsg(c.fileName, fid, uint64(fileInfo.Size()), uint64(fsize), lastmark))
 	waitTime := fileInfo.Size() / 1024 / 10
-	if waitTime < 5 {
-		waitTime = 5
+	if waitTime < 10 {
+		waitTime = 10
 	}
 
 	timerFile := time.NewTimer(time.Second * time.Duration(waitTime))
@@ -263,6 +308,5 @@ func (c *ConMgr) sendSingleFile(filePath string, fid string, fsize int64, lastma
 		return fmt.Errorf("wait server msg timeout")
 	}
 
-	//log.Println("Send " + filePath + " file success...")
 	return nil
 }

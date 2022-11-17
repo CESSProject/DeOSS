@@ -31,8 +31,8 @@ var (
 func NewTcp(conn *net.TCPConn) *TcpCon {
 	return &TcpCon{
 		conn:     conn,
-		recv:     make(chan *Message, 5),
-		send:     make(chan *Message, 5),
+		recv:     make(chan *Message, configs.TCP_Message_Read_Buffers),
+		send:     make(chan *Message, configs.TCP_Message_Send_Buffers),
 		onceStop: &sync.Once{},
 		stop:     make(chan struct{}),
 	}
@@ -44,13 +44,15 @@ func (t *TcpCon) HandlerLoop() {
 }
 
 func (t *TcpCon) sendMsg() {
+	sendBuf := readBufPool.Get().([]byte)
 	defer func() {
 		recover()
 		t.Close()
 		time.Sleep(time.Second)
 		close(t.send)
+		readBufPool.Put(sendBuf)
 	}()
-	sendBuf := make([]byte, configs.TCP_ReadBuffer)
+	copy(sendBuf[:len(HEAD_FILE)], HEAD_FILE)
 	for !t.IsClose() {
 		select {
 		case m := <-t.send:
@@ -59,7 +61,12 @@ func (t *TcpCon) sendMsg() {
 				return
 			}
 
-			copy(sendBuf[:len(HEAD_FILE)], HEAD_FILE)
+			switch cap(m.Bytes) {
+			case configs.TCP_SendBuffer:
+				sendBufPool.Put(m.Bytes)
+			default:
+			}
+
 			binary.BigEndian.PutUint32(sendBuf[len(HEAD_FILE):len(HEAD_FILE)+4], uint32(len(data)))
 			copy(sendBuf[len(HEAD_FILE)+4:], data)
 
@@ -74,19 +81,18 @@ func (t *TcpCon) sendMsg() {
 }
 
 func (t *TcpCon) readMsg() {
+	var (
+		err    error
+		n      int
+		header = make([]byte, 4)
+	)
+	readBuf := readBufPool.Get().([]byte)
 	defer func() {
 		recover()
 		t.Close()
 		close(t.recv)
+		readBufPool.Put(readBuf)
 	}()
-
-	var (
-		err     error
-		n       int
-		header  = make([]byte, 4)
-		readBuf = make([]byte, configs.TCP_ReadBuffer)
-	)
-
 	for {
 		// read until we get 4 bytes for the magic
 		_, err = io.ReadFull(t.conn, header)
@@ -112,30 +118,24 @@ func (t *TcpCon) readMsg() {
 			continue
 		}
 
-		m := &Message{}
 		// data size
 		msgSize := binary.BigEndian.Uint32(header)
 
 		// read data
 		if msgSize > configs.TCP_ReadBuffer {
-			var readBufMax = make([]byte, msgSize)
-			n, err = io.ReadFull(t.conn, readBufMax)
-			if err != nil {
-				return
-			}
-			err = json.Unmarshal(readBufMax[:n], &m)
-			if err != nil {
-				return
-			}
-		} else {
-			n, err = io.ReadFull(t.conn, readBuf[:msgSize])
-			if err != nil {
-				return
-			}
-			err = json.Unmarshal(readBuf[:n], &m)
-			if err != nil {
-				return
-			}
+			return
+		}
+
+		n, err = io.ReadFull(t.conn, readBuf[:msgSize])
+		if err != nil {
+			return
+		}
+		m := &Message{}
+		m.Bytes = readBufPool.Get().([]byte)
+
+		err = json.Unmarshal(readBuf[:n], &m)
+		if err != nil {
+			return
 		}
 
 		t.recv <- m
