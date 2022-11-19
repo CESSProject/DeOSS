@@ -275,8 +275,7 @@ func (n *Node) downloadFromStorage(fpath string, fsize int64, mip string) error 
 	if err != nil {
 		return err
 	}
-	srv := NewClient(NewTcp(conTcp), n.FileDir, nil)
-	return srv.RecvFile(filepath.Base(fpath), fsize, n.Chain.GetPublicKey(), []byte(msg), sign[:])
+	return NewClient(NewTcp(conTcp), n.FileDir, nil).RecvFile(filepath.Base(fpath), fsize, n.Chain.GetPublicKey(), []byte(msg), sign[:])
 }
 
 func copyFile(src, dst string, length int64) error {
