@@ -44,18 +44,8 @@ const (
 )
 
 const (
-	// Maximum number of connections in the miner's certification space
-	MAX_TCP_CONNECTION uint8 = 3
-	// Tcp client connection interval
-	TCP_Connection_Interval = time.Duration(time.Millisecond * 100)
 	// Tcp message interval
 	TCP_Message_Interval = time.Duration(time.Millisecond * 10)
-	// Tcp short message waiting time
-	TCP_Time_WaitNotification = time.Duration(time.Second * 10)
-	// Tcp short message waiting time
-	TCP_FillerMessage_WaitingTime = time.Duration(time.Second * 150)
-	// The slowest tcp transfers bytes per second
-	TCP_Transmission_Slowest = SIZE_1KiB * 10
 	// Number of tcp message caches
 	TCP_Message_Send_Buffers = 10
 	TCP_Message_Read_Buffers = 10
@@ -76,10 +66,10 @@ const (
 	HELP_common = `Please check with the following help information:
     1.Check if the wallet balance is sufficient
     2.Block hash:`
-	HELP_register = `    3.Check the FileMap.RegistrationScheduler transaction event result in the block hash above:
+	HELP_register = `    3.Check the FileMap.OssRegister transaction event result in the block hash above:
         If system.ExtrinsicFailed is prompted, it means failure;
         If system.ExtrinsicSuccess is prompted, it means success;`
-	HELP_update = `    3.Check the FileMap.UpdateScheduler transaction event result in the block hash above:
+	HELP_update = `    3.Check the FileMap.OssUpdate transaction event result in the block hash above:
         If system.ExtrinsicFailed is prompted, it means failure;
         If system.ExtrinsicSuccess is prompted, it means success;`
 )
