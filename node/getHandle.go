@@ -284,7 +284,7 @@ func copyFile(src, dst string, length int64) error {
 		return err
 	}
 	defer srcfile.Close()
-	dstfile, err := os.OpenFile(src, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, os.ModePerm)
+	dstfile, err := os.OpenFile(dst, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, os.ModePerm)
 	if err != nil {
 		return err
 	}

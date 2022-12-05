@@ -104,6 +104,8 @@ func (n *Node) putHandle(c *gin.Context) {
 			c.JSON(http.StatusOK, map[string]string{"Block hash:": txHash})
 			return
 		}
+		c.JSON(400, "InvalidParameter.BucketName")
+		return
 	}
 
 	// bucket name
