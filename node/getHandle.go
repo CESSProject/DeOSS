@@ -17,6 +17,7 @@
 package node
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"net"
@@ -71,35 +72,70 @@ func (n *Node) GetHandle(c *gin.Context) {
 				c.JSON(500, "InternalError")
 				return
 			}
-			var fileInfo RtnFileType
-			fileInfo.UserBriefs = make([]RtnUserBrief, len(fmeta.UserBriefs))
-			fileInfo.BlockInfo = make([]RtnBlockInfo, len(fmeta.BlockInfo))
-			fileInfo.FileSize = uint64(fmeta.Size)
-			fileInfo.FileState = string(fmeta.State)
-			for i := 0; i < len(fmeta.UserBriefs); i++ {
-				var userAcc string
-				fileInfo.UserBriefs[i].BucketName = string(fmeta.UserBriefs[i].Bucket_name)
-				fileInfo.UserBriefs[i].FileName = string(fmeta.UserBriefs[i].File_name)
-				userAcc, _ = utils.EncodePublicKeyAsCessAccount(fmeta.UserBriefs[i].User[:])
-				fileInfo.UserBriefs[i].User = userAcc
+
+			var fileSt FileStoreInfo
+
+			if string(fmeta.State) == chain.FILE_STATE_ACTIVE {
+				fileSt.FileId = getName
+				fileSt.FileSize = int64(fmeta.Size)
+				fileSt.FileState = chain.FILE_STATE_ACTIVE
+				fileSt.IsUpload = true
+				fileSt.IsCheck = true
+				fileSt.IsScheduler = true
+				fileSt.IsShard = true
+				for i := 0; i < len(fmeta.BlockInfo); i++ {
+					fileSt.Miners[i] = string(fmeta.BlockInfo[i].MinerAcc[:])
+				}
+				c.JSON(http.StatusOK, fileSt)
+				return
 			}
-			for i := 0; i < len(fmeta.BlockInfo); i++ {
-				var userAcc string
-				var contact string
-				fileInfo.BlockInfo[i].BlockId = string(fmeta.BlockInfo[i].BlockId[len(fmeta.BlockInfo[i].BlockId)-2:])
-				fileInfo.BlockInfo[i].MinerId = uint64(fmeta.BlockInfo[i].MinerId)
-				userAcc, _ = utils.EncodePublicKeyAsCessAccount(fmeta.BlockInfo[i].MinerAcc[:])
-				fileInfo.BlockInfo[i].MinerAcc = userAcc
-				contact = fmt.Sprintf("%d.%d.%d.%d:%d",
-					fmeta.BlockInfo[i].MinerIp.Value[0],
-					fmeta.BlockInfo[i].MinerIp.Value[1],
-					fmeta.BlockInfo[i].MinerIp.Value[2],
-					fmeta.BlockInfo[i].MinerIp.Value[3],
-					fmeta.BlockInfo[i].MinerIp.Port)
-				fileInfo.BlockInfo[i].MinerIp = contact
+
+			val, err := n.Cache.Get([]byte(getName))
+			if err != nil {
+				fileSt.FileId = getName
+				fileSt.FileSize = int64(fmeta.Size)
+				fileSt.FileState = chain.FILE_STATE_ACTIVE
+				fileSt.IsUpload = true
+				fileSt.IsCheck = true
+				fileSt.IsShard = true
+				fileSt.IsScheduler = false
+				fileSt.Miners = nil
+				c.JSON(http.StatusOK, fileSt)
+				return
 			}
-			c.JSON(http.StatusOK, fileInfo)
+
+			json.Unmarshal(val, &fileSt)
+			c.JSON(http.StatusOK, fileSt)
 			return
+			// var fileInfo RtnFileType
+			// fileInfo.UserBriefs = make([]RtnUserBrief, len(fmeta.UserBriefs))
+			// fileInfo.BlockInfo = make([]RtnBlockInfo, len(fmeta.BlockInfo))
+			// fileInfo.FileSize = uint64(fmeta.Size)
+			// fileInfo.FileState = string(fmeta.State)
+			// for i := 0; i < len(fmeta.UserBriefs); i++ {
+			// 	var userAcc string
+			// 	fileInfo.UserBriefs[i].BucketName = string(fmeta.UserBriefs[i].Bucket_name)
+			// 	fileInfo.UserBriefs[i].FileName = string(fmeta.UserBriefs[i].File_name)
+			// 	userAcc, _ = utils.EncodePublicKeyAsCessAccount(fmeta.UserBriefs[i].User[:])
+			// 	fileInfo.UserBriefs[i].User = userAcc
+			// }
+			// for i := 0; i < len(fmeta.BlockInfo); i++ {
+			// 	var userAcc string
+			// 	var contact string
+			// 	fileInfo.BlockInfo[i].BlockId = string(fmeta.BlockInfo[i].BlockId[len(fmeta.BlockInfo[i].BlockId)-2:])
+			// 	fileInfo.BlockInfo[i].MinerId = uint64(fmeta.BlockInfo[i].MinerId)
+			// 	userAcc, _ = utils.EncodePublicKeyAsCessAccount(fmeta.BlockInfo[i].MinerAcc[:])
+			// 	fileInfo.BlockInfo[i].MinerAcc = userAcc
+			// 	contact = fmt.Sprintf("%d.%d.%d.%d:%d",
+			// 		fmeta.BlockInfo[i].MinerIp.Value[0],
+			// 		fmeta.BlockInfo[i].MinerIp.Value[1],
+			// 		fmeta.BlockInfo[i].MinerIp.Value[2],
+			// 		fmeta.BlockInfo[i].MinerIp.Value[3],
+			// 		fmeta.BlockInfo[i].MinerIp.Port)
+			// 	fileInfo.BlockInfo[i].MinerIp = contact
+			// }
+			// c.JSON(http.StatusOK, fileInfo)
+			// return
 		}
 		if operation == "download" {
 			// local cache
