@@ -18,6 +18,7 @@ package node
 
 import (
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -40,6 +41,17 @@ import (
 	jwt "github.com/dgrijalva/jwt-go"
 	"github.com/gin-gonic/gin"
 )
+
+type FileStoreInfo struct {
+	FileId      string         `json:"file_id"`
+	FileState   string         `json:"file_state"`
+	FileSize    int64          `json:"file_size"`
+	IsUpload    bool           `json:"is_upload"`
+	IsCheck     bool           `json:"is_check"`
+	IsShard     bool           `json:"is_shard"`
+	IsScheduler bool           `json:"is_scheduler"`
+	Miners      map[int]string `json:"miners"`
+}
 
 // It is used to authorize users
 func (n *Node) putHandle(c *gin.Context) {
@@ -270,6 +282,18 @@ func (n *Node) putHandle(c *gin.Context) {
 		}
 	}
 
+	var fileSt = FileStoreInfo{
+		FileId:      hashtree,
+		FileSize:    fstat.Size(),
+		FileState:   "pending",
+		IsUpload:    true,
+		IsCheck:     true,
+		IsShard:     true,
+		IsScheduler: false,
+		Miners:      nil,
+	}
+	val, _ := json.Marshal(&fileSt)
+	n.Cache.Put([]byte(hashtree), val)
 	go n.task_StoreFile(newChunksPath, hashtree, putName, fstat.Size())
 	n.Logs.Upfile("info", fmt.Errorf("[%v] Upload success", hashtree))
 	c.JSON(http.StatusOK, hashtree)
@@ -282,22 +306,29 @@ func (n *Node) task_StoreFile(fpath []string, fid, fname string, fsize int64) {
 			n.Logs.Pnc("error", utils.RecoverError(err))
 		}
 	}()
-	var channel_1 = make(chan uint8, 1)
+	var channel_1 = make(chan string, 1)
 
 	n.Logs.Upfile("info", fmt.Errorf("[%v] Start the file backup management process", fid))
 	go n.uploadToStorage(channel_1, fpath, fid, fsize)
 	for {
 		select {
 		case result := <-channel_1:
-			if result == 1 {
+			if result == "1" {
 				go n.uploadToStorage(channel_1, fpath, fid, fsize)
 				time.Sleep(time.Second * 6)
 			}
-			if result == 2 {
+			if len(result) > 1 {
+				var fileSt FileStoreInfo
+				val_old, _ := n.Cache.Get([]byte(fid))
+				json.Unmarshal(val_old, &fileSt)
+				fileSt.IsScheduler = true
+				val_new, _ := json.Marshal(&fileSt)
+				n.Cache.Put([]byte(fid), val_new)
 				n.Logs.Upfile("info", fmt.Errorf("[%v] File save successfully", fid))
+				go n.TrackFile(fid, result)
 				return
 			}
-			if result == 3 {
+			if result == "3" {
 				n.Logs.Upfile("info", fmt.Errorf("[%v] File save failed", fid))
 				return
 			}
@@ -306,11 +337,11 @@ func (n *Node) task_StoreFile(fpath []string, fid, fname string, fsize int64) {
 }
 
 // Upload files to cess storage system
-func (n *Node) uploadToStorage(ch chan uint8, fpath []string, fid string, fsize int64) {
+func (n *Node) uploadToStorage(ch chan string, fpath []string, fid string, fsize int64) {
 	defer func() {
 		err := recover()
 		if err != nil {
-			ch <- 1
+			ch <- "1"
 			n.Logs.Pnc("error", utils.RecoverError(err))
 		}
 	}()
@@ -331,14 +362,14 @@ func (n *Node) uploadToStorage(ch chan uint8, fpath []string, fid string, fsize 
 	// sign message
 	sign, err := kr.Sign(kr.SigningContext([]byte(msg)))
 	if err != nil {
-		ch <- 1
+		ch <- "1"
 		return
 	}
 
 	// Get all scheduler
 	schds, err := n.Chain.GetSchedulerList()
 	if err != nil {
-		ch <- 1
+		ch <- "1"
 		return
 	}
 
@@ -366,10 +397,10 @@ func (n *Node) uploadToStorage(ch chan uint8, fpath []string, fid string, fsize 
 			n.Logs.Upfile("err", fmt.Errorf("send to %v err: %v", wsURL, err))
 			continue
 		}
-		ch <- 2
+		ch <- wsURL
 		return
 	}
-	ch <- 1
+	ch <- "1"
 }
 
 // Bucket name verification rules
@@ -421,4 +452,25 @@ func dialTcpServer(address string) (*net.TCPConn, error) {
 		return nil, errors.New("network conversion failed")
 	}
 	return conTcp, nil
+}
+
+func (n *Node) TrackFile(fid, sche string) {
+	var fileSt FileStoreInfo
+	for {
+		time.Sleep(time.Second * 10)
+		val, _ := n.Cache.Get([]byte(fid))
+		json.Unmarshal(val, &fileSt)
+
+		if fileSt.FileState == chain.FILE_STATE_ACTIVE {
+			return
+		}
+
+		conTcp, err := dialTcpServer(sche)
+		if err != nil {
+			continue
+		}
+
+		srv := NewClient(NewTcp(conTcp), n.FileDir, nil)
+		err = srv.SendFileSt(fid, n.Cache)
+	}
 }
