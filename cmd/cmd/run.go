@@ -57,7 +57,7 @@ func Command_Run_Runfunc(cmd *cobra.Command, args []string) {
 	}
 
 	//Build Data Directory
-	logDir, cacheDir, node.FileDir, err = buildDir(node.Confile, node.Chain)
+	logDir, cacheDir, node.FileDir, node.TrackDir, err = buildDir(node.Confile, node.Chain)
 	if err != nil {
 		log.Println(err)
 		os.Exit(1)
@@ -161,45 +161,42 @@ func register(cfg confile.Confiler, client chain.Chainer) error {
 	return nil
 }
 
-func buildDir(cfg confile.Confiler, client chain.Chainer) (string, string, string, error) {
+func buildDir(cfg confile.Confiler, client chain.Chainer) (string, string, string, string, error) {
 	ctlAccount, err := client.GetCessAccount()
 	if err != nil {
-		return "", "", "", err
+		return "", "", "", "", err
 	}
 	baseDir := filepath.Join(cfg.GetDataDir(), ctlAccount, configs.BaseDir)
 
 	_, err = os.Stat(baseDir)
 	if err != nil {
-		err = os.MkdirAll(baseDir, os.ModeDir)
+		err = os.MkdirAll(baseDir, 755)
 		if err != nil {
-			return "", "", "", err
+			return "", "", "", "", err
 		}
 	}
 
 	logDir := filepath.Join(baseDir, configs.Log)
-	_, err = os.Stat(logDir)
-	if err == nil {
-		bkp := logDir + fmt.Sprintf("_%v", time.Now().Unix())
-		os.Rename(logDir, bkp)
-	}
-	if err := os.MkdirAll(logDir, os.ModeDir); err != nil {
-		return "", "", "", err
+	if err := os.MkdirAll(logDir, 755); err != nil {
+		return "", "", "", "", err
 	}
 
 	cacheDir := filepath.Join(baseDir, configs.Cache)
-	os.RemoveAll(cacheDir)
-	if err := os.MkdirAll(cacheDir, os.ModeDir); err != nil {
-		return "", "", "", err
+	if err := os.MkdirAll(cacheDir, 755); err != nil {
+		return "", "", "", "", err
 	}
 
 	fileDir := filepath.Join(baseDir, configs.File)
-	os.RemoveAll(fileDir)
-	if err := os.MkdirAll(fileDir, os.ModeDir); err != nil {
-		return "", "", "", err
+	if err := os.MkdirAll(fileDir, 755); err != nil {
+		return "", "", "", "", err
 	}
 
-	log.Println(baseDir)
-	return logDir, cacheDir, fileDir, nil
+	trackDir := filepath.Join(baseDir, configs.Track)
+	if err := os.MkdirAll(trackDir, 755); err != nil {
+		return "", "", "", "", err
+	}
+
+	return logDir, cacheDir, fileDir, trackDir, nil
 }
 
 func buildCache(cacheDir string) (db.Cacher, error) {

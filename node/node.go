@@ -31,12 +31,13 @@ type Oss interface {
 }
 
 type Node struct {
-	Confile confile.Confiler
-	Chain   chain.Chainer
-	Logs    logger.Logger
-	Cache   db.Cacher
-	Handle  *gin.Engine
-	FileDir string
+	Confile  confile.Confiler
+	Chain    chain.Chainer
+	Logs     logger.Logger
+	Cache    db.Cacher
+	Handle   *gin.Engine
+	FileDir  string
+	TrackDir string
 }
 
 // New is used to build a node instance
@@ -59,6 +60,8 @@ func (n *Node) Run() {
 	n.Handle.Use(cors.New(config))
 	// Add route
 	n.addRoute()
+	// Track file
+	go n.TrackFile()
 	// Run
 	n.Handle.Run(":" + n.Confile.GetServicePort())
 }

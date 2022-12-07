@@ -39,6 +39,7 @@ const (
 	Header_Auth       = "Authorization"
 	Header_BucketName = "BucketName"
 	Header_Account    = "Account"
+	Header_Digest     = "Digest"
 	Header_Operation  = "Operation"
 	TokenDated        = 60 * 60 * 24 * 30
 )
@@ -59,6 +60,9 @@ const (
 const (
 	// Time out waiting for transaction completion
 	TimeOut_WaitBlock = time.Duration(time.Second * 15)
+
+	// File cache expiration time,in hours
+	FileCacheExpirationTime = 7 * 24
 )
 
 // explanation

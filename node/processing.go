@@ -73,9 +73,14 @@ func (c *ConMgr) handler(cache db.Cacher) error {
 			c.conn.SendMsg(NewNotifyMsg(c.fileName, Status_Ok))
 		case MsgFileSt:
 			var fileSt FileStoreInfo
-			err := json.Unmarshal(m.Bytes, &fileSt)
+			err := json.Unmarshal(m.Bytes[:m.FileSize], &fileSt)
 			if err != nil {
-				cache.Put([]byte(m.FileHash), m.Bytes)
+				cache.Put([]byte(m.FileHash), m.Bytes[:m.FileSize])
+			}
+			switch cap(m.Bytes) {
+			case configs.TCP_ReadBuffer:
+				readBufPool.Put(m.Bytes)
+			default:
 			}
 			return err
 		case MsgFile:

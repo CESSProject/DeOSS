@@ -109,7 +109,7 @@ func (c *confile) Parse(fpath string) error {
 
 	fstat, err = os.Stat(c.DataDir)
 	if err != nil {
-		err = os.MkdirAll(c.DataDir, os.ModeDir)
+		err = os.MkdirAll(c.DataDir, 755)
 		if err != nil {
 			return err
 		}

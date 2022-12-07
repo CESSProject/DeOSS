@@ -27,6 +27,7 @@ import (
 )
 
 func (c *chainClient) Register(ip, port string) (string, error) {
+	defer func() { recover() }()
 	var (
 		txhash      string
 		ipType      IpAddress
@@ -157,6 +158,7 @@ func (c *chainClient) Register(ip, port string) (string, error) {
 }
 
 func (c *chainClient) Update(ip, port string) (string, error) {
+	defer func() { recover() }()
 	var (
 		txhash      string
 		ipType      IpAddress
@@ -286,6 +288,7 @@ func (c *chainClient) Update(ip, port string) (string, error) {
 }
 
 func (c *chainClient) CreateBucket(owner_pkey []byte, name string) (string, error) {
+	defer func() { recover() }()
 	var (
 		txhash      string
 		accountInfo types.AccountInfo
@@ -406,6 +409,7 @@ func (c *chainClient) CreateBucket(owner_pkey []byte, name string) (string, erro
 }
 
 func (c *chainClient) DeleteBucket(owner_pkey []byte, name string) (string, error) {
+	defer func() { recover() }()
 	var (
 		txhash      string
 		accountInfo types.AccountInfo
@@ -522,6 +526,7 @@ func (c *chainClient) DeleteBucket(owner_pkey []byte, name string) (string, erro
 }
 
 func (c *chainClient) DeclarationFile(filehash string, user UserBrief) (string, error) {
+	defer func() { recover() }()
 	var (
 		txhash      string
 		accountInfo types.AccountInfo
@@ -646,6 +651,7 @@ func (c *chainClient) DeclarationFile(filehash string, user UserBrief) (string, 
 }
 
 func (c *chainClient) DeleteFile(owner_pkey []byte, filehash string) (string, error) {
+	defer func() { recover() }()
 	var (
 		txhash      string
 		accountInfo types.AccountInfo

@@ -29,6 +29,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/CESSProject/cess-oss/configs"
@@ -45,6 +46,7 @@ import (
 type FileStoreInfo struct {
 	FileId      string         `json:"file_id"`
 	FileState   string         `json:"file_state"`
+	Scheduler   string         `json:"scheduler"`
 	FileSize    int64          `json:"file_size"`
 	IsUpload    bool           `json:"is_upload"`
 	IsCheck     bool           `json:"is_check"`
@@ -134,14 +136,39 @@ func (n *Node) putHandle(c *gin.Context) {
 		return
 	}
 
-	//
+	// Digest
+	digest := c.Request.Header.Get(configs.Header_Digest)
+	if digest != "" {
+		fmeta, err := n.Chain.GetFileMetaInfo(digest)
+		if err == nil {
+			if string(fmeta.State) == chain.FILE_STATE_ACTIVE {
+				c.JSON(http.StatusOK, digest)
+				return
+			}
+		}
+
+		val, err := n.Cache.Get([]byte(digest))
+		if err == nil {
+			var fileSt FileStoreInfo
+			err = json.Unmarshal(val, &fileSt)
+			if err != nil {
+				n.Logs.Upfile("info", fmt.Errorf("[%v] Data has been uploaded", string(val)))
+				c.JSON(http.StatusOK, string(val))
+				return
+			}
+			n.Logs.Upfile("info", fmt.Errorf("[%v] Data is being backed up", fileSt.FileId))
+			c.JSON(http.StatusOK, fileSt.FileId)
+			return
+		}
+	}
+
+	// Grantor
 	grantor, err := n.Chain.GetGrantor(pkey)
 	if err != nil {
 		n.Logs.Upfile("error", fmt.Errorf("[%v] %v", c.ClientIP(), err))
 		c.JSON(400, "Unauthorized")
 		return
 	}
-
 	account_chain, _ := utils.EncodePublicKeyAsCessAccount(grantor[:])
 	account_local, _ := n.Chain.GetCessAccount()
 	if account_chain != account_local {
@@ -169,7 +196,7 @@ func (n *Node) putHandle(c *gin.Context) {
 
 	_, err = os.Stat(n.FileDir)
 	if err != nil {
-		err = os.MkdirAll(n.FileDir, os.ModeDir)
+		err = os.MkdirAll(n.FileDir, 755)
 		if err != nil {
 			n.Logs.Upfile("error", fmt.Errorf("[%v] %v", c.ClientIP(), err))
 			c.JSON(500, "InternalError")
@@ -192,6 +219,7 @@ func (n *Node) putHandle(c *gin.Context) {
 		c.JSON(500, "InternalError")
 		return
 	}
+	defer os.Remove(fpath)
 
 	// Save file
 	buf := make([]byte, 4*1024*1024)
@@ -219,6 +247,12 @@ func (n *Node) putHandle(c *gin.Context) {
 		c.JSON(500, "InternalError")
 	}
 
+	hash256, err := utils.CalcPathSHA256(fpath)
+	if err != nil {
+		n.Logs.Upfile("error", fmt.Errorf("[%v] %v", c.ClientIP(), err))
+		c.JSON(500, "InternalError")
+	}
+
 	// Calc reedsolomon
 	chunkPath, datachunkLen, rduchunkLen, err := erasure.ReedSolomon(fpath, fileHead.Size)
 	if err != nil {
@@ -240,6 +274,8 @@ func (n *Node) putHandle(c *gin.Context) {
 
 	// Merkel root hash
 	hashtree := hex.EncodeToString(hTree.MerkleRoot())
+
+	n.Cache.Put([]byte(hash256), []byte(hashtree))
 
 	// file meta info
 	fmeta, err := n.Chain.GetFileMetaInfo(hashtree)
@@ -294,6 +330,7 @@ func (n *Node) putHandle(c *gin.Context) {
 	}
 	val, _ := json.Marshal(&fileSt)
 	n.Cache.Put([]byte(hashtree), val)
+	os.Create(filepath.Join(n.TrackDir, hashtree))
 	go n.task_StoreFile(newChunksPath, hashtree, putName, fstat.Size())
 	n.Logs.Upfile("info", fmt.Errorf("[%v] Upload success", hashtree))
 	c.JSON(http.StatusOK, hashtree)
@@ -322,10 +359,11 @@ func (n *Node) task_StoreFile(fpath []string, fid, fname string, fsize int64) {
 				val_old, _ := n.Cache.Get([]byte(fid))
 				json.Unmarshal(val_old, &fileSt)
 				fileSt.IsScheduler = true
+				fileSt.Scheduler = result
 				val_new, _ := json.Marshal(&fileSt)
 				n.Cache.Put([]byte(fid), val_new)
 				n.Logs.Upfile("info", fmt.Errorf("[%v] File save successfully", fid))
-				go n.TrackFile(fid, result)
+				//go n.TrackFile(fid, result)
 				return
 			}
 			if result == "3" {
@@ -454,23 +492,49 @@ func dialTcpServer(address string) (*net.TCPConn, error) {
 	return conTcp, nil
 }
 
-func (n *Node) TrackFile(fid, sche string) {
-	var fileSt FileStoreInfo
+func (n *Node) TrackFile() {
+	var (
+		fileSt        FileStoreInfo
+		linuxFileAttr *syscall.Stat_t
+	)
 	for {
 		time.Sleep(time.Second * 10)
-		val, _ := n.Cache.Get([]byte(fid))
-		json.Unmarshal(val, &fileSt)
+		files, _ := filepath.Glob(filepath.Join(n.TrackDir, "*"))
 
-		if fileSt.FileState == chain.FILE_STATE_ACTIVE {
-			return
+		if len(files) > 0 {
+			for _, v := range files {
+				val, _ := n.Cache.Get([]byte(v))
+				json.Unmarshal(val, &fileSt)
+
+				fmeta, _ := n.Chain.GetFileMetaInfo(v)
+
+				if fileSt.FileState == chain.FILE_STATE_ACTIVE ||
+					string(fmeta.State) == chain.FILE_STATE_ACTIVE {
+					os.Remove(filepath.Join(n.TrackDir, v))
+					n.Cache.Delete([]byte(v))
+					continue
+				}
+
+				conTcp, err := dialTcpServer(fileSt.Scheduler)
+				if err != nil {
+					continue
+				}
+
+				NewClient(NewTcp(conTcp), "", nil).SendFileSt(v, n.Cache)
+			}
 		}
 
-		conTcp, err := dialTcpServer(sche)
-		if err != nil {
-			continue
+		files, _ = filepath.Glob(filepath.Join(n.FileDir, "*"))
+		if len(files) > 0 {
+			for _, v := range files {
+				fs, err := os.Stat(filepath.Join(n.FileDir, v))
+				if err == nil {
+					linuxFileAttr = fs.Sys().(*syscall.Stat_t)
+					if time.Since(time.Unix(linuxFileAttr.Atim.Sec, 0)).Hours() > configs.FileCacheExpirationTime {
+						os.Remove(filepath.Join(n.FileDir, v))
+					}
+				}
+			}
 		}
-
-		srv := NewClient(NewTcp(conTcp), n.FileDir, nil)
-		err = srv.SendFileSt(fid, n.Cache)
 	}
 }

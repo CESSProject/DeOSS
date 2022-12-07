@@ -50,6 +50,7 @@ func (c *chainClient) GetChainStatus() bool {
 
 // Get miner information on the chain
 func (c *chainClient) GetStorageMinerInfo(pkey []byte) (MinerInfo, error) {
+	defer func() { recover() }()
 	var data MinerInfo
 
 	if !c.IsChainClientOk() {
@@ -80,6 +81,7 @@ func (c *chainClient) GetStorageMinerInfo(pkey []byte) (MinerInfo, error) {
 
 // Get all miner information on the cess chain
 func (c *chainClient) GetAllStorageMiner() ([]types.AccountID, error) {
+	defer func() { recover() }()
 	var data []types.AccountID
 
 	if !c.IsChainClientOk() {
@@ -109,6 +111,7 @@ func (c *chainClient) GetAllStorageMiner() ([]types.AccountID, error) {
 
 // Query file meta info
 func (c *chainClient) GetFileMetaInfo(fid string) (FileMetaInfo, error) {
+	defer func() { recover() }()
 	var (
 		data FileMetaInfo
 		hash FileHash
@@ -158,6 +161,7 @@ func (c *chainClient) GetCessAccount() (string, error) {
 }
 
 func (c *chainClient) GetAccountInfo(pkey []byte) (types.AccountInfo, error) {
+	defer func() { recover() }()
 	var data types.AccountInfo
 
 	if !c.IsChainClientOk() {
@@ -192,6 +196,7 @@ func (c *chainClient) GetAccountInfo(pkey []byte) (types.AccountInfo, error) {
 }
 
 func (c *chainClient) GetState(pubkey []byte) (string, error) {
+	defer func() { recover() }()
 	var data Ipv4Type
 
 	if !c.IsChainClientOk() {
@@ -232,6 +237,7 @@ func (c *chainClient) GetState(pubkey []byte) (string, error) {
 }
 
 func (c *chainClient) GetGrantor(pkey []byte) (types.AccountID, error) {
+	defer func() { recover() }()
 	var data types.AccountID
 
 	if !c.IsChainClientOk() {
@@ -266,6 +272,7 @@ func (c *chainClient) GetGrantor(pkey []byte) (types.AccountID, error) {
 }
 
 func (c *chainClient) GetBucketInfo(owner_pkey []byte, name string) (BucketInfo, error) {
+	defer func() { recover() }()
 	var data BucketInfo
 
 	if !c.IsChainClientOk() {
@@ -306,6 +313,7 @@ func (c *chainClient) GetBucketInfo(owner_pkey []byte, name string) (BucketInfo,
 }
 
 func (c *chainClient) GetBucketList(owner_pkey []byte) ([]types.Bytes, error) {
+	defer func() { recover() }()
 	var data []types.Bytes
 
 	if !c.IsChainClientOk() {
@@ -341,6 +349,7 @@ func (c *chainClient) GetBucketList(owner_pkey []byte) ([]types.Bytes, error) {
 
 // Get scheduler information on the cess chain
 func (c *chainClient) GetSchedulerList() ([]SchedulerInfo, error) {
+	defer func() { recover() }()
 	var data []SchedulerInfo
 
 	if !c.IsChainClientOk() {

@@ -44,7 +44,7 @@ type LevelDB struct {
 func NewCache(fpath string, memory int, handles int, namespace string) (Cacher, error) {
 	_, err := os.Stat(fpath)
 	if err != nil {
-		err = os.MkdirAll(fpath, os.ModeDir)
+		err = os.MkdirAll(fpath, 755)
 		if err != nil {
 			return nil, err
 		}
