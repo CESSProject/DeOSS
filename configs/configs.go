@@ -59,6 +59,8 @@ const (
 const (
 	// Time out waiting for transaction completion
 	TimeOut_WaitBlock = time.Duration(time.Second * 15)
+	// File cache expiration time,in hours
+	FileCacheExpirationTime = 7 * 24
 )
 
 // explanation

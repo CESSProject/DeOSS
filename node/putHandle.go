@@ -29,6 +29,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/CESSProject/cess-oss/configs"
@@ -45,6 +46,7 @@ import (
 type FileStoreInfo struct {
 	FileId      string         `json:"file_id"`
 	FileState   string         `json:"file_state"`
+	Scheduler   string         `json:"scheduler"`
 	FileSize    int64          `json:"file_size"`
 	IsUpload    bool           `json:"is_upload"`
 	IsCheck     bool           `json:"is_check"`
@@ -325,7 +327,7 @@ func (n *Node) task_StoreFile(fpath []string, fid, fname string, fsize int64) {
 				val_new, _ := json.Marshal(&fileSt)
 				n.Cache.Put([]byte(fid), val_new)
 				n.Logs.Upfile("info", fmt.Errorf("[%v] File save successfully", fid))
-				go n.TrackFile(fid, result)
+				//go n.TrackFile(fid, result)
 				return
 			}
 			if result == "3" {
@@ -454,23 +456,54 @@ func dialTcpServer(address string) (*net.TCPConn, error) {
 	return conTcp, nil
 }
 
-func (n *Node) TrackFile(fid, sche string) {
-	var fileSt FileStoreInfo
+func (n *Node) TrackFile() {
+	var (
+		count         uint8
+		fileSt        FileStoreInfo
+		linuxFileAttr *syscall.Stat_t
+	)
 	for {
 		time.Sleep(time.Second * 10)
-		val, _ := n.Cache.Get([]byte(fid))
-		json.Unmarshal(val, &fileSt)
+		count++
+		files, _ := filepath.Glob(filepath.Join(n.TrackDir, "*"))
 
-		if fileSt.FileState == chain.FILE_STATE_ACTIVE {
-			return
+		if len(files) > 0 {
+			for _, v := range files {
+				val, _ := n.Cache.Get([]byte(v))
+				json.Unmarshal(val, &fileSt)
+
+				fmeta, _ := n.Chain.GetFileMetaInfo(v)
+
+				if fileSt.FileState == chain.FILE_STATE_ACTIVE ||
+					string(fmeta.State) == chain.FILE_STATE_ACTIVE {
+					os.Remove(filepath.Join(n.TrackDir, v))
+					n.Cache.Delete([]byte(v))
+					continue
+				}
+
+				conTcp, err := dialTcpServer(fileSt.Scheduler)
+				if err != nil {
+					continue
+				}
+
+				NewClient(NewTcp(conTcp), "", nil).SendFileSt(v, n.Cache)
+			}
 		}
 
-		conTcp, err := dialTcpServer(sche)
-		if err != nil {
-			continue
+		if count > 60 {
+			count = 0
+			files, _ = filepath.Glob(filepath.Join(n.FileDir, "*"))
+			if len(files) > 0 {
+				for _, v := range files {
+					fs, err := os.Stat(filepath.Join(n.FileDir, v))
+					if err == nil {
+						linuxFileAttr = fs.Sys().(*syscall.Stat_t)
+						if time.Since(time.Unix(linuxFileAttr.Atim.Sec, 0)).Hours() > configs.FileCacheExpirationTime {
+							os.Remove(filepath.Join(n.FileDir, v))
+						}
+					}
+				}
+			}
 		}
-
-		srv := NewClient(NewTcp(conTcp), n.FileDir, nil)
-		err = srv.SendFileSt(fid, n.Cache)
 	}
 }
