@@ -1,5 +1,5 @@
 /*
-   Copyright 2022 CESS scheduler authors
+   Copyright 2022 CESS (Cumulus Encrypted Storage System) authors
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -34,10 +34,9 @@ import (
 
 	"github.com/CESSProject/cess-oss/configs"
 	"github.com/CESSProject/cess-oss/pkg/chain"
-	"github.com/CESSProject/cess-oss/pkg/erasure"
+	"github.com/CESSProject/cess-oss/pkg/client"
 	"github.com/CESSProject/cess-oss/pkg/hashtree"
 	"github.com/CESSProject/cess-oss/pkg/utils"
-	cesskeyring "github.com/CESSProject/go-keyring"
 	"github.com/centrifuge/go-substrate-rpc-client/v4/types"
 	jwt "github.com/dgrijalva/jwt-go"
 	"github.com/gin-gonic/gin"
@@ -106,7 +105,7 @@ func (n *Node) putHandle(c *gin.Context) {
 		return
 	}
 
-	fileHead, err := c.FormFile("file")
+	_, err = c.FormFile("file")
 	if err != nil {
 		if VerifyBucketName(putName) {
 			txHash, err := n.Chain.CreateBucket(pkey, putName)
@@ -238,14 +237,14 @@ func (n *Node) putHandle(c *gin.Context) {
 		}
 		f.Write(buf[:num])
 	}
-	f.Close()
-
-	// Calc file state
-	fstat, err := os.Stat(fpath)
+	err = f.Sync()
 	if err != nil {
 		n.Logs.Upfile("error", fmt.Errorf("[%v] %v", c.ClientIP(), err))
 		c.JSON(500, "InternalError")
+		return
 	}
+
+	f.Close()
 
 	hash256, err := utils.CalcPathSHA256(fpath)
 	if err != nil {
@@ -253,18 +252,9 @@ func (n *Node) putHandle(c *gin.Context) {
 		c.JSON(500, "InternalError")
 	}
 
-	// Calc reedsolomon
-	chunkPath, datachunkLen, rduchunkLen, err := erasure.ReedSolomon(fpath, fileHead.Size)
-	if err != nil {
-		n.Logs.Upfile("error", fmt.Errorf("[%v] %v", c.ClientIP(), err))
-		c.JSON(500, err.Error())
-	}
-
-	if len(chunkPath) != (datachunkLen + rduchunkLen) {
-		n.Logs.Upfile("error", fmt.Errorf("[%v] InternalError", c.ClientIP()))
-		c.JSON(500, "InternalError")
-	}
-
+	chunkPath, count, lastSize, err := Chunking(fpath)
+	fmt.Println(count)
+	fmt.Println(chunkPath)
 	// Calc merkle hash tree
 	hTree, err := hashtree.NewHashTree(chunkPath)
 	if err != nil {
@@ -274,6 +264,11 @@ func (n *Node) putHandle(c *gin.Context) {
 
 	// Merkel root hash
 	hashtree := hex.EncodeToString(hTree.MerkleRoot())
+
+	for _, v := range hTree.Leafs {
+		fmt.Println(v.Hash)
+		fmt.Println(string(v.Hash))
+	}
 
 	n.Cache.Put([]byte(hash256), []byte(hashtree))
 
@@ -290,7 +285,7 @@ func (n *Node) putHandle(c *gin.Context) {
 			Bucket_name: types.Bytes(bucketName),
 		}
 		// Declaration file
-		txhash, err := n.Chain.DeclarationFile(hashtree, userBrief)
+		txhash, err := n.Chain.DeclarationFile(hashtree, chunkPath, userBrief)
 		if err != nil || txhash == "" {
 			n.Logs.Upfile("error", fmt.Errorf("[%v] %v", c.ClientIP(), err))
 			c.JSON(400, err.Error())
@@ -304,23 +299,23 @@ func (n *Node) putHandle(c *gin.Context) {
 	}
 
 	// Rename the file and chunks with root hash
-	var newChunksPath = make([]string, 0)
-	newpath := filepath.Join(n.FileDir, hashtree)
-	os.Rename(fpath, newpath)
-	if rduchunkLen == 0 {
-		newChunksPath = append(newChunksPath, hashtree)
-	} else {
-		for i := 0; i < len(chunkPath); i++ {
-			var ext = filepath.Ext(chunkPath[i])
-			var newchunkpath = filepath.Join(n.FileDir, hashtree+ext)
-			os.Rename(chunkPath[i], newchunkpath)
-			newChunksPath = append(newChunksPath, hashtree+ext)
-		}
-	}
+	// var newChunksPath = make([]string, 0)
+	// newpath := filepath.Join(n.FileDir, hashtree)
+	// os.Rename(fpath, newpath)
+	// if rduchunkLen == 0 {
+	// 	newChunksPath = append(newChunksPath, hashtree)
+	// } else {
+	// 	for i := 0; i < len(chunkPath); i++ {
+	// 		var ext = filepath.Ext(chunkPath[i])
+	// 		var newchunkpath = filepath.Join(n.FileDir, hashtree+ext)
+	// 		os.Rename(chunkPath[i], newchunkpath)
+	// 		newChunksPath = append(newChunksPath, hashtree+ext)
+	// 	}
+	// }
 
 	var fileSt = FileStoreInfo{
 		FileId:      hashtree,
-		FileSize:    fstat.Size(),
+		FileSize:    int64(count * configs.SIZE_1MiB * 512),
 		FileState:   "pending",
 		IsUpload:    true,
 		IsCheck:     true,
@@ -331,13 +326,13 @@ func (n *Node) putHandle(c *gin.Context) {
 	val, _ := json.Marshal(&fileSt)
 	n.Cache.Put([]byte(hashtree), val)
 	os.Create(filepath.Join(n.TrackDir, hashtree))
-	go n.task_StoreFile(newChunksPath, hashtree, putName, fstat.Size())
+	go n.task_StoreFile(chunkPath, hashtree, int64(count*configs.SIZE_1MiB*512), lastSize)
 	n.Logs.Upfile("info", fmt.Errorf("[%v] Upload success", hashtree))
 	c.JSON(http.StatusOK, hashtree)
 	return
 }
 
-func (n *Node) task_StoreFile(fpath []string, fid, fname string, fsize int64) {
+func (n *Node) task_StoreFile(fpath []string, fid string, fsize, lastsize int64) {
 	defer func() {
 		if err := recover(); err != nil {
 			n.Logs.Pnc("error", utils.RecoverError(err))
@@ -346,12 +341,12 @@ func (n *Node) task_StoreFile(fpath []string, fid, fname string, fsize int64) {
 	var channel_1 = make(chan string, 1)
 
 	n.Logs.Upfile("info", fmt.Errorf("[%v] Start the file backup management process", fid))
-	go n.uploadToStorage(channel_1, fpath, fid, fsize)
+	go n.uploadToStorage(channel_1, fpath, fid, fsize, lastsize)
 	for {
 		select {
 		case result := <-channel_1:
 			if result == "1" {
-				go n.uploadToStorage(channel_1, fpath, fid, fsize)
+				go n.uploadToStorage(channel_1, fpath, fid, fsize, lastsize)
 				time.Sleep(time.Second * 6)
 			}
 			if len(result) > 1 {
@@ -363,7 +358,6 @@ func (n *Node) task_StoreFile(fpath []string, fid, fname string, fsize int64) {
 				val_new, _ := json.Marshal(&fileSt)
 				n.Cache.Put([]byte(fid), val_new)
 				n.Logs.Upfile("info", fmt.Errorf("[%v] File save successfully", fid))
-				//go n.TrackFile(fid, result)
 				return
 			}
 			if result == "3" {
@@ -375,7 +369,7 @@ func (n *Node) task_StoreFile(fpath []string, fid, fname string, fsize int64) {
 }
 
 // Upload files to cess storage system
-func (n *Node) uploadToStorage(ch chan string, fpath []string, fid string, fsize int64) {
+func (n *Node) uploadToStorage(ch chan string, fpath []string, fid string, fsize, lastsize int64) {
 	defer func() {
 		err := recover()
 		if err != nil {
@@ -384,25 +378,7 @@ func (n *Node) uploadToStorage(ch chan string, fpath []string, fid string, fsize
 		}
 	}()
 
-	var existFile = make([]string, 0)
-	for i := 0; i < len(fpath); i++ {
-		_, err := os.Stat(filepath.Join(n.FileDir, fpath[i]))
-		if err != nil {
-			continue
-		}
-		existFile = append(existFile, fpath[i])
-	}
-
-	n.Logs.Upfile("info", fmt.Errorf("files:%v", existFile))
-	msg := utils.GetRandomcode(16)
-
-	kr, _ := cesskeyring.FromURI(n.Confile.GetCtrlPrk(), cesskeyring.NetSubstrate{})
-	// sign message
-	sign, err := kr.Sign(kr.SigningContext([]byte(msg)))
-	if err != nil {
-		ch <- "1"
-		return
-	}
+	n.Logs.Upfile("info", fmt.Errorf("files:%v", fpath))
 
 	// Get all scheduler
 	schds, err := n.Chain.GetSchedulerList()
@@ -429,12 +405,17 @@ func (n *Node) uploadToStorage(ch chan string, fpath []string, fid string, fsize
 			continue
 		}
 
-		srv := NewClient(NewTcp(conTcp), n.FileDir, existFile)
-		err = srv.SendFile(fid, fsize, n.Chain.GetPublicKey(), []byte(msg), sign[:])
+		token, err := client.AuthReq(conTcp, n.Confile.GetCtrlPrk())
 		if err != nil {
-			n.Logs.Upfile("err", fmt.Errorf("send to %v err: %v", wsURL, err))
+			n.Logs.Upfile("err", fmt.Errorf("dial %v err: %v", wsURL, err))
 			continue
 		}
+
+		err = client.FileReq(conTcp, token, fpath)
+		if err != nil {
+			continue
+		}
+
 		ch <- wsURL
 		return
 	}
@@ -494,11 +475,13 @@ func dialTcpServer(address string) (*net.TCPConn, error) {
 
 func (n *Node) TrackFile() {
 	var (
+		count         uint8
 		fileSt        FileStoreInfo
 		linuxFileAttr *syscall.Stat_t
 	)
 	for {
 		time.Sleep(time.Second * 10)
+		count++
 		files, _ := filepath.Glob(filepath.Join(n.TrackDir, "*"))
 
 		if len(files) > 0 {
@@ -520,21 +503,108 @@ func (n *Node) TrackFile() {
 					continue
 				}
 
-				NewClient(NewTcp(conTcp), "", nil).SendFileSt(v, n.Cache)
+				NewTcpClient(NewTcp(conTcp)).SendFileSt(v, n.Cache)
 			}
 		}
 
-		files, _ = filepath.Glob(filepath.Join(n.FileDir, "*"))
-		if len(files) > 0 {
-			for _, v := range files {
-				fs, err := os.Stat(filepath.Join(n.FileDir, v))
-				if err == nil {
-					linuxFileAttr = fs.Sys().(*syscall.Stat_t)
-					if time.Since(time.Unix(linuxFileAttr.Atim.Sec, 0)).Hours() > configs.FileCacheExpirationTime {
-						os.Remove(filepath.Join(n.FileDir, v))
+		if count > 60 {
+			count = 0
+			files, _ = filepath.Glob(filepath.Join(n.FileDir, "*"))
+			if len(files) > 0 {
+				for _, v := range files {
+					fs, err := os.Stat(filepath.Join(n.FileDir, v))
+					if err == nil {
+						linuxFileAttr = fs.Sys().(*syscall.Stat_t)
+						if time.Since(time.Unix(linuxFileAttr.Atim.Sec, 0)).Hours() > configs.FileCacheExpirationTime {
+							os.Remove(filepath.Join(n.FileDir, v))
+						}
 					}
 				}
 			}
 		}
 	}
+}
+
+func Chunking(fpath string) ([]string, int, int64, error) {
+	fstat, err := os.Stat(fpath)
+	if err != nil {
+		return nil, 0, 0, err
+	}
+	if fstat.IsDir() {
+		return nil, 0, 0, fmt.Errorf("Not a file")
+	}
+
+	count := fstat.Size() / (configs.SIZE_1MiB * 512)
+
+	lastSize := fstat.Size() % (configs.SIZE_1MiB * 512)
+	if lastSize > 0 {
+		count += 1
+	}
+
+	rtnList := make([]string, count)
+
+	appendSize := configs.SIZE_1MiB*512 - lastSize
+
+	fbase, err := os.Open(fpath)
+	if err != nil {
+		return nil, 0, 0, err
+	}
+	buf := make([]byte, configs.SIZE_1MiB*512)
+	appendSizeBuf := make([]byte, appendSize)
+	baseDir := filepath.Dir(fpath)
+	for i := int64(0); i < count; i++ {
+		fbase.Seek(i*configs.SIZE_1MiB*512, 0)
+		n, err := fbase.Read(buf)
+		if err != nil && err != io.EOF {
+			return nil, 0, 0, err
+		}
+
+		tempPath := fpath + fmt.Sprintf("%d", i)
+		fs, err := os.Create(tempPath)
+		if err != nil {
+			return nil, 0, 0, err
+		}
+
+		if (i+1) < count && n != configs.SIZE_1MiB*512 {
+			if n != configs.SIZE_1MiB*512 {
+				fs.Close()
+				return nil, 0, 0, err
+			}
+			_, err = fs.Write(buf[:n])
+			if err != nil {
+				fs.Close()
+				return nil, 0, 0, err
+			}
+		} else {
+			if int64(n) != lastSize {
+				fs.Close()
+				return nil, 0, 0, err
+			}
+			_, err = fs.Write(buf[:n])
+			if err != nil {
+				fs.Close()
+				return nil, 0, 0, err
+			}
+			_, err = fs.Write(appendSizeBuf)
+			if err != nil {
+				fs.Close()
+				return nil, 0, 0, err
+			}
+		}
+		err = fs.Sync()
+		if err != nil {
+			fs.Close()
+			return nil, 0, 0, err
+		}
+		fs.Close()
+
+		rtnList[i], err = utils.CalcPathSHA256(tempPath)
+		if err != nil {
+			return nil, 0, 0, err
+		}
+		os.Rename(tempPath, fmt.Sprintf("%v/%v", baseDir, rtnList[i]))
+		rtnList[i] = fmt.Sprintf("%v/%v", baseDir, rtnList[i])
+	}
+
+	return rtnList, int(count), lastSize, nil
 }

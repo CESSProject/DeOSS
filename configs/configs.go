@@ -1,5 +1,5 @@
 /*
-   Copyright 2022 CESS scheduler authors
+   Copyright 2022 CESS (Cumulus Encrypted Storage System) authors
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -55,6 +55,8 @@ const (
 	TCP_ReadBuffer = 12000
 	//
 	Tcp_Dial_Timeout = time.Duration(time.Second * 5)
+
+	TCP_MaxPacketSize = SIZE_1MiB * 3 / 2
 )
 
 const (

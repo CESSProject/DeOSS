@@ -1,5 +1,5 @@
 /*
-   Copyright 2022 CESS scheduler authors
+   Copyright 2022 CESS (Cumulus Encrypted Storage System) authors
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -69,7 +69,7 @@ type Chainer interface {
 	//
 	DeleteFile(owner_pkey []byte, filehash string) (string, error)
 	//
-	DeclarationFile(filehash string, user UserBrief) (string, error)
+	DeclarationFile(filehash string, slicehash []string, user UserBrief) (string, error)
 }
 
 type chainClient struct {

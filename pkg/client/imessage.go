@@ -14,14 +14,14 @@
    limitations under the License.
 */
 
-package node
+package client
 
-func (n *Node) addRoute() {
-	n.Handle.POST("/auth", n.authHandle)
+type IMessage interface {
+	GetDataLen() uint32
+	GetMsgID() uint32
+	GetData() []byte
 
-	n.Handle.PUT("/:name", n.putHandle)
-
-	n.Handle.DELETE("/:name", n.delHandle)
-
-	n.Handle.GET("/:name", n.GetHandle)
+	SetMsgID(uint32)
+	SetData([]byte)
+	SetDataLen(uint32)
 }

@@ -1,5 +1,5 @@
 /*
-   Copyright 2022 CESS scheduler authors
+   Copyright 2022 CESS (Cumulus Encrypted Storage System) authors
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -17,10 +17,13 @@
 package chain
 
 import (
+	"fmt"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/CESSProject/cess-oss/configs"
 	"github.com/CESSProject/cess-oss/pkg/utils"
 	"github.com/centrifuge/go-substrate-rpc-client/v4/types"
 	"github.com/pkg/errors"
@@ -525,7 +528,7 @@ func (c *chainClient) DeleteBucket(owner_pkey []byte, name string) (string, erro
 	}
 }
 
-func (c *chainClient) DeclarationFile(filehash string, user UserBrief) (string, error) {
+func (c *chainClient) DeclarationFile(filehash string, slicehash []string, user UserBrief) (string, error) {
 	defer func() { recover() }()
 	var (
 		txhash      string
@@ -543,16 +546,43 @@ func (c *chainClient) DeclarationFile(filehash string, user UserBrief) (string, 
 
 	var hash FileHash
 	if len(filehash) != len(hash) {
-		return txhash, errors.New("invalid filehash")
+		return txhash, fmt.Errorf("invalid file hash: %v", filehash)
 	}
 	for i := 0; i < len(hash); i++ {
 		hash[i] = types.U8(filehash[i])
+	}
+
+	var sliceInfo = make([]SliceInfo, len(slicehash))
+	for i := 0; i < len(slicehash); i++ {
+		var temp string
+		if i < 10 {
+			temp = fmt.Sprintf("%s.00%d", filehash, uint8(i))
+		} else if i < 100 {
+			temp = fmt.Sprintf("%s.0%d", filehash, uint8(i))
+		} else {
+			temp = fmt.Sprintf("%s.%d", filehash, uint8(i))
+		}
+		if len(temp) != len(SliceId{}) {
+			return txhash, fmt.Errorf("invalid slice id: %v", temp)
+		}
+		for j := 0; j < len(SliceId{}); j++ {
+			sliceInfo[i].Shard_id[i] = types.U8(temp[i])
+		}
+		temp = filepath.Base(slicehash[i])
+		if len(temp) != len(FileHash{}) {
+			return txhash, fmt.Errorf("invalid slice hash: %v", temp)
+		}
+		for j := 0; j < len(FileHash{}); j++ {
+			sliceInfo[i].Slice_hash[i] = types.U8(temp[i])
+		}
+		sliceInfo[i].Shard_size = configs.SIZE_1MiB * 512
 	}
 
 	call, err := types.NewCall(
 		c.metadata,
 		FileBank_UploadDeclaration,
 		hash,
+		sliceInfo,
 		user,
 	)
 	if err != nil {

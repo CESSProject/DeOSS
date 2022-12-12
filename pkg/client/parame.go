@@ -14,14 +14,18 @@
    limitations under the License.
 */
 
-package node
+package client
 
-func (n *Node) addRoute() {
-	n.Handle.POST("/auth", n.authHandle)
+const (
+	Msg_Ping = iota + 100
+	Msg_Auth
+	Msg_File
+)
 
-	n.Handle.PUT("/:name", n.putHandle)
-
-	n.Handle.DELETE("/:name", n.delHandle)
-
-	n.Handle.GET("/:name", n.GetHandle)
-}
+const (
+	Msg_OK        = 200
+	Msg_OK_FILE   = 201
+	Msg_ClientErr = 400
+	Msg_Forbidden = 403
+	Msg_ServerErr = 500
+)

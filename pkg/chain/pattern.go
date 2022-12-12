@@ -1,5 +1,5 @@
 /*
-   Copyright 2022 CESS scheduler authors
+   Copyright 2022 CESS (Cumulus Encrypted Storage System) authors
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -36,7 +36,7 @@ var (
 )
 
 type FileHash [64]types.U8
-type FileBlockId [68]types.U8
+type SliceId [68]types.U8
 
 // storage miner info
 type MinerInfo struct {
@@ -62,27 +62,32 @@ type Cache_MinerInfo struct {
 	Ip     string `json:"ip"`
 }
 
-// file meta info
+// File meta info
 type FileMetaInfo struct {
 	Size       types.U64
 	Index      types.U32
 	State      types.Bytes
 	UserBriefs []UserBrief
-	//Names      []types.Bytes
-	BlockInfo []BlockInfo
+	Blockups   []Backup
 }
 
-// file block info
-type BlockInfo struct {
-	MinerId   types.U64
-	BlockSize types.U64
-	BlockNum  types.U32
-	BlockId   [68]types.U8
-	MinerIp   Ipv4Type
-	MinerAcc  types.AccountID
+// Backups
+type Backup struct {
+	Backup_index types.U8
+	State        types.Bool
+	Slice_info   []SliceInfo
 }
 
-// filler meta info
+// SliceInfo
+type SliceInfo struct {
+	Shard_id   SliceId
+	Slice_hash FileHash
+	Shard_size types.U64
+	Miner_ip   Ipv4Type
+	Miner_acc  types.AccountID
+}
+
+// Filler meta info
 type FillerMetaInfo struct {
 	Size      types.U64
 	Index     types.U32

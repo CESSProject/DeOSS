@@ -14,14 +14,10 @@
    limitations under the License.
 */
 
-package node
+package client
 
-func (n *Node) addRoute() {
-	n.Handle.POST("/auth", n.authHandle)
-
-	n.Handle.PUT("/:name", n.putHandle)
-
-	n.Handle.DELETE("/:name", n.delHandle)
-
-	n.Handle.GET("/:name", n.GetHandle)
+type IDataPack interface {
+	GetHeadLen() uint32
+	Pack(msg IMessage) ([]byte, error)
+	Unpack([]byte) (IMessage, error)
 }

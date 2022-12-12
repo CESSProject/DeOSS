@@ -1,3 +1,19 @@
+/*
+   Copyright 2022 CESS (Cumulus Encrypted Storage System) authors
+
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at
+
+        http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
+*/
+
 package node
 
 import (
@@ -35,7 +51,7 @@ type ConMgr struct {
 
 	sendFiles []string
 
-	waitNotify chan bool
+	waitNotify chan uint8
 	stop       chan struct{}
 }
 
@@ -133,7 +149,7 @@ func (c *ConMgr) handler(cache db.Cacher) error {
 			recvFile = nil
 
 		case MsgNotify:
-			c.waitNotify <- m.Bytes[0] == byte(Status_Ok)
+			c.waitNotify <- m.Bytes[0]
 			switch cap(m.Bytes) {
 			case configs.TCP_ReadBuffer:
 				readBufPool.Put(m.Bytes)
@@ -161,12 +177,10 @@ func (c *ConMgr) handler(cache db.Cacher) error {
 	return err
 }
 
-func NewClient(conn NetConn, dir string, files []string) Client {
+func NewTcpClient(conn NetConn) Client {
 	return &ConMgr{
 		conn:       conn,
-		dir:        dir,
-		sendFiles:  files,
-		waitNotify: make(chan bool, 1),
+		waitNotify: make(chan uint8, 1),
 		stop:       make(chan struct{}),
 	}
 }
@@ -236,7 +250,7 @@ func (c *ConMgr) recvFile(fid string, fsize int64, pkey, signmsg, sign []byte) e
 	defer timerHead.Stop()
 	select {
 	case ok := <-c.waitNotify:
-		if !ok {
+		if ok != 0 {
 			return fmt.Errorf("send err")
 		}
 	case <-timerHead.C:
@@ -260,7 +274,7 @@ func (c *ConMgr) recvFile(fid string, fsize int64, pkey, signmsg, sign []byte) e
 	defer timerFile.Stop()
 	select {
 	case ok := <-c.waitNotify:
-		if !ok {
+		if ok != 0 {
 			return fmt.Errorf("send err")
 		}
 	case <-timerFile.C:
@@ -292,7 +306,7 @@ func (c *ConMgr) sendSingleFile(filePath string, fid string, fsize int64, lastma
 	defer timerHead.Stop()
 	select {
 	case ok := <-c.waitNotify:
-		if !ok {
+		if ok != 0 {
 			return fmt.Errorf("send err")
 		}
 	case <-timerHead.C:
@@ -325,7 +339,7 @@ func (c *ConMgr) sendSingleFile(filePath string, fid string, fsize int64, lastma
 	defer timerFile.Stop()
 	select {
 	case ok := <-c.waitNotify:
-		if !ok {
+		if ok != 0 {
 			return fmt.Errorf("send err")
 		}
 	case <-timerFile.C:
@@ -346,7 +360,7 @@ func (c *ConMgr) sendFileSt(fid string) error {
 	defer timerHead.Stop()
 	select {
 	case ok := <-c.waitNotify:
-		if !ok {
+		if ok != 0 {
 			return fmt.Errorf("send err")
 		}
 	case <-timerHead.C:
