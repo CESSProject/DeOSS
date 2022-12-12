@@ -1,0 +1,13 @@
+version: "3.5"
+
+services:
+  oss:
+    container_name: oss
+    image: baidang201/oss:latest
+    volumes:
+      - './oss.env:/app/oss.env'
+      - './ossdata:/app/ossdata'
+    command: /oss run -c /app/oss.env
+    ports:
+      - "8001:8001"
+    restart: always
