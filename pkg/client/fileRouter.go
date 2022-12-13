@@ -18,6 +18,7 @@ package client
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"net"
 	"os"
@@ -35,19 +36,25 @@ var sendFileBufPool = &sync.Pool{
 
 type MsgFile struct {
 	Token    string `json:"token"`
+	RootHash string `json:"roothash"`
 	FileHash string `json:"filehash"`
+	FileSize int64  `json:"filesize"`
+	LastSize int64  `json:"lastsize"`
+	LastFile bool   `json:"lastfile"`
 	Data     []byte `json:"data"`
 }
 
-func FileReq(conn net.Conn, token string, files []string) error {
+func FileReq(conn net.Conn, token, fid string, files []string, lastsize int64) error {
 	var (
 		err     error
 		num     int
 		tempBuf []byte
 		msgHead IMessage
 		fs      *os.File
-		mesage  = MsgFile{
+		finfo   os.FileInfo
+		message = MsgFile{
 			Token:    token,
+			RootHash: fid,
 			FileHash: "",
 			Data:     nil,
 		}
@@ -65,7 +72,18 @@ func FileReq(conn net.Conn, token string, files []string) error {
 		if err != nil {
 			return err
 		}
-		mesage.FileHash = filepath.Base(files[i])
+		finfo, err = fs.Stat()
+		if err != nil {
+			return err
+		}
+		message.FileHash = filepath.Base(files[i])
+		message.FileSize = finfo.Size()
+		message.LastFile = false
+		if (i + 1) == len(files) {
+			message.LastFile = true
+			message.LastSize = lastsize
+		}
+
 		for {
 			num, err = fs.Read(readBuf)
 			if err != nil && err != io.EOF {
@@ -74,9 +92,15 @@ func FileReq(conn net.Conn, token string, files []string) error {
 			if num == 0 {
 				break
 			}
-			mesage.Data = readBuf[:num]
+			num += num
+			if message.LastFile && num >= int(lastsize) {
+				bound := cap(readBuf) + int(lastsize) - num
+				message.Data = readBuf[:bound]
+			} else {
+				message.Data = readBuf[:num]
+			}
 
-			tempBuf, err = json.Marshal(&mesage)
+			tempBuf, err = json.Marshal(&message)
 			if err != nil {
 				return err
 			}
@@ -101,6 +125,16 @@ func FileReq(conn net.Conn, token string, files []string) error {
 
 			if msgHead.GetMsgID() == Msg_OK_FILE {
 				break
+			}
+
+			if msgHead.GetMsgID() == Msg_OK {
+				if message.LastFile && num >= int(lastsize) {
+					return nil
+				}
+			}
+
+			if msgHead.GetMsgID() != Msg_OK {
+				return fmt.Errorf("send file error")
 			}
 		}
 	}

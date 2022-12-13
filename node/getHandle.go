@@ -71,8 +71,11 @@ func (n *Node) GetHandle(c *gin.Context) {
 				return
 			}
 
-			var fileSt FileStoreInfo
-
+			var fileSt StorageProgress
+			fileSt.Backups = make([]map[int]string, len(fmeta.Backups))
+			for i := 0; i < len(fmeta.Backups); i++ {
+				fileSt.Backups[i] = make(map[int]string)
+			}
 			if string(fmeta.State) == chain.FILE_STATE_ACTIVE {
 				fileSt.FileId = getName
 				fileSt.FileSize = int64(fmeta.Size)
@@ -81,8 +84,10 @@ func (n *Node) GetHandle(c *gin.Context) {
 				fileSt.IsCheck = true
 				fileSt.IsScheduler = true
 				fileSt.IsShard = true
-				for i := 0; i < len(fmeta.Blockups); i++ {
-					fileSt.Miners[i] = string(fmeta.Blockups[i].Slice_info[i].Miner_acc[:])
+				for i := 0; i < len(fmeta.Backups); i++ {
+					for j := 0; j < len(fmeta.Backups[i].Slice_info); j++ {
+						fileSt.Backups[i][j], _ = utils.EncodePublicKeyAsCessAccount(fmeta.Backups[i].Slice_info[j].Miner_acc[:])
+					}
 				}
 				c.JSON(http.StatusOK, fileSt)
 				return
@@ -97,7 +102,7 @@ func (n *Node) GetHandle(c *gin.Context) {
 				fileSt.IsCheck = true
 				fileSt.IsShard = true
 				fileSt.IsScheduler = false
-				fileSt.Miners = nil
+				fileSt.Backups = nil
 				c.JSON(http.StatusOK, fileSt)
 				return
 			}

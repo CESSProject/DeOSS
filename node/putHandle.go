@@ -42,16 +42,16 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-type FileStoreInfo struct {
-	FileId      string         `json:"file_id"`
-	FileState   string         `json:"file_state"`
-	Scheduler   string         `json:"scheduler"`
-	FileSize    int64          `json:"file_size"`
-	IsUpload    bool           `json:"is_upload"`
-	IsCheck     bool           `json:"is_check"`
-	IsShard     bool           `json:"is_shard"`
-	IsScheduler bool           `json:"is_scheduler"`
-	Miners      map[int]string `json:"miners"`
+type StorageProgress struct {
+	FileId      string           `json:"file_id"`
+	FileState   string           `json:"file_state"`
+	Scheduler   string           `json:"scheduler"`
+	FileSize    int64            `json:"file_size"`
+	IsUpload    bool             `json:"is_upload"`
+	IsCheck     bool             `json:"is_check"`
+	IsShard     bool             `json:"is_shard"`
+	IsScheduler bool             `json:"is_scheduler"`
+	Backups     []map[int]string `json:"backups, omitempty"`
 }
 
 // It is used to authorize users
@@ -148,7 +148,7 @@ func (n *Node) putHandle(c *gin.Context) {
 
 		val, err := n.Cache.Get([]byte(digest))
 		if err == nil {
-			var fileSt FileStoreInfo
+			var fileSt StorageProgress
 			err = json.Unmarshal(val, &fileSt)
 			if err != nil {
 				n.Logs.Upfile("info", fmt.Errorf("[%v] Data has been uploaded", string(val)))
@@ -298,22 +298,7 @@ func (n *Node) putHandle(c *gin.Context) {
 		}
 	}
 
-	// Rename the file and chunks with root hash
-	// var newChunksPath = make([]string, 0)
-	// newpath := filepath.Join(n.FileDir, hashtree)
-	// os.Rename(fpath, newpath)
-	// if rduchunkLen == 0 {
-	// 	newChunksPath = append(newChunksPath, hashtree)
-	// } else {
-	// 	for i := 0; i < len(chunkPath); i++ {
-	// 		var ext = filepath.Ext(chunkPath[i])
-	// 		var newchunkpath = filepath.Join(n.FileDir, hashtree+ext)
-	// 		os.Rename(chunkPath[i], newchunkpath)
-	// 		newChunksPath = append(newChunksPath, hashtree+ext)
-	// 	}
-	// }
-
-	var fileSt = FileStoreInfo{
+	var fileSt = StorageProgress{
 		FileId:      hashtree,
 		FileSize:    int64(count * configs.SIZE_1MiB * 512),
 		FileState:   "pending",
@@ -321,18 +306,17 @@ func (n *Node) putHandle(c *gin.Context) {
 		IsCheck:     true,
 		IsShard:     true,
 		IsScheduler: false,
-		Miners:      nil,
 	}
 	val, _ := json.Marshal(&fileSt)
 	n.Cache.Put([]byte(hashtree), val)
 	os.Create(filepath.Join(n.TrackDir, hashtree))
-	go n.task_StoreFile(chunkPath, hashtree, int64(count*configs.SIZE_1MiB*512), lastSize)
+	go n.task_StoreFile(chunkPath, hashtree, lastSize)
 	n.Logs.Upfile("info", fmt.Errorf("[%v] Upload success", hashtree))
 	c.JSON(http.StatusOK, hashtree)
 	return
 }
 
-func (n *Node) task_StoreFile(fpath []string, fid string, fsize, lastsize int64) {
+func (n *Node) task_StoreFile(fpath []string, fid string, lastsize int64) {
 	defer func() {
 		if err := recover(); err != nil {
 			n.Logs.Pnc("error", utils.RecoverError(err))
@@ -341,16 +325,15 @@ func (n *Node) task_StoreFile(fpath []string, fid string, fsize, lastsize int64)
 	var channel_1 = make(chan string, 1)
 
 	n.Logs.Upfile("info", fmt.Errorf("[%v] Start the file backup management process", fid))
-	go n.uploadToStorage(channel_1, fpath, fid, fsize, lastsize)
+	go n.uploadToStorage(channel_1, fpath, fid, lastsize)
 	for {
 		select {
 		case result := <-channel_1:
-			if result == "1" {
-				go n.uploadToStorage(channel_1, fpath, fid, fsize, lastsize)
+			if result == ERR_RETRY {
+				go n.uploadToStorage(channel_1, fpath, fid, lastsize)
 				time.Sleep(time.Second * 6)
-			}
-			if len(result) > 1 {
-				var fileSt FileStoreInfo
+			} else if _, err := net.ResolveTCPAddr("tcp", result); err == nil {
+				var fileSt StorageProgress
 				val_old, _ := n.Cache.Get([]byte(fid))
 				json.Unmarshal(val_old, &fileSt)
 				fileSt.IsScheduler = true
@@ -359,21 +342,20 @@ func (n *Node) task_StoreFile(fpath []string, fid string, fsize, lastsize int64)
 				n.Cache.Put([]byte(fid), val_new)
 				n.Logs.Upfile("info", fmt.Errorf("[%v] File save successfully", fid))
 				return
-			}
-			if result == "3" {
-				n.Logs.Upfile("info", fmt.Errorf("[%v] File save failed", fid))
-				return
+			} else {
+				go n.uploadToStorage(channel_1, fpath, fid, lastsize)
+				time.Sleep(time.Second * 6)
 			}
 		}
 	}
 }
 
 // Upload files to cess storage system
-func (n *Node) uploadToStorage(ch chan string, fpath []string, fid string, fsize, lastsize int64) {
+func (n *Node) uploadToStorage(ch chan string, fpath []string, fid string, lastsize int64) {
 	defer func() {
 		err := recover()
 		if err != nil {
-			ch <- "1"
+			ch <- ERR_RETRY
 			n.Logs.Pnc("error", utils.RecoverError(err))
 		}
 	}()
@@ -383,7 +365,7 @@ func (n *Node) uploadToStorage(ch chan string, fpath []string, fid string, fsize
 	// Get all scheduler
 	schds, err := n.Chain.GetSchedulerList()
 	if err != nil {
-		ch <- "1"
+		ch <- ERR_RETRY
 		return
 	}
 
@@ -411,7 +393,7 @@ func (n *Node) uploadToStorage(ch chan string, fpath []string, fid string, fsize
 			continue
 		}
 
-		err = client.FileReq(conTcp, token, fpath)
+		err = client.FileReq(conTcp, token, fid, fpath, lastsize)
 		if err != nil {
 			continue
 		}
@@ -419,7 +401,7 @@ func (n *Node) uploadToStorage(ch chan string, fpath []string, fid string, fsize
 		ch <- wsURL
 		return
 	}
-	ch <- "1"
+	ch <- ERR_RETRY
 }
 
 // Bucket name verification rules
@@ -476,7 +458,7 @@ func dialTcpServer(address string) (*net.TCPConn, error) {
 func (n *Node) TrackFile() {
 	var (
 		count         uint8
-		fileSt        FileStoreInfo
+		fileSt        StorageProgress
 		linuxFileAttr *syscall.Stat_t
 	)
 	for {
@@ -565,7 +547,7 @@ func Chunking(fpath string) ([]string, int, int64, error) {
 			return nil, 0, 0, err
 		}
 
-		if (i+1) < count && n != configs.SIZE_1MiB*512 {
+		if (i + 1) < count {
 			if n != configs.SIZE_1MiB*512 {
 				fs.Close()
 				return nil, 0, 0, err

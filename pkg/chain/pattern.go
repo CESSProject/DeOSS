@@ -68,7 +68,7 @@ type FileMetaInfo struct {
 	Index      types.U32
 	State      types.Bytes
 	UserBriefs []UserBrief
-	Blockups   []Backup
+	Backups    []Backup
 }
 
 // Backups

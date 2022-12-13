@@ -88,7 +88,7 @@ func (c *ConMgr) handler(cache db.Cacher) error {
 			}
 			c.conn.SendMsg(NewNotifyMsg(c.fileName, Status_Ok))
 		case MsgFileSt:
-			var fileSt FileStoreInfo
+			var fileSt StorageProgress
 			err := json.Unmarshal(m.Bytes[:m.FileSize], &fileSt)
 			if err != nil {
 				cache.Put([]byte(m.FileHash), m.Bytes[:m.FileSize])
