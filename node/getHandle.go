@@ -22,7 +22,6 @@ import (
 	"net"
 	"net/http"
 	"os"
-	"path/filepath"
 	"unsafe"
 
 	"github.com/CESSProject/cess-oss/configs"
@@ -306,16 +305,17 @@ func (n *Node) downloadFromStorage(fpath string, fsize int64, mip string) error 
 		return err
 	}
 
+	sign = sign
+
 	tcpAddr, err := net.ResolveTCPAddr("tcp", mip)
 	if err != nil {
 		return err
 	}
 
 	conTcp, err := net.DialTCP("tcp", nil, tcpAddr)
-	if err != nil {
-		return err
-	}
-	return NewTcpClient(NewTcp(conTcp)).RecvFile(filepath.Base(fpath), fsize, n.Chain.GetPublicKey(), []byte(msg), sign[:])
+	conTcp = conTcp
+	return err
+	//return NewTcpClient(NewTcp(conTcp)).RecvFile(filepath.Base(fpath), fsize, n.Chain.GetPublicKey(), []byte(msg), sign[:])
 }
 
 func copyFile(src, dst string, length int64) error {
