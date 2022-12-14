@@ -42,18 +42,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-type StorageProgress struct {
-	FileId      string           `json:"file_id"`
-	FileState   string           `json:"file_state"`
-	Scheduler   string           `json:"scheduler"`
-	FileSize    int64            `json:"file_size"`
-	IsUpload    bool             `json:"is_upload"`
-	IsCheck     bool             `json:"is_check"`
-	IsShard     bool             `json:"is_shard"`
-	IsScheduler bool             `json:"is_scheduler"`
-	Backups     []map[int]string `json:"backups, omitempty"`
-}
-
 // It is used to authorize users
 func (n *Node) putHandle(c *gin.Context) {
 	var (
@@ -148,7 +136,7 @@ func (n *Node) putHandle(c *gin.Context) {
 
 		val, err := n.Cache.Get([]byte(digest))
 		if err == nil {
-			var fileSt StorageProgress
+			var fileSt client.StorageProgress
 			err = json.Unmarshal(val, &fileSt)
 			if err != nil {
 				n.Logs.Upfile("info", fmt.Errorf("[%v] Data has been uploaded", string(val)))
@@ -298,7 +286,7 @@ func (n *Node) putHandle(c *gin.Context) {
 		}
 	}
 
-	var fileSt = StorageProgress{
+	var fileSt = client.StorageProgress{
 		FileId:      hashtree,
 		FileSize:    int64(count * configs.SIZE_1MiB * 512),
 		FileState:   "pending",
@@ -333,7 +321,7 @@ func (n *Node) task_StoreFile(fpath []string, fid string, lastsize int64) {
 				go n.uploadToStorage(channel_1, fpath, fid, lastsize)
 				time.Sleep(time.Second * 6)
 			} else if _, err := net.ResolveTCPAddr("tcp", result); err == nil {
-				var fileSt StorageProgress
+				var fileSt client.StorageProgress
 				val_old, _ := n.Cache.Get([]byte(fid))
 				json.Unmarshal(val_old, &fileSt)
 				fileSt.IsScheduler = true
@@ -450,6 +438,7 @@ func dialTcpServer(address string) (*net.TCPConn, error) {
 	}
 	conTcp, ok := netCon.(*net.TCPConn)
 	if !ok {
+		conTcp.Close()
 		return nil, errors.New("network conversion failed")
 	}
 	return conTcp, nil
@@ -458,7 +447,7 @@ func dialTcpServer(address string) (*net.TCPConn, error) {
 func (n *Node) TrackFile() {
 	var (
 		count         uint8
-		fileSt        StorageProgress
+		fileSt        client.StorageProgress
 		linuxFileAttr *syscall.Stat_t
 	)
 	for {
@@ -485,7 +474,12 @@ func (n *Node) TrackFile() {
 					continue
 				}
 
-				NewTcpClient(NewTcp(conTcp)).SendFileSt(v, n.Cache)
+				val, err = client.ProgressReq(conTcp, v)
+				conTcp.Close()
+				if err != nil {
+					continue
+				}
+				n.Cache.Put([]byte(v), val)
 			}
 		}
 

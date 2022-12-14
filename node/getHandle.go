@@ -27,6 +27,7 @@ import (
 
 	"github.com/CESSProject/cess-oss/configs"
 	"github.com/CESSProject/cess-oss/pkg/chain"
+	"github.com/CESSProject/cess-oss/pkg/client"
 	"github.com/CESSProject/cess-oss/pkg/utils"
 	cesskeyring "github.com/CESSProject/go-keyring"
 	"github.com/gin-gonic/gin"
@@ -71,7 +72,7 @@ func (n *Node) GetHandle(c *gin.Context) {
 				return
 			}
 
-			var fileSt StorageProgress
+			var fileSt client.StorageProgress
 			fileSt.Backups = make([]map[int]string, len(fmeta.Backups))
 			for i := 0; i < len(fmeta.Backups); i++ {
 				fileSt.Backups[i] = make(map[int]string)
