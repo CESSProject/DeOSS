@@ -60,7 +60,7 @@ If all goes well, you will get a program called `oss`.
 
 ### Step 1: Register a polka wallet
 
-Browser access: [App](https://testnet-rpc.cess.cloud/explorer) implemented by [CESS Explorer](https://github.com/CESSProject/cess-explorer), and [add an account](https://github.com/CESSProject/W3F-illustration/blob/main/gateway/createAccount.PNG).
+Browser access: [App](https://testnet.cess.cloud/explorer) implemented by [CESS Explorer](https://github.com/CESSProject/cess-explorer), and [add an account](https://github.com/CESSProject/W3F-illustration/blob/main/gateway/createAccount.PNG).
 
 ### Step 2: Recharge your polka wallet
 
