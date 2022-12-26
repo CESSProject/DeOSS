@@ -528,7 +528,7 @@ func (c *chainClient) DeleteBucket(owner_pkey []byte, name string) (string, erro
 	}
 }
 
-func (c *chainClient) DeclarationFile(filehash string, slicehash []string, user UserBrief) (string, error) {
+func (c *chainClient) DeclarationFile(filehash string, filesize uint64, slicehash []string, user UserBrief) (string, error) {
 	defer func() { recover() }()
 	var (
 		txhash      string
@@ -580,8 +580,9 @@ func (c *chainClient) DeclarationFile(filehash string, slicehash []string, user 
 
 	call, err := types.NewCall(
 		c.metadata,
-		FileBank_UploadDeclaration,
+		FileBank_UploadDeal,
 		hash,
+		types.U64(filesize),
 		sliceInfo,
 		user,
 	)

@@ -18,10 +18,12 @@ package node
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"net"
 	"net/http"
 	"os"
+	"path/filepath"
 	"unsafe"
 
 	"github.com/CESSProject/cess-oss/configs"
@@ -60,7 +62,7 @@ func (n *Node) GetHandle(c *gin.Context) {
 	operation := c.Request.Header.Get(configs.Header_Operation)
 	// view file
 	if len(getName) == int(unsafe.Sizeof(chain.FileHash{})) && operation != "" {
-		if operation == "view" {
+		if operation == Opt_View {
 			fmeta, err := n.Chain.GetFileMetaInfo(getName)
 			if err != nil {
 				if err.Error() == chain.ERR_Empty {
@@ -110,116 +112,87 @@ func (n *Node) GetHandle(c *gin.Context) {
 			json.Unmarshal(val, &fileSt)
 			c.JSON(http.StatusOK, fileSt)
 			return
-			// var fileInfo RtnFileType
-			// fileInfo.UserBriefs = make([]RtnUserBrief, len(fmeta.UserBriefs))
-			// fileInfo.BlockInfo = make([]RtnBlockInfo, len(fmeta.BlockInfo))
-			// fileInfo.FileSize = uint64(fmeta.Size)
-			// fileInfo.FileState = string(fmeta.State)
-			// for i := 0; i < len(fmeta.UserBriefs); i++ {
-			// 	var userAcc string
-			// 	fileInfo.UserBriefs[i].BucketName = string(fmeta.UserBriefs[i].Bucket_name)
-			// 	fileInfo.UserBriefs[i].FileName = string(fmeta.UserBriefs[i].File_name)
-			// 	userAcc, _ = utils.EncodePublicKeyAsCessAccount(fmeta.UserBriefs[i].User[:])
-			// 	fileInfo.UserBriefs[i].User = userAcc
-			// }
-			// for i := 0; i < len(fmeta.BlockInfo); i++ {
-			// 	var userAcc string
-			// 	var contact string
-			// 	fileInfo.BlockInfo[i].BlockId = string(fmeta.BlockInfo[i].BlockId[len(fmeta.BlockInfo[i].BlockId)-2:])
-			// 	fileInfo.BlockInfo[i].MinerId = uint64(fmeta.BlockInfo[i].MinerId)
-			// 	userAcc, _ = utils.EncodePublicKeyAsCessAccount(fmeta.BlockInfo[i].MinerAcc[:])
-			// 	fileInfo.BlockInfo[i].MinerAcc = userAcc
-			// 	contact = fmt.Sprintf("%d.%d.%d.%d:%d",
-			// 		fmeta.BlockInfo[i].MinerIp.Value[0],
-			// 		fmeta.BlockInfo[i].MinerIp.Value[1],
-			// 		fmeta.BlockInfo[i].MinerIp.Value[2],
-			// 		fmeta.BlockInfo[i].MinerIp.Value[3],
-			// 		fmeta.BlockInfo[i].MinerIp.Port)
-			// 	fileInfo.BlockInfo[i].MinerIp = contact
-			// }
-			// c.JSON(http.StatusOK, fileInfo)
-			// return
 		}
-		// if operation == "download" {
-		// 	// local cache
-		// 	fpath := filepath.Join(n.FileDir, getName)
-		// 	_, err := os.Stat(fpath)
-		// 	if err == nil {
-		// 		c.Writer.Header().Add("Content-Disposition", fmt.Sprintf("attachment; filename=%v", getName))
-		// 		c.Writer.Header().Add("Content-Type", "application/octet-stream")
-		// 		c.File(fpath)
-		// 		return
-		// 	}
+		if operation == Opt_Download {
+			// local cache
+			fpath := filepath.Join(n.FileDir, getName)
+			_, err := os.Stat(fpath)
+			if err == nil {
+				c.Writer.Header().Add("Content-Disposition", fmt.Sprintf("attachment; filename=%v", getName))
+				c.Writer.Header().Add("Content-Type", "application/octet-stream")
+				c.File(fpath)
+				return
+			}
 
-		// 	// file meta info
-		// 	fmeta, err := n.Chain.GetFileMetaInfo(getName)
-		// 	if err != nil {
-		// 		if err.Error() == chain.ERR_Empty {
-		// 			c.JSON(404, "NotFound")
-		// 			return
-		// 		}
-		// 		c.JSON(500, "InternalError")
-		// 		return
-		// 	}
+			// file meta info
+			fmeta, err := n.Chain.GetFileMetaInfo(getName)
+			if err != nil {
+				if err.Error() == chain.ERR_Empty {
+					c.JSON(404, "NotFound")
+					return
+				}
+				c.JSON(500, "InternalError")
+				return
+			}
 
-		// 	if string(fmeta.State) != chain.FILE_STATE_ACTIVE {
-		// 		c.JSON(403, "BackingUp")
-		// 		return
-		// 	}
+			if string(fmeta.State) != chain.FILE_STATE_ACTIVE {
+				c.JSON(403, "BackingUp")
+				return
+			}
 
-		// 	r := len(fmeta.BlockInfo) / 3
-		// 	d := len(fmeta.BlockInfo) - r
-		// 	down_count := 0
-		// 	for i := 0; i < len(fmeta.BlockInfo); i++ {
-		// 		// Download the file from the scheduler service
-		// 		fname := filepath.Join(n.FileDir, string(fmeta.BlockInfo[i].BlockId[:]))
-		// 		if len(fmeta.BlockInfo) == 1 {
-		// 			fname = fname[:(len(fname) - 4)]
-		// 		}
-		// 		mip := fmt.Sprintf("%d.%d.%d.%d:%d",
-		// 			fmeta.BlockInfo[i].MinerIp.Value[0],
-		// 			fmeta.BlockInfo[i].MinerIp.Value[1],
-		// 			fmeta.BlockInfo[i].MinerIp.Value[2],
-		// 			fmeta.BlockInfo[i].MinerIp.Value[3],
-		// 			fmeta.BlockInfo[i].MinerIp.Port,
-		// 		)
-		// 		err = n.downloadFromStorage(fname, int64(fmeta.BlockInfo[i].BlockSize), mip)
-		// 		if err != nil {
-		// 			n.Logs.Downfile("error", fmt.Errorf("[%v] Downloading %drd shard err: %v", c.ClientIP(), i, err))
-		// 		} else {
-		// 			down_count++
-		// 		}
-		// 		if down_count >= d {
-		// 			break
-		// 		}
-		// 	}
+			r := len(fmeta.BlockInfo) / 3
+			d := len(fmeta.BlockInfo) - r
+			down_count := 0
+			for i := 0; i < len(fmeta.BlockInfo); i++ {
+				// Download the file from the scheduler service
+				fname := filepath.Join(n.FileDir, string(fmeta.BlockInfo[i].BlockId[:]))
+				if len(fmeta.BlockInfo) == 1 {
+					fname = fname[:(len(fname) - 4)]
+				}
+				mip := fmt.Sprintf("%d.%d.%d.%d:%d",
+					fmeta.BlockInfo[i].MinerIp.Value[0],
+					fmeta.BlockInfo[i].MinerIp.Value[1],
+					fmeta.BlockInfo[i].MinerIp.Value[2],
+					fmeta.BlockInfo[i].MinerIp.Value[3],
+					fmeta.BlockInfo[i].MinerIp.Port,
+				)
+				err = n.downloadFromStorage(fname, int64(fmeta.BlockInfo[i].BlockSize), mip)
+				if err != nil {
+					n.Logs.Downfile("error", fmt.Errorf("[%v] Downloading %drd shard err: %v", c.ClientIP(), i, err))
+				} else {
+					down_count++
+				}
+				if down_count >= d {
+					break
+				}
+			}
 
-		// 	err = erasure.ReedSolomon_Restore(n.FileDir, getName, d, r, uint64(fmeta.Size))
-		// 	if err != nil {
-		// 		n.Logs.Downfile("error", fmt.Errorf("[%v] ReedSolomon_Restore: %v", c.ClientIP(), err))
-		// 		c.JSON(500, "InternalError")
-		// 		return
-		// 	}
+			err = erasure.ReedSolomon_Restore(n.FileDir, getName, d, r, uint64(fmeta.Size))
+			if err != nil {
+				n.Logs.Downfile("error", fmt.Errorf("[%v] ReedSolomon_Restore: %v", c.ClientIP(), err))
+				c.JSON(500, "InternalError")
+				return
+			}
 
-		// 	if r > 0 {
-		// 		fstat, err := os.Stat(fpath)
-		// 		if err != nil {
-		// 			c.JSON(500, "InternalError")
-		// 			return
-		// 		}
-		// 		if uint64(fstat.Size()) > uint64(fmeta.Size) {
-		// 			tempfile := fpath + ".temp"
-		// 			copyFile(fpath, tempfile, int64(fmeta.Size))
-		// 			os.Remove(fpath)
-		// 			os.Rename(tempfile, fpath)
-		// 		}
-		// 	}
+			if r > 0 {
+				fstat, err := os.Stat(fpath)
+				if err != nil {
+					c.JSON(500, "InternalError")
+					return
+				}
+				if uint64(fstat.Size()) > uint64(fmeta.Size) {
+					tempfile := fpath + ".temp"
+					copyFile(fpath, tempfile, int64(fmeta.Size))
+					os.Remove(fpath)
+					os.Rename(tempfile, fpath)
+				}
+			}
 
-		// 	c.Writer.Header().Add("Content-Disposition", fmt.Sprintf("attachment; filename=%v", getName))
-		// 	c.Writer.Header().Add("Content-Type", "application/octet-stream")
-		// 	c.File(fpath)
-		// 	return
-		// }
+			c.Writer.Header().Add("Content-Disposition", fmt.Sprintf("attachment; filename=%v", getName))
+			c.Writer.Header().Add("Content-Type", "application/octet-stream")
+			c.File(fpath)
+			return
+		}
 		c.JSON(400, "InvalidHead.Operation")
 		return
 	}

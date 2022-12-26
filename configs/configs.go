@@ -29,9 +29,10 @@ const (
 
 // byte size
 const (
-	SIZE_1KiB = 1024
-	SIZE_1MiB = 1024 * SIZE_1KiB
-	SIZE_1GiB = 1024 * SIZE_1MiB
+	SIZE_1KiB  = 1024
+	SIZE_1MiB  = 1024 * SIZE_1KiB
+	SIZE_1GiB  = 1024 * SIZE_1MiB
+	SIZE_SLICE = 512 * SIZE_1MiB
 )
 
 // http
@@ -47,12 +48,7 @@ const (
 const (
 	// Tcp message interval
 	TCP_Message_Interval = time.Duration(time.Millisecond * 10)
-	// Number of tcp message caches
-	TCP_Message_Send_Buffers = 10
-	TCP_Message_Read_Buffers = 10
-	//
-	TCP_SendBuffer = 8192
-	TCP_ReadBuffer = 12000
+
 	//
 	Tcp_Dial_Timeout = time.Duration(time.Second * 5)
 
@@ -62,9 +58,10 @@ const (
 const (
 	// Time out waiting for transaction completion
 	TimeOut_WaitBlock = time.Duration(time.Second * 15)
-
 	// File cache expiration time,in hours
 	FileCacheExpirationTime = 7 * 24
+	//
+	DirPermission = 755
 )
 
 // explanation

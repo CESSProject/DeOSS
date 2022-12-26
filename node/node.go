@@ -55,6 +55,7 @@ func (n *Node) Run() {
 		configs.Header_Auth,
 		configs.Header_Account,
 		configs.Header_BucketName,
+		configs.Header_Digest,
 		"*",
 	)
 	n.Handle.Use(cors.New(config))

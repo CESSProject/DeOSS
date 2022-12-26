@@ -53,12 +53,12 @@ const (
 // Extrinsics
 const (
 	// FileBank
-	tx_FileBank_Update         = "FileBank.update"
-	tx_FileBank_Upload         = "FileBank.upload"
-	FileBank_CreateBucket      = "FileBank.create_bucket"
-	FileBank_DeleteBucket      = "FileBank.delete_bucket"
-	FileBank_DeleteFile        = "FileBank.delete_file"
-	FileBank_UploadDeclaration = "FileBank.upload_declaration"
+	tx_FileBank_Update    = "FileBank.update"
+	tx_FileBank_Upload    = "FileBank.upload"
+	FileBank_CreateBucket = "FileBank.create_bucket"
+	FileBank_DeleteBucket = "FileBank.delete_bucket"
+	FileBank_DeleteFile   = "FileBank.delete_file"
+	FileBank_UploadDeal   = "FileBank.upload_deal"
 	// SegmentBook
 	tx_SegmentBook_VerifyProof = "SegmentBook.verify_proof"
 	// Oss

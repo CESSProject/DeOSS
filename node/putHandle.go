@@ -153,7 +153,11 @@ func (n *Node) putHandle(c *gin.Context) {
 	grantor, err := n.Chain.GetGrantor(pkey)
 	if err != nil {
 		n.Logs.Upfile("error", fmt.Errorf("[%v] %v", c.ClientIP(), err))
-		c.JSON(400, "Unauthorized")
+		if err.Error() == chain.ERR_Empty {
+			c.JSON(400, "Unauthorized")
+			return
+		}
+		c.JSON(500, "InternalError")
 		return
 	}
 	account_chain, _ := utils.EncodePublicKeyAsCessAccount(grantor[:])
@@ -173,17 +177,9 @@ func (n *Node) putHandle(c *gin.Context) {
 		return
 	}
 
-	// save file
-	file_c, _, err := c.Request.FormFile("file")
-	if err != nil {
-		n.Logs.Upfile("error", fmt.Errorf("[%v] %v", c.ClientIP(), err))
-		c.JSON(400, "InvalidParameter.FormFile")
-		return
-	}
-
 	_, err = os.Stat(n.FileDir)
 	if err != nil {
-		err = os.MkdirAll(n.FileDir, 755)
+		err = os.MkdirAll(n.FileDir, configs.DirPermission)
 		if err != nil {
 			n.Logs.Upfile("error", fmt.Errorf("[%v] %v", c.ClientIP(), err))
 			c.JSON(500, "InternalError")
@@ -208,36 +204,40 @@ func (n *Node) putHandle(c *gin.Context) {
 	}
 	defer os.Remove(fpath)
 
+	// save file
+	file_c, _, err := c.Request.FormFile("file")
+	if err != nil {
+		f.Close()
+		n.Logs.Upfile("error", fmt.Errorf("[%v] %v", c.ClientIP(), err))
+		c.JSON(400, "InvalidParameter.FormFile")
+		return
+	}
+
 	// Save file
 	buf := make([]byte, 4*1024*1024)
 	for {
 		num, err := file_c.Read(buf)
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
+		if err != nil && err != io.EOF {
 			n.Logs.Upfile("error", fmt.Errorf("[%v] %v", c.ClientIP(), err))
 			c.JSON(400, "InvalidParameter.File")
 			return
 		}
 		if num == 0 {
-			continue
+			break
 		}
 		f.Write(buf[:num])
-	}
-	err = f.Sync()
-	if err != nil {
-		n.Logs.Upfile("error", fmt.Errorf("[%v] %v", c.ClientIP(), err))
-		c.JSON(500, "InternalError")
-		return
+		f.Sync()
 	}
 
 	f.Close()
+
+	fsata, _ := os.Stat(fpath)
 
 	hash256, err := utils.CalcPathSHA256(fpath)
 	if err != nil {
 		n.Logs.Upfile("error", fmt.Errorf("[%v] %v", c.ClientIP(), err))
 		c.JSON(500, "InternalError")
+		return
 	}
 
 	chunkPath, count, lastSize, err := Chunking(fpath)
@@ -258,10 +258,19 @@ func (n *Node) putHandle(c *gin.Context) {
 		fmt.Println(string(v.Hash))
 	}
 
-	n.Cache.Put([]byte(hash256), []byte(hashtree))
+	n.Cache.Put([]byte(Key_Digest+hash256), []byte(hashtree))
+	var slicesHash string
+	for i := 0; i < len(chunkPath); i++ {
+		slicesHash += filepath.Base(chunkPath[i])
+		if (i + 1) < len(chunkPath) {
+			slicesHash += "#"
+		}
+	}
+	fmt.Println(slicesHash)
+	n.Cache.Put([]byte(Key_Slices+hashtree), []byte(slicesHash))
 
 	// file meta info
-	fmeta, err := n.Chain.GetFileMetaInfo(hashtree)
+	_, err = n.Chain.GetFileMetaInfo(hashtree)
 	if err != nil {
 		if err.Error() != chain.ERR_Empty {
 			c.JSON(500, "InternalError")
@@ -273,23 +282,22 @@ func (n *Node) putHandle(c *gin.Context) {
 			Bucket_name: types.Bytes(bucketName),
 		}
 		// Declaration file
-		txhash, err := n.Chain.DeclarationFile(hashtree, chunkPath, userBrief)
+		txhash, err := n.Chain.DeclarationFile(hashtree, uint64(fsata.Size()), chunkPath, userBrief)
 		if err != nil || txhash == "" {
 			n.Logs.Upfile("error", fmt.Errorf("[%v] %v", c.ClientIP(), err))
 			c.JSON(400, err.Error())
 			return
 		}
 	} else {
-		if string(fmeta.State) == chain.FILE_STATE_ACTIVE {
-			c.JSON(200, hashtree)
-			return
-		}
+		c.JSON(200, hashtree)
+		return
 	}
 
 	var fileSt = client.StorageProgress{
 		FileId:      hashtree,
-		FileSize:    int64(count * configs.SIZE_1MiB * 512),
-		FileState:   "pending",
+		FileSize:    fsata.Size(),
+		FileState:   chain.FILE_STATE_PENDING,
+		Scheduler:   "",
 		IsUpload:    true,
 		IsCheck:     true,
 		IsShard:     true,
@@ -310,15 +318,15 @@ func (n *Node) task_StoreFile(fpath []string, fid string, lastsize int64) {
 			n.Logs.Pnc("error", utils.RecoverError(err))
 		}
 	}()
-	var channel_1 = make(chan string, 1)
+	var ch_Scheduler = make(chan string, 1)
 
 	n.Logs.Upfile("info", fmt.Errorf("[%v] Start the file backup management process", fid))
-	go n.uploadToStorage(channel_1, fpath, fid, lastsize)
+	go n.uploadToStorage(ch_Scheduler, fpath, fid, lastsize)
 	for {
 		select {
-		case result := <-channel_1:
+		case result := <-ch_Scheduler:
 			if result == ERR_RETRY {
-				go n.uploadToStorage(channel_1, fpath, fid, lastsize)
+				go n.uploadToStorage(ch_Scheduler, fpath, fid, lastsize)
 				time.Sleep(time.Second * 6)
 			} else if _, err := net.ResolveTCPAddr("tcp", result); err == nil {
 				var fileSt client.StorageProgress
@@ -331,7 +339,7 @@ func (n *Node) task_StoreFile(fpath []string, fid string, lastsize int64) {
 				n.Logs.Upfile("info", fmt.Errorf("[%v] File save successfully", fid))
 				return
 			} else {
-				go n.uploadToStorage(channel_1, fpath, fid, lastsize)
+				go n.uploadToStorage(ch_Scheduler, fpath, fid, lastsize)
 				time.Sleep(time.Second * 6)
 			}
 		}
@@ -380,13 +388,24 @@ func (n *Node) uploadToStorage(ch chan string, fpath []string, fid string, lasts
 			n.Logs.Upfile("err", fmt.Errorf("dial %v err: %v", wsURL, err))
 			continue
 		}
-
-		err = client.FileReq(conTcp, token, fid, fpath, lastsize)
-		if err != nil {
-			continue
+		var fsize int64
+		var lastfile bool
+		for j := 0; j < len(fpath); j++ {
+			if (j + 1) == len(fpath) {
+				fsize = lastsize
+				lastfile = true
+			} else {
+				fsize = configs.SIZE_SLICE
+				lastfile = false
+			}
+			err = client.FileReq(conTcp, token, fid, fpath[j], fsize, lastfile)
+			if err != nil {
+				continue
+			}
 		}
 
-		ch <- wsURL
+		acc, _ := utils.EncodePublicKeyAsCessAccount(schds[i].ControllerUser[:])
+		ch <- acc
 		return
 	}
 	ch <- ERR_RETRY

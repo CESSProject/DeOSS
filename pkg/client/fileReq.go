@@ -39,23 +39,23 @@ type MsgFile struct {
 	RootHash string `json:"roothash"`
 	FileHash string `json:"filehash"`
 	FileSize int64  `json:"filesize"`
-	LastSize int64  `json:"lastsize"`
-	LastFile bool   `json:"lastfile"`
+	Lastfile bool   `json:"lastfile"`
 	Data     []byte `json:"data"`
 }
 
-func FileReq(conn net.Conn, token, fid string, files []string, lastsize int64) error {
+func FileReq(conn net.Conn, token, fid string, fpath string, fsize int64, lastfile bool) error {
 	var (
 		err     error
 		num     int
 		tempBuf []byte
 		msgHead IMessage
 		fs      *os.File
-		finfo   os.FileInfo
 		message = MsgFile{
 			Token:    token,
 			RootHash: fid,
 			FileHash: "",
+			FileSize: fsize,
+			Lastfile: lastfile,
 			Data:     nil,
 		}
 		dp       = NewDataPack()
@@ -65,77 +65,57 @@ func FileReq(conn net.Conn, token, fid string, files []string, lastsize int64) e
 	readBuf := sendFileBufPool.Get().([]byte)
 	defer func() {
 		sendFileBufPool.Put(readBuf)
+		if fs != nil {
+			fs.Close()
+		}
 	}()
 
-	for i := 0; i < len(files); i++ {
-		fs, err = os.Open(files[i])
+	fs, err = os.Open(fpath)
+	if err != nil {
+		return err
+	}
+
+	message.FileHash = filepath.Base(fpath)
+
+	for {
+		num, err = fs.Read(readBuf)
+		if err != nil && err != io.EOF {
+			return err
+		}
+		if num == 0 {
+			break
+		}
+		message.Data = readBuf[:num]
+
+		tempBuf, err = json.Marshal(&message)
 		if err != nil {
 			return err
 		}
-		finfo, err = fs.Stat()
+
+		//send auth message
+		tempBuf, _ = dp.Pack(NewMsgPackage(Msg_File, tempBuf))
+		_, err = conn.Write(tempBuf)
 		if err != nil {
 			return err
 		}
-		message.FileHash = filepath.Base(files[i])
-		message.FileSize = finfo.Size()
-		message.LastFile = false
-		if (i + 1) == len(files) {
-			message.LastFile = true
-			message.LastSize = lastsize
+
+		//read head
+		_, err = io.ReadFull(conn, headData)
+		if err != nil {
+			return err
 		}
 
-		for {
-			num, err = fs.Read(readBuf)
-			if err != nil && err != io.EOF {
-				return err
-			}
-			if num == 0 {
-				break
-			}
-			num += num
-			if message.LastFile && num >= int(lastsize) {
-				bound := cap(readBuf) + int(lastsize) - num
-				message.Data = readBuf[:bound]
-			} else {
-				message.Data = readBuf[:num]
-			}
+		msgHead, err = dp.Unpack(headData)
+		if err != nil {
+			return err
+		}
 
-			tempBuf, err = json.Marshal(&message)
-			if err != nil {
-				return err
-			}
+		if msgHead.GetMsgID() == Msg_OK_FILE {
+			return nil
+		}
 
-			//send auth message
-			tempBuf, _ = dp.Pack(NewMsgPackage(Msg_File, tempBuf))
-			_, err = conn.Write(tempBuf)
-			if err != nil {
-				return err
-			}
-
-			//read head
-			_, err = io.ReadFull(conn, headData)
-			if err != nil {
-				return err
-			}
-
-			msgHead, err = dp.Unpack(headData)
-			if err != nil {
-				return err
-			}
-
-			if msgHead.GetMsgID() == Msg_OK_FILE {
-				break
-			}
-
-			if msgHead.GetMsgID() == Msg_OK {
-				if message.LastFile && num >= int(lastsize) {
-					return nil
-				}
-			}
-
-			if msgHead.GetMsgID() != Msg_OK {
-				return fmt.Errorf("send file error")
-			}
+		if msgHead.GetMsgID() != Msg_OK {
+			return fmt.Errorf("send file error")
 		}
 	}
 
