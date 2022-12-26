@@ -20,6 +20,7 @@ const (
 	Msg_Ping = iota + 100
 	Msg_Auth
 	Msg_File
+	Msg_Down
 	Msg_Progress
 )
 

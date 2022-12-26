@@ -20,7 +20,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"net"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -30,7 +29,6 @@ import (
 	"github.com/CESSProject/cess-oss/pkg/chain"
 	"github.com/CESSProject/cess-oss/pkg/client"
 	"github.com/CESSProject/cess-oss/pkg/utils"
-	cesskeyring "github.com/CESSProject/go-keyring"
 	"github.com/gin-gonic/gin"
 )
 
@@ -140,53 +138,64 @@ func (n *Node) GetHandle(c *gin.Context) {
 				return
 			}
 
-			r := len(fmeta.BlockInfo) / 3
-			d := len(fmeta.BlockInfo) - r
-			down_count := 0
-			for i := 0; i < len(fmeta.BlockInfo); i++ {
-				// Download the file from the scheduler service
-				fname := filepath.Join(n.FileDir, string(fmeta.BlockInfo[i].BlockId[:]))
-				if len(fmeta.BlockInfo) == 1 {
-					fname = fname[:(len(fname) - 4)]
-				}
-				mip := fmt.Sprintf("%d.%d.%d.%d:%d",
-					fmeta.BlockInfo[i].MinerIp.Value[0],
-					fmeta.BlockInfo[i].MinerIp.Value[1],
-					fmeta.BlockInfo[i].MinerIp.Value[2],
-					fmeta.BlockInfo[i].MinerIp.Value[3],
-					fmeta.BlockInfo[i].MinerIp.Port,
-				)
-				err = n.downloadFromStorage(fname, int64(fmeta.BlockInfo[i].BlockSize), mip)
-				if err != nil {
-					n.Logs.Downfile("error", fmt.Errorf("[%v] Downloading %drd shard err: %v", c.ClientIP(), i, err))
-				} else {
-					down_count++
-				}
-				if down_count >= d {
-					break
+			var fsize int64
+
+			for j := 0; j < len(fmeta.Backups[0].Slice_info); j++ {
+				for i := 0; i < len(fmeta.Backups); i++ {
+					// Download the file from the scheduler service
+					fname := filepath.Join(n.FileDir, string(fmeta.Backups[i].Slice_info[j].Slice_hash[:]))
+					mip := fmt.Sprintf("%d.%d.%d.%d:%d",
+						fmeta.Backups[i].Slice_info[j].Miner_ip.Value[0],
+						fmeta.Backups[i].Slice_info[j].Miner_ip.Value[1],
+						fmeta.Backups[i].Slice_info[j].Miner_ip.Value[2],
+						fmeta.Backups[i].Slice_info[j].Miner_ip.Value[3],
+						fmeta.Backups[i].Slice_info[j].Miner_ip.Port,
+					)
+					if (j + 1) == len(fmeta.Backups[i].Slice_info) {
+						fsize = int64(fmeta.Size % configs.SIZE_SLICE)
+					} else {
+						fsize = configs.SIZE_SLICE
+					}
+					err = n.downloadFromStorage(fname, fsize, mip)
+					if err != nil {
+						n.Logs.Downfile("error", fmt.Errorf("[%v] Downloading %drd shard err: %v", c.ClientIP(), i, err))
+						if (i + 1) == len(fmeta.Backups) {
+							c.JSON(500, "InternalError")
+							return
+						}
+						continue
+					}
 				}
 			}
 
-			err = erasure.ReedSolomon_Restore(n.FileDir, getName, d, r, uint64(fmeta.Size))
+			f, err := os.Create(fpath)
 			if err != nil {
-				n.Logs.Downfile("error", fmt.Errorf("[%v] ReedSolomon_Restore: %v", c.ClientIP(), err))
 				c.JSON(500, "InternalError")
 				return
 			}
-
-			if r > 0 {
-				fstat, err := os.Stat(fpath)
+			var buf = make([]byte, 64*1024)
+			var num int
+			for j := 0; j < len(fmeta.Backups[0].Slice_info); j++ {
+				fslice, err := os.Open(filepath.Join(n.FileDir, string(fmeta.Backups[0].Slice_info[j].Slice_hash[:])))
 				if err != nil {
+					f.Close()
 					c.JSON(500, "InternalError")
 					return
 				}
-				if uint64(fstat.Size()) > uint64(fmeta.Size) {
-					tempfile := fpath + ".temp"
-					copyFile(fpath, tempfile, int64(fmeta.Size))
-					os.Remove(fpath)
-					os.Rename(tempfile, fpath)
+				for {
+					num, err = fslice.Read(buf)
+					if err != nil && err != io.EOF {
+						c.JSON(500, "InternalError")
+						return
+					}
+					if num == 0 {
+						break
+					}
+					f.Write(buf[:num])
+					f.Sync()
 				}
 			}
+			f.Close()
 
 			c.Writer.Header().Add("Content-Disposition", fmt.Sprintf("attachment; filename=%v", getName))
 			c.Writer.Header().Add("Content-Type", "application/octet-stream")
@@ -264,31 +273,26 @@ func (n *Node) downloadFromStorage(fpath string, fsize int64, mip string) error 
 	if err == nil {
 		if fsta.Size() == fsize {
 			return nil
-		} else {
+		} else if fsta.Size() > fsize {
 			os.Remove(fpath)
 		}
 	}
 
-	msg := utils.GetRandomcode(16)
-
-	kr, _ := cesskeyring.FromURI(n.Confile.GetCtrlPrk(), cesskeyring.NetSubstrate{})
-	// sign message
-	sign, err := kr.Sign(kr.SigningContext([]byte(msg)))
+	conTcp, err := dialTcpServer(mip)
 	if err != nil {
+		n.Logs.Upfile("err", fmt.Errorf("dial %v err: %v", mip, err))
 		return err
 	}
 
-	sign = sign
-
-	tcpAddr, err := net.ResolveTCPAddr("tcp", mip)
+	token, err := client.AuthReq(conTcp, n.Confile.GetCtrlPrk())
 	if err != nil {
+		n.Logs.Upfile("err", fmt.Errorf("dial %v err: %v", mip, err))
 		return err
 	}
 
-	conTcp, err := net.DialTCP("tcp", nil, tcpAddr)
-	conTcp = conTcp
+	err = client.DownReq(conTcp, token, fpath, fsize)
+
 	return err
-	//return NewTcpClient(NewTcp(conTcp)).RecvFile(filepath.Base(fpath), fsize, n.Chain.GetPublicKey(), []byte(msg), sign[:])
 }
 
 func copyFile(src, dst string, length int64) error {
