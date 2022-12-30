@@ -171,29 +171,29 @@ func buildDir(cfg confile.Confiler, client chain.Chainer) (string, string, strin
 
 	_, err = os.Stat(baseDir)
 	if err != nil {
-		err = os.MkdirAll(baseDir, 755)
+		err = os.MkdirAll(baseDir, configs.DirPermission)
 		if err != nil {
 			return "", "", "", "", err
 		}
 	}
 
 	logDir := filepath.Join(baseDir, configs.Log)
-	if err := os.MkdirAll(logDir, 755); err != nil {
+	if err := os.MkdirAll(logDir, configs.DirPermission); err != nil {
 		return "", "", "", "", err
 	}
 
 	cacheDir := filepath.Join(baseDir, configs.Cache)
-	if err := os.MkdirAll(cacheDir, 755); err != nil {
+	if err := os.MkdirAll(cacheDir, configs.DirPermission); err != nil {
 		return "", "", "", "", err
 	}
 
 	fileDir := filepath.Join(baseDir, configs.File)
-	if err := os.MkdirAll(fileDir, 755); err != nil {
+	if err := os.MkdirAll(fileDir, configs.DirPermission); err != nil {
 		return "", "", "", "", err
 	}
 
 	trackDir := filepath.Join(baseDir, configs.Track)
-	if err := os.MkdirAll(trackDir, 755); err != nil {
+	if err := os.MkdirAll(trackDir, configs.DirPermission); err != nil {
 		return "", "", "", "", err
 	}
 

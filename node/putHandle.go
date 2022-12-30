@@ -93,8 +93,9 @@ func (n *Node) putHandle(c *gin.Context) {
 		return
 	}
 
-	_, err = c.FormFile("file")
-	if err != nil {
+	// bucket name
+	bucketName := c.Request.Header.Get(configs.Header_BucketName)
+	if bucketName == "" {
 		if VerifyBucketName(putName) {
 			txHash, err := n.Chain.CreateBucket(pkey, putName)
 			if err != nil {
@@ -105,15 +106,7 @@ func (n *Node) putHandle(c *gin.Context) {
 			c.JSON(http.StatusOK, map[string]string{"Block hash:": txHash})
 			return
 		}
-		c.JSON(400, "InvalidParameter.BucketName")
-		return
-	}
-
-	// bucket name
-	bucketName := c.Request.Header.Get(configs.Header_BucketName)
-	if bucketName == "" {
-		n.Logs.Upfile("error", fmt.Errorf("[%v] Empty BucketName", c.ClientIP()))
-		c.JSON(400, "InvalidHead.MissingBucketName")
+		c.JSON(400, "InvalidHead.BucketName")
 		return
 	}
 

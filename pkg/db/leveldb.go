@@ -19,6 +19,7 @@ package db
 import (
 	"os"
 
+	"github.com/CESSProject/cess-oss/configs"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/errors"
 	"github.com/syndtr/goleveldb/leveldb/filter"
@@ -44,7 +45,7 @@ type LevelDB struct {
 func NewCache(fpath string, memory int, handles int, namespace string) (Cacher, error) {
 	_, err := os.Stat(fpath)
 	if err != nil {
-		err = os.MkdirAll(fpath, 755)
+		err = os.MkdirAll(fpath, configs.DirPermission)
 		if err != nil {
 			return nil, err
 		}
