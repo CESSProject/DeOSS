@@ -61,7 +61,7 @@ func (n *Node) GetHandle(c *gin.Context) {
 	// view file
 	if len(getName) == int(unsafe.Sizeof(chain.FileHash{})) && operation != "" {
 		if operation == Opt_View {
-			fmeta, err := n.Chain.GetFileMetaInfo(getName)
+			fmeta, err := n.Chn.GetFileMetaInfo(getName)
 			if err != nil {
 				if err.Error() == chain.ERR_Empty {
 					c.JSON(404, "NotFound")
@@ -93,7 +93,7 @@ func (n *Node) GetHandle(c *gin.Context) {
 				return
 			}
 
-			val, err := n.Cache.Get([]byte(getName))
+			val, err := n.Cach.Get([]byte(getName))
 			if err != nil {
 				fileSt.FileId = getName
 				fileSt.FileSize = int64(fmeta.Size)
@@ -123,7 +123,7 @@ func (n *Node) GetHandle(c *gin.Context) {
 			}
 
 			// file meta info
-			fmeta, err := n.Chain.GetFileMetaInfo(getName)
+			fmeta, err := n.Chn.GetFileMetaInfo(getName)
 			if err != nil {
 				if err.Error() == chain.ERR_Empty {
 					c.JSON(404, "NotFound")
@@ -221,7 +221,7 @@ func (n *Node) GetHandle(c *gin.Context) {
 
 	// view bucket
 	if VerifyBucketName(getName) {
-		bucketInfo, err := n.Chain.GetBucketInfo(pkey, getName)
+		bucketInfo, err := n.Chn.GetBucketInfo(pkey, getName)
 		if err != nil {
 			if err.Error() == chain.ERR_Empty {
 				c.JSON(404, "NotFound")
@@ -247,7 +247,7 @@ func (n *Node) GetHandle(c *gin.Context) {
 
 	// view bucket list
 	if getName == "*" {
-		bucketList, err := n.Chain.GetBucketList(pkey)
+		bucketList, err := n.Chn.GetBucketList(pkey)
 		if err != nil {
 			if err.Error() == chain.ERR_Empty {
 				c.JSON(404, "NotFound")
@@ -284,7 +284,7 @@ func (n *Node) downloadFromStorage(fpath string, fsize int64, mip string) error 
 		return err
 	}
 
-	token, err := client.AuthReq(conTcp, n.Confile.GetCtrlPrk())
+	token, err := client.AuthReq(conTcp, n.Cfile.GetCtrlPrk())
 	if err != nil {
 		n.Logs.Upfile("err", fmt.Errorf("dial %v err: %v", mip, err))
 		return err

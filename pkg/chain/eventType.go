@@ -264,12 +264,11 @@ type Event_ReceiveSpace struct {
 	Topics []types.Hash
 }
 
-type Event_UploadDeclaration struct {
+type Event_UploadDeal struct {
 	Phase     types.Phase
-	Acc       types.AccountID
-	Owner     types.AccountID
+	User      types.AccountID
+	Assigned  types.AccountID
 	File_hash FileHash
-	File_name types.Bytes
 	Topics    []types.Hash
 }
 type Event_BuyPackage struct {
@@ -415,7 +414,7 @@ type CessEventRecords struct {
 	FileBank_ClearInvalidFile     []Event_ClearInvalidFile
 	FileBank_RecoverFile          []Event_RecoverFile
 	FileBank_ReceiveSpace         []Event_ReceiveSpace
-	FileBank_UploadDeclaration    []Event_UploadDeclaration
+	FileBank_UploadDeal           []Event_UploadDeal
 	FileBank_BuyPackage           []Event_BuyPackage
 	FileBank_PackageUpgrade       []Event_PackageUpgrade
 	FileBank_PackageRenewal       []Event_PackageRenewal

@@ -57,7 +57,7 @@ func (n *Node) putHandle(c *gin.Context) {
 		return
 	}
 
-	signKey, err := utils.CalcMD5(n.Confile.GetCtrlPrk())
+	signKey, err := utils.CalcMD5(n.Cfile.GetCtrlPrk())
 	if err != nil {
 		n.Logs.Upfile("error", fmt.Errorf("[%v] %v", c.ClientIP(), err))
 		c.JSON(500, "InvalidProfile")
@@ -97,7 +97,7 @@ func (n *Node) putHandle(c *gin.Context) {
 	bucketName := c.Request.Header.Get(configs.Header_BucketName)
 	if bucketName == "" {
 		if VerifyBucketName(putName) {
-			txHash, err := n.Chain.CreateBucket(pkey, putName)
+			txHash, err := n.Chn.CreateBucket(pkey, putName)
 			if err != nil {
 				n.Logs.Upfile("error", fmt.Errorf("[%v] %v", c.ClientIP(), err))
 				c.JSON(400, err.Error())
@@ -119,7 +119,7 @@ func (n *Node) putHandle(c *gin.Context) {
 	// Digest
 	digest := c.Request.Header.Get(configs.Header_Digest)
 	if digest != "" {
-		fmeta, err := n.Chain.GetFileMetaInfo(digest)
+		fmeta, err := n.Chn.GetFileMetaInfo(digest)
 		if err == nil {
 			if string(fmeta.State) == chain.FILE_STATE_ACTIVE {
 				c.JSON(http.StatusOK, digest)
@@ -127,7 +127,7 @@ func (n *Node) putHandle(c *gin.Context) {
 			}
 		}
 
-		val, err := n.Cache.Get([]byte(digest))
+		val, err := n.Cach.Get([]byte(digest))
 		if err == nil {
 			var fileSt client.StorageProgress
 			err = json.Unmarshal(val, &fileSt)
@@ -143,7 +143,7 @@ func (n *Node) putHandle(c *gin.Context) {
 	}
 
 	// Grantor
-	grantor, err := n.Chain.GetGrantor(pkey)
+	grantor, err := n.Chn.GetGrantor(pkey)
 	if err != nil {
 		n.Logs.Upfile("error", fmt.Errorf("[%v] %v", c.ClientIP(), err))
 		if err.Error() == chain.ERR_Empty {
@@ -154,7 +154,7 @@ func (n *Node) putHandle(c *gin.Context) {
 		return
 	}
 	account_chain, _ := utils.EncodePublicKeyAsCessAccount(grantor[:])
-	account_local, _ := n.Chain.GetCessAccount()
+	account_local, _ := n.Chn.GetCessAccount()
 	if account_chain != account_local {
 		if err != nil {
 			n.Logs.Upfile("error", fmt.Errorf("[%v] %v", c.ClientIP(), err))
@@ -246,12 +246,11 @@ func (n *Node) putHandle(c *gin.Context) {
 	// Merkel root hash
 	hashtree := hex.EncodeToString(hTree.MerkleRoot())
 
-	for _, v := range hTree.Leafs {
-		fmt.Println(v.Hash)
-		fmt.Println(string(v.Hash))
-	}
+	// for _, v := range hTree.Leafs {
+	// 	fmt.Println(hex.EncodeToString(v.Hash))
+	// }
 
-	n.Cache.Put([]byte(Key_Digest+hash256), []byte(hashtree))
+	n.Cach.Put([]byte(Key_Digest+hash256), []byte(hashtree))
 	var slicesHash string
 	for i := 0; i < len(chunkPath); i++ {
 		slicesHash += filepath.Base(chunkPath[i])
@@ -260,10 +259,10 @@ func (n *Node) putHandle(c *gin.Context) {
 		}
 	}
 	fmt.Println(slicesHash)
-	n.Cache.Put([]byte(Key_Slices+hashtree), []byte(slicesHash))
+	n.Cach.Put([]byte(Key_Slices+hashtree), []byte(slicesHash))
 
 	// file meta info
-	_, err = n.Chain.GetFileMetaInfo(hashtree)
+	_, err = n.Chn.GetFileMetaInfo(hashtree)
 	if err != nil {
 		if err.Error() != chain.ERR_Empty {
 			c.JSON(500, "InternalError")
@@ -275,7 +274,7 @@ func (n *Node) putHandle(c *gin.Context) {
 			Bucket_name: types.Bytes(bucketName),
 		}
 		// Declaration file
-		txhash, err := n.Chain.DeclarationFile(hashtree, uint64(fsata.Size()), chunkPath, userBrief)
+		txhash, err := n.Chn.DeclarationFile(hashtree, uint64(fsata.Size()), chunkPath, userBrief)
 		if err != nil || txhash == "" {
 			n.Logs.Upfile("error", fmt.Errorf("[%v] %v", c.ClientIP(), err))
 			c.JSON(400, err.Error())
@@ -297,7 +296,7 @@ func (n *Node) putHandle(c *gin.Context) {
 		IsScheduler: false,
 	}
 	val, _ := json.Marshal(&fileSt)
-	n.Cache.Put([]byte(hashtree), val)
+	n.Cach.Put([]byte(hashtree), val)
 	os.Create(filepath.Join(n.TrackDir, hashtree))
 	go n.task_StoreFile(chunkPath, hashtree, lastSize)
 	n.Logs.Upfile("info", fmt.Errorf("[%v] Upload success", hashtree))
@@ -321,14 +320,14 @@ func (n *Node) task_StoreFile(fpath []string, fid string, lastsize int64) {
 			if result == ERR_RETRY {
 				go n.uploadToStorage(ch_Scheduler, fpath, fid, lastsize)
 				time.Sleep(time.Second * 6)
-			} else if _, err := net.ResolveTCPAddr("tcp", result); err == nil {
+			} else if _, err := utils.DecodePublicKeyOfCessAccount(result); err == nil {
 				var fileSt client.StorageProgress
-				val_old, _ := n.Cache.Get([]byte(fid))
+				val_old, _ := n.Cach.Get([]byte(fid))
 				json.Unmarshal(val_old, &fileSt)
 				fileSt.IsScheduler = true
 				fileSt.Scheduler = result
 				val_new, _ := json.Marshal(&fileSt)
-				n.Cache.Put([]byte(fid), val_new)
+				n.Cach.Put([]byte(fid), val_new)
 				n.Logs.Upfile("info", fmt.Errorf("[%v] File save successfully", fid))
 				return
 			} else {
@@ -352,7 +351,7 @@ func (n *Node) uploadToStorage(ch chan string, fpath []string, fid string, lasts
 	n.Logs.Upfile("info", fmt.Errorf("files:%v", fpath))
 
 	// Get all scheduler
-	schds, err := n.Chain.GetSchedulerList()
+	schds, err := n.Chn.GetSchedulerList()
 	if err != nil {
 		ch <- ERR_RETRY
 		return
@@ -376,11 +375,13 @@ func (n *Node) uploadToStorage(ch chan string, fpath []string, fid string, lasts
 			continue
 		}
 
-		token, err := client.AuthReq(conTcp, n.Confile.GetCtrlPrk())
+		token, err := client.AuthReq(conTcp, n.Cfile.GetCtrlPrk())
 		if err != nil {
+			conTcp.Close()
 			n.Logs.Upfile("err", fmt.Errorf("dial %v err: %v", wsURL, err))
 			continue
 		}
+
 		var fsize int64
 		var lastfile bool
 		for j := 0; j < len(fpath); j++ {
@@ -393,10 +394,16 @@ func (n *Node) uploadToStorage(ch chan string, fpath []string, fid string, lasts
 			}
 			err = client.FileReq(conTcp, token, fid, fpath[j], fsize, lastfile)
 			if err != nil {
-				continue
+				n.Logs.Upfile("err", err)
+				conTcp.Close()
+				break
 			}
+			fmt.Println("file send succ!")
 		}
-
+		if err != nil {
+			continue
+		}
+		fmt.Println("file send succ2!")
 		acc, _ := utils.EncodePublicKeyAsCessAccount(schds[i].ControllerUser[:])
 		ch <- acc
 		return
@@ -411,7 +418,7 @@ func (n *Node) uploadToStorage(ch chan string, fpath []string, fid string, lasts
 // Must not contain two adjacent points
 // Must not be formatted as an IP address
 func VerifyBucketName(name string) bool {
-	if len(name) < 3 || len(name) > 63 {
+	if len(name) < configs.MinBucketName || len(name) > configs.MaxBucketName {
 		return false
 	}
 
@@ -459,9 +466,12 @@ func dialTcpServer(address string) (*net.TCPConn, error) {
 func (n *Node) TrackFile() {
 	var (
 		count         uint8
+		ip            string
+		acc           string
 		fileSt        client.StorageProgress
 		linuxFileAttr *syscall.Stat_t
 	)
+
 	for {
 		time.Sleep(time.Second * 10)
 		count++
@@ -469,19 +479,40 @@ func (n *Node) TrackFile() {
 
 		if len(files) > 0 {
 			for _, v := range files {
-				val, _ := n.Cache.Get([]byte(v))
+				sches, err := n.Chn.GetSchedulerList()
+				if err != nil {
+					continue
+				}
+
+				val, _ := n.Cach.Get([]byte(v))
 				json.Unmarshal(val, &fileSt)
 
-				fmeta, _ := n.Chain.GetFileMetaInfo(v)
+				fmeta, _ := n.Chn.GetFileMetaInfo(v)
 
 				if fileSt.FileState == chain.FILE_STATE_ACTIVE ||
 					string(fmeta.State) == chain.FILE_STATE_ACTIVE {
 					os.Remove(filepath.Join(n.TrackDir, v))
-					n.Cache.Delete([]byte(v))
+					n.Cach.Delete([]byte(v))
+					continue
+				}
+				ip = ""
+				for i := 0; i > len(sches); i++ {
+					acc, _ = utils.EncodePublicKeyAsCessAccount(sches[i].ControllerUser[:])
+					if acc == fileSt.Scheduler {
+						ip = fmt.Sprintf("%d.%d.%d.%d:%d",
+							sches[i].Ip.Value[0],
+							sches[i].Ip.Value[1],
+							sches[i].Ip.Value[2],
+							sches[i].Ip.Value[3],
+							sches[i].Ip.Port)
+					}
+				}
+
+				if ip == "" {
 					continue
 				}
 
-				conTcp, err := dialTcpServer(fileSt.Scheduler)
+				conTcp, err := dialTcpServer(ip)
 				if err != nil {
 					continue
 				}
@@ -491,7 +522,7 @@ func (n *Node) TrackFile() {
 				if err != nil {
 					continue
 				}
-				n.Cache.Put([]byte(v), val)
+				n.Cach.Put([]byte(v), val)
 			}
 		}
 

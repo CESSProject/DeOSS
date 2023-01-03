@@ -23,7 +23,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/CESSProject/cess-oss/configs"
 	"github.com/CESSProject/cess-oss/pkg/utils"
 	"github.com/centrifuge/go-substrate-rpc-client/v4/types"
 	"github.com/pkg/errors"
@@ -552,30 +551,15 @@ func (c *chainClient) DeclarationFile(filehash string, filesize uint64, slicehas
 		hash[i] = types.U8(filehash[i])
 	}
 
-	var sliceInfo = make([]SliceInfo, len(slicehash))
+	var sliceInfo = make([]FileHash, len(slicehash))
 	for i := 0; i < len(slicehash); i++ {
-		var temp string
-		if i < 10 {
-			temp = fmt.Sprintf("%s.00%d", filehash, uint8(i))
-		} else if i < 100 {
-			temp = fmt.Sprintf("%s.0%d", filehash, uint8(i))
-		} else {
-			temp = fmt.Sprintf("%s.%d", filehash, uint8(i))
-		}
-		if len(temp) != len(SliceId{}) {
+		var temp = filepath.Base(slicehash[i])
+		if len(temp) != len(FileHash{}) {
 			return txhash, fmt.Errorf("invalid slice id: %v", temp)
 		}
-		for j := 0; j < len(SliceId{}); j++ {
-			sliceInfo[i].Shard_id[i] = types.U8(temp[i])
-		}
-		temp = filepath.Base(slicehash[i])
-		if len(temp) != len(FileHash{}) {
-			return txhash, fmt.Errorf("invalid slice hash: %v", temp)
-		}
 		for j := 0; j < len(FileHash{}); j++ {
-			sliceInfo[i].Slice_hash[i] = types.U8(temp[i])
+			sliceInfo[i][j] = types.U8(temp[j])
 		}
-		sliceInfo[i].Shard_size = configs.SIZE_1MiB * 512
 	}
 
 	call, err := types.NewCall(
@@ -632,29 +616,11 @@ func (c *chainClient) DeclarationFile(filehash string, filesize uint64, slicehas
 	// Do the transfer and track the actual status
 	sub, err := c.api.RPC.Author.SubmitAndWatchExtrinsic(ext)
 	if err != nil {
-		if !strings.Contains(err.Error(), "Priority is too low") {
-			return txhash, errors.Wrap(err, "[SubmitAndWatchExtrinsic]")
-		}
-		var tryCount = 0
-		for tryCount < 20 {
-			o.Nonce = types.NewUCompactFromUInt(uint64(accountInfo.Nonce + types.NewU32(1)))
-			// Sign the transaction
-			err = ext.Sign(c.keyring, o)
-			if err != nil {
-				return txhash, errors.Wrap(err, "[Sign]")
-			}
-			sub, err = c.api.RPC.Author.SubmitAndWatchExtrinsic(ext)
-			if err == nil {
-				break
-			}
-			tryCount++
-		}
-	}
-	if err != nil {
 		return txhash, errors.Wrap(err, "[SubmitAndWatchExtrinsic]")
 	}
 	defer sub.Unsubscribe()
-	timeout := time.After(c.timeForBlockOut)
+	timeout := time.NewTimer(c.timeForBlockOut)
+	defer timeout.Stop()
 	for {
 		select {
 		case status := <-sub.Chan():
@@ -668,14 +634,14 @@ func (c *chainClient) DeclarationFile(filehash string, filesize uint64, slicehas
 
 				types.EventRecordsRaw(*h).DecodeEventRecords(c.metadata, &events)
 
-				if len(events.FileBank_UploadDeclaration) > 0 {
+				if len(events.FileBank_UploadDeal) > 0 {
 					return txhash, nil
 				}
 				return txhash, errors.New(ERR_Failed)
 			}
 		case err = <-sub.Err():
 			return txhash, errors.Wrap(err, "[sub]")
-		case <-timeout:
+		case <-timeout.C:
 			return txhash, ERR_RPC_TIMEOUT
 		}
 	}

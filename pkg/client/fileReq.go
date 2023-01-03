@@ -47,6 +47,7 @@ func FileReq(conn net.Conn, token, fid string, fpath string, fsize int64, lastfi
 	var (
 		err     error
 		num     int
+		total   int64
 		tempBuf []byte
 		msgHead IMessage
 		fs      *os.File
@@ -85,8 +86,12 @@ func FileReq(conn net.Conn, token, fid string, fpath string, fsize int64, lastfi
 		if num == 0 {
 			break
 		}
-		message.Data = readBuf[:num]
-
+		total += int64(num)
+		if total >= fsize {
+			message.Data = readBuf[:(configs.SIZE_1MiB + fsize - total)]
+		} else {
+			message.Data = readBuf[:num]
+		}
 		tempBuf, err = json.Marshal(&message)
 		if err != nil {
 			return err
@@ -116,6 +121,9 @@ func FileReq(conn net.Conn, token, fid string, fpath string, fsize int64, lastfi
 
 		if msgHead.GetMsgID() != Msg_OK {
 			return fmt.Errorf("send file error")
+		}
+		if total >= fsize {
+			return nil
 		}
 	}
 

@@ -44,28 +44,28 @@ func Command_Run_Runfunc(cmd *cobra.Command, args []string) {
 	)
 
 	// Building Profile Instances
-	node.Confile, err = buildConfigFile(cmd)
+	node.Cfile, err = buildConfigFile(cmd)
 	if err != nil {
 		log.Println(err)
 		os.Exit(1)
 	}
 
 	//Build chain instance
-	node.Chain, err = buildChain(node.Confile, configs.TimeOut_WaitBlock)
+	node.Chn, err = buildChain(node.Cfile, configs.TimeOut_WaitBlock)
 	if err != nil {
 		log.Println(err)
 		os.Exit(1)
 	}
 
 	//Build Data Directory
-	logDir, cacheDir, node.FileDir, node.TrackDir, err = buildDir(node.Confile, node.Chain)
+	logDir, cacheDir, node.FileDir, node.TrackDir, err = buildDir(node.Cfile, node.Chn)
 	if err != nil {
 		log.Println(err)
 		os.Exit(1)
 	}
 
 	//Build cache instance
-	node.Cache, err = buildCache(cacheDir)
+	node.Cach, err = buildCache(cacheDir)
 	if err != nil {
 		log.Println(err)
 		os.Exit(1)

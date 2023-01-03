@@ -52,7 +52,7 @@ const (
 	//
 	Tcp_Dial_Timeout = time.Duration(time.Second * 5)
 
-	TCP_MaxPacketSize = SIZE_1MiB * 3 / 2
+	TCP_MaxPacketSize = SIZE_1MiB * 2
 )
 
 const (
@@ -62,6 +62,9 @@ const (
 	FileCacheExpirationTime = 7 * 24
 	//
 	DirPermission = 755
+	//
+	MinBucketName = 3
+	MaxBucketName = 63
 )
 
 // explanation

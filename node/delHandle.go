@@ -42,7 +42,7 @@ func (n *Node) delHandle(c *gin.Context) {
 		return
 	}
 
-	signKey, err := utils.CalcMD5(n.Confile.GetCtrlPrk())
+	signKey, err := utils.CalcMD5(n.Cfile.GetCtrlPrk())
 	if err != nil {
 		c.JSON(500, "InternalError")
 		return
@@ -70,13 +70,13 @@ func (n *Node) delHandle(c *gin.Context) {
 
 	deleteName := c.Param("name")
 	if len(deleteName) == int(unsafe.Sizeof(chain.FileHash{})) {
-		txHash, err = n.Chain.DeleteFile(pkey, deleteName)
+		txHash, err = n.Chn.DeleteFile(pkey, deleteName)
 		if err != nil {
 			c.JSON(400, err.Error())
 			return
 		}
 	} else if VerifyBucketName(deleteName) {
-		txHash, err = n.Chain.DeleteBucket(pkey, deleteName)
+		txHash, err = n.Chn.DeleteBucket(pkey, deleteName)
 		if err != nil {
 			c.JSON(400, err.Error())
 			return

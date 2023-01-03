@@ -31,10 +31,10 @@ type Oss interface {
 }
 
 type Node struct {
-	Confile  confile.Confiler
-	Chain    chain.Chainer
+	Cfile    confile.Confiler
+	Chn      chain.Chainer
 	Logs     logger.Logger
-	Cache    db.Cacher
+	Cach     db.Cacher
 	Handle   *gin.Engine
 	FileDir  string
 	TrackDir string
@@ -64,5 +64,5 @@ func (n *Node) Run() {
 	// Track file
 	go n.TrackFile()
 	// Run
-	n.Handle.Run(":" + n.Confile.GetServicePort())
+	n.Handle.Run(":" + n.Cfile.GetServicePort())
 }
