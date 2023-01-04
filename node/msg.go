@@ -18,7 +18,6 @@ const (
 	MsgClose
 	MsgRecvHead
 	MsgRecvFile
-	MsgFileSt
 )
 
 const (
@@ -169,20 +168,5 @@ func NewCloseMsg(fileName string, status Status) *Message {
 	m.Pubkey = nil
 	m.SignMsg = nil
 	m.Sign = nil
-	return m
-}
-
-func NewFileStMsg(fid string) *Message {
-	m := &Message{}
-	m.MsgType = MsgFileSt
-	m.FileName = ""
-	m.FileHash = fid
-	m.FileSize = 0
-	m.LastMark = false
-	m.FileType = FileType_file
-	m.Pubkey = nil
-	m.SignMsg = nil
-	m.Sign = nil
-	m.Bytes = nil
 	return m
 }

@@ -1,7 +1,6 @@
 package node
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -11,13 +10,11 @@ import (
 	"time"
 
 	"github.com/CESSProject/cess-oss/configs"
-	"github.com/CESSProject/cess-oss/pkg/db"
 )
 
 type Client interface {
 	SendFile(fid string, fsize int64, pkey, signmsg, sign []byte) error
 	RecvFile(fid string, fsize int64, pkey, signmsg, sign []byte) error
-	SendFileSt(fid string, c db.Cacher) error
 }
 
 type NetConn interface {
@@ -39,7 +36,7 @@ type ConMgr struct {
 	stop       chan struct{}
 }
 
-func (c *ConMgr) handler(cache db.Cacher) error {
+func (c *ConMgr) handler() error {
 	var (
 		err      error
 		recvFile *os.File
@@ -71,13 +68,6 @@ func (c *ConMgr) handler(cache db.Cacher) error {
 			default:
 			}
 			c.conn.SendMsg(NewNotifyMsg(c.fileName, Status_Ok))
-		case MsgFileSt:
-			var fileSt FileStoreInfo
-			err := json.Unmarshal(m.Bytes, &fileSt)
-			if err != nil {
-				cache.Put([]byte(m.FileHash), m.Bytes)
-			}
-			return err
 		case MsgFile:
 			if recvFile == nil {
 				recvFile, err = os.OpenFile(filepath.Join(c.dir, m.FileName), os.O_RDWR|os.O_TRUNC, os.ModePerm)
@@ -169,7 +159,7 @@ func NewClient(conn NetConn, dir string, files []string) Client {
 func (c *ConMgr) SendFile(fid string, fsize int64, pkey, signmsg, sign []byte) error {
 	c.conn.HandlerLoop()
 	go func() {
-		_ = c.handler(nil)
+		_ = c.handler()
 	}()
 
 	err := c.sendFile(fid, fsize, pkey, signmsg, sign)
@@ -179,18 +169,9 @@ func (c *ConMgr) SendFile(fid string, fsize int64, pkey, signmsg, sign []byte) e
 func (c *ConMgr) RecvFile(fid string, fsize int64, pkey, signmsg, sign []byte) error {
 	c.conn.HandlerLoop()
 	go func() {
-		_ = c.handler(nil)
+		_ = c.handler()
 	}()
 	err := c.recvFile(fid, fsize, pkey, signmsg, sign)
-	return err
-}
-
-func (c *ConMgr) SendFileSt(fid string, cache db.Cacher) error {
-	c.conn.HandlerLoop()
-	go func() {
-		_ = c.handler(cache)
-	}()
-	err := c.sendFileSt(fid)
 	return err
 }
 
@@ -324,27 +305,6 @@ func (c *ConMgr) sendSingleFile(filePath string, fid string, fsize int64, lastma
 			return fmt.Errorf("send err")
 		}
 	case <-timerFile.C:
-		return fmt.Errorf("wait server msg timeout")
-	}
-
-	return nil
-}
-
-func (c *ConMgr) sendFileSt(fid string) error {
-	defer func() {
-		c.conn.Close()
-	}()
-
-	//log.Println("Ready to recvhead: ", fid)
-	c.conn.SendMsg(NewFileStMsg(fid))
-	timerHead := time.NewTimer(time.Second * 10)
-	defer timerHead.Stop()
-	select {
-	case ok := <-c.waitNotify:
-		if !ok {
-			return fmt.Errorf("send err")
-		}
-	case <-timerHead.C:
 		return fmt.Errorf("wait server msg timeout")
 	}
 

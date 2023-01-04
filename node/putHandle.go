@@ -18,7 +18,6 @@ package node
 
 import (
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -41,17 +40,6 @@ import (
 	jwt "github.com/dgrijalva/jwt-go"
 	"github.com/gin-gonic/gin"
 )
-
-type FileStoreInfo struct {
-	FileId      string         `json:"file_id"`
-	FileState   string         `json:"file_state"`
-	FileSize    int64          `json:"file_size"`
-	IsUpload    bool           `json:"is_upload"`
-	IsCheck     bool           `json:"is_check"`
-	IsShard     bool           `json:"is_shard"`
-	IsScheduler bool           `json:"is_scheduler"`
-	Miners      map[int]string `json:"miners"`
-}
 
 // It is used to authorize users
 func (n *Node) putHandle(c *gin.Context) {
@@ -104,8 +92,9 @@ func (n *Node) putHandle(c *gin.Context) {
 		return
 	}
 
-	fileHead, err := c.FormFile("file")
-	if err != nil {
+	// bucket name
+	bucketName := c.Request.Header.Get(configs.Header_BucketName)
+	if bucketName == "" {
 		if VerifyBucketName(putName) {
 			txHash, err := n.Chain.CreateBucket(pkey, putName)
 			if err != nil {
@@ -116,15 +105,8 @@ func (n *Node) putHandle(c *gin.Context) {
 			c.JSON(http.StatusOK, map[string]string{"Block hash:": txHash})
 			return
 		}
-		c.JSON(400, "InvalidParameter.BucketName")
-		return
-	}
-
-	// bucket name
-	bucketName := c.Request.Header.Get(configs.Header_BucketName)
-	if bucketName == "" {
-		n.Logs.Upfile("error", fmt.Errorf("[%v] Empty BucketName", c.ClientIP()))
-		c.JSON(400, "InvalidHead.MissingBucketName")
+		n.Logs.Upfile("error", fmt.Errorf("[%v] InvalidHead.BucketName", c.ClientIP()))
+		c.JSON(400, "InvalidHead.BucketName")
 		return
 	}
 
@@ -169,7 +151,7 @@ func (n *Node) putHandle(c *gin.Context) {
 
 	_, err = os.Stat(n.FileDir)
 	if err != nil {
-		err = os.MkdirAll(n.FileDir, os.ModeDir)
+		err = os.MkdirAll(n.FileDir, configs.DirPermission)
 		if err != nil {
 			n.Logs.Upfile("error", fmt.Errorf("[%v] %v", c.ClientIP(), err))
 			c.JSON(500, "InternalError")
@@ -209,6 +191,7 @@ func (n *Node) putHandle(c *gin.Context) {
 			continue
 		}
 		f.Write(buf[:num])
+		f.Sync()
 	}
 	f.Close()
 
@@ -220,15 +203,17 @@ func (n *Node) putHandle(c *gin.Context) {
 	}
 
 	// Calc reedsolomon
-	chunkPath, datachunkLen, rduchunkLen, err := erasure.ReedSolomon(fpath, fileHead.Size)
+	chunkPath, datachunkLen, rduchunkLen, err := erasure.ReedSolomon(fpath, fstat.Size())
 	if err != nil {
 		n.Logs.Upfile("error", fmt.Errorf("[%v] %v", c.ClientIP(), err))
 		c.JSON(500, err.Error())
+		return
 	}
 
 	if len(chunkPath) != (datachunkLen + rduchunkLen) {
 		n.Logs.Upfile("error", fmt.Errorf("[%v] InternalError", c.ClientIP()))
 		c.JSON(500, "InternalError")
+		return
 	}
 
 	// Calc merkle hash tree
@@ -236,6 +221,7 @@ func (n *Node) putHandle(c *gin.Context) {
 	if err != nil {
 		n.Logs.Upfile("error", fmt.Errorf("[%v] NewHashTree", c.ClientIP()))
 		c.JSON(500, "InternalError")
+		return
 	}
 
 	// Merkel root hash
@@ -282,18 +268,6 @@ func (n *Node) putHandle(c *gin.Context) {
 		}
 	}
 
-	var fileSt = FileStoreInfo{
-		FileId:      hashtree,
-		FileSize:    fstat.Size(),
-		FileState:   "pending",
-		IsUpload:    true,
-		IsCheck:     true,
-		IsShard:     true,
-		IsScheduler: false,
-		Miners:      nil,
-	}
-	val, _ := json.Marshal(&fileSt)
-	n.Cache.Put([]byte(hashtree), val)
 	go n.task_StoreFile(newChunksPath, hashtree, putName, fstat.Size())
 	n.Logs.Upfile("info", fmt.Errorf("[%v] Upload success", hashtree))
 	c.JSON(http.StatusOK, hashtree)
@@ -306,29 +280,22 @@ func (n *Node) task_StoreFile(fpath []string, fid, fname string, fsize int64) {
 			n.Logs.Pnc("error", utils.RecoverError(err))
 		}
 	}()
-	var channel_1 = make(chan string, 1)
+	var channel_1 = make(chan uint8, 1)
 
 	n.Logs.Upfile("info", fmt.Errorf("[%v] Start the file backup management process", fid))
 	go n.uploadToStorage(channel_1, fpath, fid, fsize)
 	for {
 		select {
 		case result := <-channel_1:
-			if result == "1" {
+			if result == 1 {
 				go n.uploadToStorage(channel_1, fpath, fid, fsize)
 				time.Sleep(time.Second * 6)
 			}
-			if len(result) > 1 {
-				var fileSt FileStoreInfo
-				val_old, _ := n.Cache.Get([]byte(fid))
-				json.Unmarshal(val_old, &fileSt)
-				fileSt.IsScheduler = true
-				val_new, _ := json.Marshal(&fileSt)
-				n.Cache.Put([]byte(fid), val_new)
+			if result == 2 {
 				n.Logs.Upfile("info", fmt.Errorf("[%v] File save successfully", fid))
-				go n.TrackFile(fid, result)
 				return
 			}
-			if result == "3" {
+			if result == 3 {
 				n.Logs.Upfile("info", fmt.Errorf("[%v] File save failed", fid))
 				return
 			}
@@ -337,11 +304,11 @@ func (n *Node) task_StoreFile(fpath []string, fid, fname string, fsize int64) {
 }
 
 // Upload files to cess storage system
-func (n *Node) uploadToStorage(ch chan string, fpath []string, fid string, fsize int64) {
+func (n *Node) uploadToStorage(ch chan uint8, fpath []string, fid string, fsize int64) {
 	defer func() {
 		err := recover()
 		if err != nil {
-			ch <- "1"
+			ch <- 1
 			n.Logs.Pnc("error", utils.RecoverError(err))
 		}
 	}()
@@ -362,14 +329,14 @@ func (n *Node) uploadToStorage(ch chan string, fpath []string, fid string, fsize
 	// sign message
 	sign, err := kr.Sign(kr.SigningContext([]byte(msg)))
 	if err != nil {
-		ch <- "1"
+		ch <- 1
 		return
 	}
 
 	// Get all scheduler
 	schds, err := n.Chain.GetSchedulerList()
 	if err != nil {
-		ch <- "1"
+		ch <- 1
 		return
 	}
 
@@ -397,10 +364,10 @@ func (n *Node) uploadToStorage(ch chan string, fpath []string, fid string, fsize
 			n.Logs.Upfile("err", fmt.Errorf("send to %v err: %v", wsURL, err))
 			continue
 		}
-		ch <- wsURL
+		ch <- 2
 		return
 	}
-	ch <- "1"
+	ch <- 1
 }
 
 // Bucket name verification rules
@@ -452,25 +419,4 @@ func dialTcpServer(address string) (*net.TCPConn, error) {
 		return nil, errors.New("network conversion failed")
 	}
 	return conTcp, nil
-}
-
-func (n *Node) TrackFile(fid, sche string) {
-	var fileSt FileStoreInfo
-	for {
-		time.Sleep(time.Second * 10)
-		val, _ := n.Cache.Get([]byte(fid))
-		json.Unmarshal(val, &fileSt)
-
-		if fileSt.FileState == chain.FILE_STATE_ACTIVE {
-			return
-		}
-
-		conTcp, err := dialTcpServer(sche)
-		if err != nil {
-			continue
-		}
-
-		srv := NewClient(NewTcp(conTcp), n.FileDir, nil)
-		err = srv.SendFileSt(fid, n.Cache)
-	}
 }

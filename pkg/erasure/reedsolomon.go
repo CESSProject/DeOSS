@@ -108,7 +108,7 @@ func ReedSolomon(fpath string, size int64) ([]string, int, int, error) {
 		if err != nil {
 			return shardspath, datashards, rdunshards, err
 		}
-		out[i].Close()
+		//out[i].Close()
 		shardspath = append(shardspath, filepath.Join(dir, outfn))
 	}
 

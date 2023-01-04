@@ -59,6 +59,8 @@ const (
 const (
 	// Time out waiting for transaction completion
 	TimeOut_WaitBlock = time.Duration(time.Second * 15)
+	//
+	DirPermission = 755
 )
 
 // explanation
