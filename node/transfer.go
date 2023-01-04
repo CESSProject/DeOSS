@@ -82,9 +82,10 @@ func (t *TcpCon) sendMsg() {
 
 func (t *TcpCon) readMsg() {
 	var (
-		err    error
-		n      int
-		header = make([]byte, 4)
+		err      error
+		n        int
+		waittime int64
+		header   = make([]byte, 4)
 	)
 	readBuf := readBufPool.Get().([]byte)
 	defer func() {
@@ -93,7 +94,7 @@ func (t *TcpCon) readMsg() {
 		close(t.recv)
 		readBufPool.Put(readBuf)
 	}()
-	for {
+	for !t.IsClose() {
 		// read until we get 4 bytes for the magic
 		_, err = io.ReadFull(t.conn, header)
 		if err != nil {
@@ -101,7 +102,14 @@ func (t *TcpCon) readMsg() {
 				err = fmt.Errorf("initial read error: %v \n", err)
 				return
 			}
-			continue
+			if err == io.EOF {
+				waittime++
+				if waittime >= 10 {
+					return
+				}
+				time.Sleep(time.Second)
+				continue
+			}
 		}
 
 		if !bytes.Equal(header, HEAD_FILE) && !bytes.Equal(header, HEAD_FILLER) {
