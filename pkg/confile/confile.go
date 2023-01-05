@@ -114,6 +114,7 @@ func (c *confile) Parse(fpath string) error {
 		if err != nil {
 			return err
 		}
+		os.Chmod(c.DataDir, configs.DirPermission)
 	}
 
 	if !fstat.IsDir() {

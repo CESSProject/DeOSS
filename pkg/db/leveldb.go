@@ -49,6 +49,7 @@ func NewCache(fpath string, memory int, handles int, namespace string) (Cacher, 
 		if err != nil {
 			return nil, err
 		}
+		os.Chmod(fpath, configs.DirPermission)
 	}
 	return newLevelDB(fpath, memory, handles, namespace)
 }

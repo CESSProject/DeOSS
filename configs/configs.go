@@ -16,7 +16,11 @@
 
 package configs
 
-import "time"
+import (
+	"time"
+
+	"github.com/shirou/gopsutil/mem"
+)
 
 // account
 const (
@@ -61,7 +65,7 @@ const (
 	// File cache expiration time,in hours
 	FileCacheExpirationTime = 7 * 24
 	//
-	DirPermission = 755
+	DirPermission = 0755
 	//
 	MinBucketName = 3
 	MaxBucketName = 63
@@ -89,3 +93,12 @@ var (
 		"downfile", //Download log
 	}
 )
+
+var GIN_MaxMultipartMemory = int64(SIZE_1GiB * 8)
+
+func init() {
+	vv, err := mem.VirtualMemory()
+	if err == nil {
+		GIN_MaxMultipartMemory = int64(vv.Total) * 4 / 5
+	}
+}

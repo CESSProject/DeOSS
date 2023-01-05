@@ -92,7 +92,7 @@ func DownReq(conn net.Conn, token, fpath string, fsize int64) error {
 
 		if msgHead.GetMsgID() == Msg_OK {
 			if msgHead.GetDataLen() > 0 {
-				num, err = io.ReadFull(conn, readBuf)
+				num, err = io.ReadAtLeast(conn, readBuf, int(msgHead.GetDataLen()))
 				if err != nil {
 					return err
 				}

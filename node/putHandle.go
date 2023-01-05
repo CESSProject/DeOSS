@@ -178,6 +178,7 @@ func (n *Node) putHandle(c *gin.Context) {
 			c.JSON(500, "InternalError")
 			return
 		}
+		os.Chmod(n.FileDir, configs.DirPermission)
 	}
 
 	// Calc file path
@@ -224,7 +225,12 @@ func (n *Node) putHandle(c *gin.Context) {
 
 	f.Close()
 
-	fsata, _ := os.Stat(fpath)
+	fsata, err := os.Stat(fpath)
+	if err != nil {
+		n.Logs.Upfile("error", fmt.Errorf("[%v] %v", c.ClientIP(), err))
+		c.JSON(500, "InternalError")
+		return
+	}
 
 	hash256, err := utils.CalcPathSHA256(fpath)
 	if err != nil {

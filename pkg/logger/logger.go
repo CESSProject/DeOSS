@@ -56,6 +56,7 @@ func NewLogs(logfiles map[string]string) (Logger, error) {
 			if err != nil {
 				return nil, errors.Errorf("%v,%v", dir, err)
 			}
+			os.Chmod(dir, configs.DirPermission)
 		}
 		Encoder := getEncoder()
 		newCore := zapcore.NewTee(
