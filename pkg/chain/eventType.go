@@ -350,6 +350,12 @@ type Event_OssUpdate struct {
 	Topics       []types.Hash
 }
 
+type Event_OssDestroy struct {
+	Phase  types.Phase
+	Acc    types.AccountID
+	Topics []types.Hash
+}
+
 // ------------------------other system---------------------------
 type Event_UnsignedPhaseStarted struct {
 	Phase  types.Phase
@@ -435,6 +441,7 @@ type CessEventRecords struct {
 	//OSS
 	Oss_OssRegister []Event_OssRegister
 	Oss_OssUpdate   []Event_OssUpdate
+	Oss_OssDestroy  []Event_OssDestroy
 	//other system
 	ElectionProviderMultiPhase_UnsignedPhaseStarted []Event_UnsignedPhaseStarted
 	ElectionProviderMultiPhase_SignedPhaseStarted   []Event_SignedPhaseStarted

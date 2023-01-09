@@ -47,7 +47,6 @@ type Chainer interface {
 	GetCessAccount() (string, error)
 	// GetAccountInfo is used to get account information
 	GetAccountInfo(pkey []byte) (types.AccountInfo, error)
-
 	// GetSchedulerList is used to get information about all schedules
 	GetSchedulerList() ([]SchedulerInfo, error)
 	// GetBucketList is used to obtain all buckets of the user
@@ -58,6 +57,8 @@ type Chainer interface {
 	GetGrantor(pkey []byte) (types.AccountID, error)
 	// GetState is used to obtain OSS status information
 	GetState(pubkey []byte) (string, error)
+	//
+	GetFileDealMap(fid string) (FileDealInfo, error)
 	// Register is used to register oss services
 	Register(ip, port string) (string, error)
 	// Update is used to update the communication address of the scheduling service
@@ -72,6 +73,8 @@ type Chainer interface {
 	DeclarationFile(filehash string, filesize uint64, slicehash []string, user UserBrief) (string, error)
 	//
 	FileSecreach(filehash string, user UserBrief) (string, error)
+	//
+	ExitOss() (string, error)
 }
 
 type chainClient struct {

@@ -27,7 +27,7 @@ import (
 func TestNewCache(t *testing.T) {
 	dataDir := "./data"
 
-	cache, err := NewCache(dataDir, 0, 0, "scheduler")
+	cache, err := NewCache(dataDir, 0, 0, "oss")
 	assert.NoError(t, err)
 
 	// get nil

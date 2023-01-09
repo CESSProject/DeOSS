@@ -66,6 +66,7 @@ const (
 	// Oss
 	OssRegister = "Oss.register"
 	OssUpdate   = "Oss.update"
+	OssExit     = "Oss.destroy"
 )
 
 const (

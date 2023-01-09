@@ -82,6 +82,9 @@ const (
 	HELP_update = `    3.Check the FileMap.OssUpdate transaction event result in the block hash above:
         If system.ExtrinsicFailed is prompted, it means failure;
         If system.ExtrinsicSuccess is prompted, it means success;`
+	HELP_exit = `    3.Check the FileMap.OssDestroy transaction event result in the block hash above:
+        If system.ExtrinsicFailed is prompted, it means failure;
+        If system.ExtrinsicSuccess is prompted, it means success;`
 )
 
 // log file

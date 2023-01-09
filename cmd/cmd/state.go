@@ -65,6 +65,6 @@ func Command_State_Runfunc(cmd *cobra.Command, args []string) {
 		fmt.Println(ossState)
 		os.Exit(0)
 	}
-	log.Println("[err] Please enter 'scheduler update <ipv4> <port>'")
+	log.Println("[err] Please enter 'oss update <ipv4> <port>'")
 	os.Exit(1)
 }
