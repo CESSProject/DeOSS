@@ -55,6 +55,7 @@ const (
 	// FileBank
 	tx_FileBank_Update    = "FileBank.update"
 	tx_FileBank_Upload    = "FileBank.upload"
+	tx_FileBank_Secreach  = "FileBank.fly_upload"
 	FileBank_CreateBucket = "FileBank.create_bucket"
 	FileBank_DeleteBucket = "FileBank.delete_bucket"
 	FileBank_DeleteFile   = "FileBank.delete_file"

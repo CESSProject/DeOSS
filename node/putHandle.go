@@ -116,15 +116,20 @@ func (n *Node) putHandle(c *gin.Context) {
 		return
 	}
 
+	userBrief := chain.UserBrief{
+		User:        types.NewAccountID(pkey),
+		File_name:   types.Bytes(putName),
+		Bucket_name: types.Bytes(bucketName),
+	}
+
 	// Digest
 	digest := c.Request.Header.Get(configs.Header_Digest)
 	if digest != "" {
-		fmeta, err := n.Chn.GetFileMetaInfo(digest)
+		_, err := n.Chn.GetFileMetaInfo(digest)
 		if err == nil {
-			if string(fmeta.State) == chain.FILE_STATE_ACTIVE {
-				c.JSON(http.StatusOK, digest)
-				return
-			}
+			n.Chn.FileSecreach(digest, userBrief)
+			c.JSON(http.StatusOK, digest)
+			return
 		}
 
 		val, err := n.Cach.Get([]byte(digest))
@@ -247,14 +252,18 @@ func (n *Node) putHandle(c *gin.Context) {
 	if err != nil {
 		n.Logs.Upfile("error", fmt.Errorf("[%v] NewHashTree", c.ClientIP()))
 		c.JSON(500, "InternalError")
+		return
 	}
 
 	// Merkel root hash
 	hashtree := hex.EncodeToString(hTree.MerkleRoot())
 
-	// for _, v := range hTree.Leafs {
-	// 	fmt.Println(hex.EncodeToString(v.Hash))
-	// }
+	ok, _ := n.Cach.Has([]byte(Key_Digest + hash256))
+	if ok {
+		n.Logs.Upfile("info", fmt.Errorf("[%v] Already upload: %v", c.ClientIP(), hash256))
+		c.JSON(200, hash256)
+		return
+	}
 
 	n.Cach.Put([]byte(Key_Digest+hash256), []byte(hashtree))
 	var slicesHash string
@@ -274,11 +283,6 @@ func (n *Node) putHandle(c *gin.Context) {
 			c.JSON(500, "InternalError")
 			return
 		}
-		userBrief := chain.UserBrief{
-			User:        types.NewAccountID(pkey),
-			File_name:   types.Bytes(putName),
-			Bucket_name: types.Bytes(bucketName),
-		}
 		// Declaration file
 		txhash, err := n.Chn.DeclarationFile(hashtree, uint64(fsata.Size()), chunkPath, userBrief)
 		if err != nil || txhash == "" {
@@ -287,6 +291,7 @@ func (n *Node) putHandle(c *gin.Context) {
 			return
 		}
 	} else {
+		n.Chn.FileSecreach(digest, userBrief)
 		c.JSON(200, hashtree)
 		return
 	}

@@ -312,6 +312,14 @@ type Event_DeleteBucket struct {
 	Topics      []types.Hash
 }
 
+type Event_FlyUpload struct {
+	Phase     types.Phase
+	Operator  types.AccountID
+	Owner     types.AccountID
+	File_hash FileHash
+	Topics    []types.Hash
+}
+
 // ------------------------FileMap--------------------------------
 type Event_RegistrationScheduler struct {
 	Phase  types.Phase
@@ -420,6 +428,7 @@ type CessEventRecords struct {
 	FileBank_PackageRenewal       []Event_PackageRenewal
 	FileBank_CreateBucket         []Event_CreateBucket
 	FileBank_DeleteBucket         []Event_DeleteBucket
+	FileBank_FlyUpload            []Event_FlyUpload
 	//FileMap
 	FileMap_RegistrationScheduler []Event_RegistrationScheduler
 	FileMap_UpdateScheduler       []Event_UpdateScheduler
