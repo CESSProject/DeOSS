@@ -31,9 +31,9 @@ const (
 	ProfileDefault  = "conf.toml"
 	ProfileTemplete = `# The rpc address of the chain node
 RpcAddr     = ""
-# The IP address of the machine's public network used by the scheduler program
+# The IP address of the machine's public network used by the oss program
 ServiceAddr = ""
-# Port number monitored by the scheduler program
+# Port number monitored by the oss program
 ServicePort = ""
 # Data storage directory
 DataDir     = ""

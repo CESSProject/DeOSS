@@ -45,27 +45,30 @@ import (
 // It is used to authorize users
 func (n *Node) putHandle(c *gin.Context) {
 	var (
-		err error
-		acc string
+		err      error
+		tokenStr string
+		acc      string
+		txhash   string
 	)
 
-	// token
-	tokenString := c.Request.Header.Get(configs.Header_Auth)
-	if tokenString == "" {
-		n.Logs.Upfile("error", fmt.Errorf("[%v] missing token", c.ClientIP()))
-		c.JSON(400, "InvalidHead.MissToken")
+	// get token from head
+	tokenStr = c.Request.Header.Get(configs.Header_Auth)
+	if tokenStr == "" {
+		n.Logs.Upfile("err", fmt.Errorf("[%v] missing token", c.ClientIP()))
+		c.JSON(http.StatusBadRequest, "InvalidHead.MissToken")
 		return
 	}
 
+	// parse tokenStr
 	signKey, err := utils.CalcMD5(n.Cfile.GetCtrlPrk())
 	if err != nil {
-		n.Logs.Upfile("error", fmt.Errorf("[%v] %v", c.ClientIP(), err))
-		c.JSON(500, "InvalidProfile")
+		n.Logs.Upfile("err", fmt.Errorf("[%v] %v", c.ClientIP(), err))
+		c.JSON(http.StatusInternalServerError, "InvalidProfile")
 		return
 	}
 
 	token, err := jwt.ParseWithClaims(
-		tokenString,
+		tokenStr,
 		&CustomClaims{},
 		func(token *jwt.Token) (interface{}, error) {
 			return signKey, nil
@@ -74,45 +77,50 @@ func (n *Node) putHandle(c *gin.Context) {
 	if claims, ok := token.Claims.(*CustomClaims); ok && token.Valid {
 		acc = claims.Account
 	} else {
-		n.Logs.Upfile("error", fmt.Errorf("[%v] Token verification failed", c.ClientIP()))
-		c.JSON(403, "NoPermission")
+		n.Logs.Upfile("err", fmt.Errorf("[%v] Token verification failed", c.ClientIP()))
+		c.JSON(http.StatusForbidden, "NoPermission")
 		return
 	}
 
+	// get owner's public key
 	pkey, err := utils.DecodePublicKeyOfCessAccount(acc)
 	if err != nil {
 		n.Logs.Upfile("error", fmt.Errorf("[%v] Account decode failed", c.ClientIP()))
-		c.JSON(400, "InvalidHead.Token")
+		c.JSON(http.StatusBadRequest, "InvalidHead.Token")
 		return
 	}
 
+	// parameter name
 	putName := c.Param("name")
 	if putName == "" {
 		n.Logs.Upfile("error", fmt.Errorf("[%v] Empty name", c.ClientIP()))
-		c.JSON(400, "InvalidParameter.Name")
+		c.JSON(http.StatusBadRequest, "InvalidParameter.Name")
 		return
 	}
 
 	// bucket name
 	bucketName := c.Request.Header.Get(configs.Header_BucketName)
+	// create bucket operation
 	if bucketName == "" {
 		if VerifyBucketName(putName) {
-			txHash, err := n.Chn.CreateBucket(pkey, putName)
+			txhash, err = n.Chn.CreateBucket(pkey, putName)
 			if err != nil {
 				n.Logs.Upfile("error", fmt.Errorf("[%v] %v", c.ClientIP(), err))
-				c.JSON(400, err.Error())
+				c.JSON(http.StatusBadRequest, err.Error())
 				return
 			}
-			c.JSON(http.StatusOK, map[string]string{"Block hash:": txHash})
+			c.JSON(http.StatusOK, map[string]string{"Block hash:": txhash})
 			return
 		}
-		c.JSON(400, "InvalidHead.BucketName")
+		c.JSON(http.StatusBadRequest, "InvalidHead.BucketName")
 		return
 	}
 
+	// upload file operation
+	// verify bucket name
 	if !VerifyBucketName(bucketName) {
 		n.Logs.Upfile("error", fmt.Errorf("[%v] Wrong BucketName", c.ClientIP()))
-		c.JSON(400, "InvalidHead.BucketName")
+		c.JSON(http.StatusBadRequest, "InvalidHead.BucketName")
 		return
 	}
 
@@ -147,15 +155,15 @@ func (n *Node) putHandle(c *gin.Context) {
 		}
 	}
 
-	// Grantor
+	// Determine whether to authorize the space
 	grantor, err := n.Chn.GetGrantor(pkey)
 	if err != nil {
 		n.Logs.Upfile("error", fmt.Errorf("[%v] %v", c.ClientIP(), err))
 		if err.Error() == chain.ERR_Empty {
-			c.JSON(400, "Unauthorized")
+			c.JSON(http.StatusBadRequest, "Unauthorized")
 			return
 		}
-		c.JSON(500, "InternalError")
+		c.JSON(http.StatusInternalServerError, "InternalError")
 		return
 	}
 	account_chain, _ := utils.EncodePublicKeyAsCessAccount(grantor[:])
@@ -163,109 +171,108 @@ func (n *Node) putHandle(c *gin.Context) {
 	if account_chain != account_local {
 		if err != nil {
 			n.Logs.Upfile("error", fmt.Errorf("[%v] %v", c.ClientIP(), err))
-			c.JSON(400, "Unauthorized")
+			c.JSON(http.StatusBadRequest, "Unauthorized")
 			return
 		}
 	}
 
+	// Judging the length of the body
 	content_length := c.Request.ContentLength
 	if content_length <= 0 {
 		n.Logs.Upfile("error", fmt.Errorf("[%v] Empty file", c.ClientIP()))
-		c.JSON(400, "InvalidParameter.EmptyFile")
+		c.JSON(http.StatusBadRequest, "InvalidParameter.EmptyFile")
 		return
 	}
 
+	// Create file storage directory
 	_, err = os.Stat(n.FileDir)
 	if err != nil {
 		err = os.MkdirAll(n.FileDir, configs.DirPermission)
 		if err != nil {
 			n.Logs.Upfile("error", fmt.Errorf("[%v] %v", c.ClientIP(), err))
-			c.JSON(500, "InternalError")
+			c.JSON(http.StatusInternalServerError, "InternalError")
 			return
 		}
 		os.Chmod(n.FileDir, configs.DirPermission)
 	}
 
-	// Calc file path
+	// Calculate the full path of the file
 	fpath := filepath.Join(n.FileDir, url.QueryEscape(putName))
 	_, err = os.Stat(fpath)
 	if err == nil {
-		c.JSON(400, "Invalid.DuplicateFileName")
+		c.JSON(http.StatusBadRequest, "Invalid.DuplicateFileName")
 		return
 	}
 
-	// Create file
-	f, err := os.Create(fpath)
+	// Get form file
+	formfile, err := c.FormFile("file")
 	if err != nil {
 		n.Logs.Upfile("error", fmt.Errorf("[%v] %v", c.ClientIP(), err))
-		c.JSON(500, "InternalError")
+		c.JSON(http.StatusBadRequest, "InvalidParameter.FormFile")
+		return
+	}
+
+	// save form file
+	err = c.SaveUploadedFile(formfile, fpath)
+	if err != nil {
+		n.Logs.Upfile("error", fmt.Errorf("[%v] %v", c.ClientIP(), err))
+		c.JSON(http.StatusInternalServerError, "InternalError")
 		return
 	}
 	defer os.Remove(fpath)
 
-	// save file
-	file_c, _, err := c.Request.FormFile("file")
-	if err != nil {
-		f.Close()
-		n.Logs.Upfile("error", fmt.Errorf("[%v] %v", c.ClientIP(), err))
-		c.JSON(400, "InvalidParameter.FormFile")
-		return
-	}
-
-	// Save file
-	buf := make([]byte, 4*1024*1024)
-	for {
-		num, err := file_c.Read(buf)
-		if err != nil && err != io.EOF {
-			n.Logs.Upfile("error", fmt.Errorf("[%v] %v", c.ClientIP(), err))
-			c.JSON(400, "InvalidParameter.File")
-			return
-		}
-		if num == 0 {
-			break
-		}
-		f.Write(buf[:num])
-		f.Sync()
-	}
-
-	f.Close()
-
+	// Get file info
 	fsata, err := os.Stat(fpath)
 	if err != nil {
 		n.Logs.Upfile("error", fmt.Errorf("[%v] %v", c.ClientIP(), err))
-		c.JSON(500, "InternalError")
+		c.JSON(http.StatusInternalServerError, "InternalError")
 		return
 	}
 
+	// Calculate file hash
 	hash256, err := utils.CalcPathSHA256(fpath)
 	if err != nil {
 		n.Logs.Upfile("error", fmt.Errorf("[%v] %v", c.ClientIP(), err))
-		c.JSON(500, "InternalError")
+		c.JSON(http.StatusInternalServerError, "InternalError")
 		return
 	}
 
-	chunkPath, count, lastSize, err := Chunking(fpath)
-	fmt.Println(count)
-	fmt.Println(chunkPath)
-	// Calc merkle hash tree
+	// Chunk the file
+	chunkPath, lastSize, err := Chunking(fpath)
+	if err != nil {
+		n.Logs.Upfile("error", fmt.Errorf("[%v] %v", c.ClientIP(), err))
+		c.JSON(http.StatusInternalServerError, "InternalError")
+		return
+	}
+
+	// Calculate merkle hash tree
 	hTree, err := hashtree.NewHashTree(chunkPath)
 	if err != nil {
 		n.Logs.Upfile("error", fmt.Errorf("[%v] NewHashTree", c.ClientIP()))
-		c.JSON(500, "InternalError")
+		c.JSON(http.StatusInternalServerError, "InternalError")
 		return
 	}
 
 	// Merkel root hash
 	hashtree := hex.EncodeToString(hTree.MerkleRoot())
 
-	ok, _ := n.Cach.Has([]byte(Key_Digest + hash256))
-	if ok {
-		n.Logs.Upfile("info", fmt.Errorf("[%v] Already upload: %v", c.ClientIP(), hash256))
-		c.JSON(200, hash256)
+	//Judge whether the file has been uploaded
+	_, err = n.Chn.GetFileDealMap(hashtree)
+	if err != nil {
+		if err.Error() != chain.ERR_Empty {
+			n.Logs.Upfile("err", err)
+			c.JSON(http.StatusInternalServerError, "InternalError")
+			return
+		}
+	} else {
+		c.JSON(http.StatusBadRequest, "File is being stored, try again later!")
 		return
 	}
 
+	// Record file hash and corresponding Merkel hash
 	n.Cach.Put([]byte(Key_Digest+hash256), []byte(hashtree))
+
+	// Record file Merkle hash and all corresponding leaf hashes
 	var slicesHash string
 	for i := 0; i < len(chunkPath); i++ {
 		slicesHash += filepath.Base(chunkPath[i])
@@ -273,29 +280,35 @@ func (n *Node) putHandle(c *gin.Context) {
 			slicesHash += "#"
 		}
 	}
-	fmt.Println(slicesHash)
 	n.Cach.Put([]byte(Key_Slices+hashtree), []byte(slicesHash))
 
-	// file meta info
+	// Query the metadata information of the file on the chain
 	_, err = n.Chn.GetFileMetaInfo(hashtree)
 	if err != nil {
 		if err.Error() != chain.ERR_Empty {
-			c.JSON(500, "InternalError")
+			c.JSON(http.StatusInternalServerError, "InternalError")
 			return
 		}
 		// Declaration file
-		txhash, err := n.Chn.DeclarationFile(hashtree, uint64(fsata.Size()), chunkPath, userBrief)
+		txhash, err = n.Chn.DeclarationFile(hashtree, uint64(fsata.Size()), chunkPath, userBrief)
 		if err != nil || txhash == "" {
-			n.Logs.Upfile("error", fmt.Errorf("[%v] %v", c.ClientIP(), err))
-			c.JSON(400, err.Error())
+			n.Logs.Upfile("err", fmt.Errorf("[%v] %v", c.ClientIP(), err))
+			c.JSON(http.StatusBadRequest, err.Error())
 			return
 		}
 	} else {
-		n.Chn.FileSecreach(digest, userBrief)
-		c.JSON(200, hashtree)
+		// There is file information on the chain, and this transfer is done in seconds
+		txhash, err = n.Chn.FileSecreach(digest, userBrief)
+		if err != nil || txhash == "" {
+			n.Logs.Upfile("err", fmt.Errorf("[%v] %v", c.ClientIP(), err))
+			c.JSON(http.StatusBadRequest, err.Error())
+			return
+		}
+		c.JSON(http.StatusOK, hashtree)
 		return
 	}
 
+	// File storage status
 	var fileSt = client.StorageProgress{
 		FileId:      hashtree,
 		FileSize:    fsata.Size(),
@@ -308,8 +321,12 @@ func (n *Node) putHandle(c *gin.Context) {
 	}
 	val, _ := json.Marshal(&fileSt)
 	n.Cach.Put([]byte(hashtree), val)
+
+	// Record in tracklist
 	os.Create(filepath.Join(n.TrackDir, hashtree))
+	// Start the file backup thread
 	go n.task_StoreFile(chunkPath, hashtree, lastSize)
+
 	n.Logs.Upfile("info", fmt.Errorf("[%v] Upload success", hashtree))
 	c.JSON(http.StatusOK, hashtree)
 	return
@@ -330,7 +347,7 @@ func (n *Node) task_StoreFile(fpath []string, fid string, lastsize int64) {
 		case result := <-ch_Scheduler:
 			if result == ERR_RETRY {
 				go n.uploadToStorage(ch_Scheduler, fpath, fid, lastsize)
-				time.Sleep(time.Second * 6)
+				time.Sleep(configs.BlockInterval)
 			} else if _, err := utils.DecodePublicKeyOfCessAccount(result); err == nil {
 				var fileSt client.StorageProgress
 				val_old, _ := n.Cach.Get([]byte(fid))
@@ -343,7 +360,7 @@ func (n *Node) task_StoreFile(fpath []string, fid string, lastsize int64) {
 				return
 			} else {
 				go n.uploadToStorage(ch_Scheduler, fpath, fid, lastsize)
-				time.Sleep(time.Second * 6)
+				time.Sleep(configs.BlockInterval)
 			}
 		}
 	}
@@ -555,13 +572,13 @@ func (n *Node) TrackFile() {
 	}
 }
 
-func Chunking(fpath string) ([]string, int, int64, error) {
+func Chunking(fpath string) ([]string, int64, error) {
 	fstat, err := os.Stat(fpath)
 	if err != nil {
-		return nil, 0, 0, err
+		return nil, 0, err
 	}
 	if fstat.IsDir() {
-		return nil, 0, 0, fmt.Errorf("Not a file")
+		return nil, 0, fmt.Errorf("Not a file")
 	}
 
 	count := fstat.Size() / (configs.SIZE_1MiB * 512)
@@ -577,7 +594,7 @@ func Chunking(fpath string) ([]string, int, int64, error) {
 
 	fbase, err := os.Open(fpath)
 	if err != nil {
-		return nil, 0, 0, err
+		return nil, 0, err
 	}
 	buf := make([]byte, configs.SIZE_1MiB*512)
 	appendSizeBuf := make([]byte, appendSize)
@@ -586,55 +603,55 @@ func Chunking(fpath string) ([]string, int, int64, error) {
 		fbase.Seek(i*configs.SIZE_1MiB*512, 0)
 		n, err := fbase.Read(buf)
 		if err != nil && err != io.EOF {
-			return nil, 0, 0, err
+			return nil, 0, err
 		}
 
 		tempPath := fpath + fmt.Sprintf("%d", i)
 		fs, err := os.Create(tempPath)
 		if err != nil {
-			return nil, 0, 0, err
+			return nil, 0, err
 		}
 
 		if (i + 1) < count {
 			if n != configs.SIZE_1MiB*512 {
 				fs.Close()
-				return nil, 0, 0, err
+				return nil, 0, err
 			}
 			_, err = fs.Write(buf[:n])
 			if err != nil {
 				fs.Close()
-				return nil, 0, 0, err
+				return nil, 0, err
 			}
 		} else {
 			if int64(n) != lastSize {
 				fs.Close()
-				return nil, 0, 0, err
+				return nil, 0, err
 			}
 			_, err = fs.Write(buf[:n])
 			if err != nil {
 				fs.Close()
-				return nil, 0, 0, err
+				return nil, 0, err
 			}
 			_, err = fs.Write(appendSizeBuf)
 			if err != nil {
 				fs.Close()
-				return nil, 0, 0, err
+				return nil, 0, err
 			}
 		}
 		err = fs.Sync()
 		if err != nil {
 			fs.Close()
-			return nil, 0, 0, err
+			return nil, 0, err
 		}
 		fs.Close()
 
 		rtnList[i], err = utils.CalcPathSHA256(tempPath)
 		if err != nil {
-			return nil, 0, 0, err
+			return nil, 0, err
 		}
 		os.Rename(tempPath, fmt.Sprintf("%v/%v", baseDir, rtnList[i]))
 		rtnList[i] = fmt.Sprintf("%v/%v", baseDir, rtnList[i])
 	}
 
-	return rtnList, int(count), lastSize, nil
+	return rtnList, lastSize, nil
 }

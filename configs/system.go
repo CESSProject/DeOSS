@@ -48,4 +48,6 @@ const (
 const (
 	// BlockInterval is the time interval for generating blocks, in seconds
 	BlockInterval = time.Second * time.Duration(6)
+	// Number of data backups
+	BackupNum uint8 = 3
 )

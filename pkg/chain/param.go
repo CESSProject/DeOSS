@@ -45,6 +45,7 @@ const (
 	fileBank_UserFilelist = "UserHoldFileList"
 	fileBank_Bucket       = "Bucket"
 	fileBank_BucketList   = "UserBucketList"
+	fileBank_DealMap      = "DealMap"
 	// Oss
 	oss     = "Oss"
 	Grantor = "AuthorityList"

@@ -17,6 +17,7 @@
 package chain
 
 import (
+	"github.com/CESSProject/cess-oss/configs"
 	"github.com/centrifuge/go-substrate-rpc-client/v4/types"
 	"github.com/pkg/errors"
 )
@@ -41,6 +42,7 @@ type Random [20]types.U8
 type Signature [65]types.U8
 type Filter [256]types.U64
 type Public [33]types.U8
+type TimeTask [64]types.U8
 
 // storage miner info
 type MinerInfo struct {
@@ -92,6 +94,20 @@ type SliceInfo struct {
 	Shard_size types.U64
 	Miner_ip   Ipv4Type
 	Miner_acc  types.AccountID
+}
+
+// File Deal Info
+type FileDealInfo struct {
+	File_size        types.U64
+	User_details     UserBrief
+	Slices           []FileHash
+	Backups          [configs.BackupNum]Backup
+	Scheduler        types.AccountID
+	Requester        types.AccountID
+	State            types.U8
+	Time_task        TimeTask
+	Survival_block   types.U32
+	Executive_counts types.U8
 }
 
 // scheduler info

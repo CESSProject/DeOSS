@@ -376,3 +376,49 @@ func (c *chainClient) GetSchedulerList() ([]SchedulerInfo, error) {
 	}
 	return data, nil
 }
+
+// Query file meta info
+func (c *chainClient) GetFileDealMap(fid string) (FileDealInfo, error) {
+	var (
+		data FileDealInfo
+		hash FileHash
+	)
+
+	if !c.IsChainClientOk() {
+		c.SetChainState(false)
+		return data, ERR_RPC_CONNECTION
+	}
+	c.SetChainState(true)
+
+	if len(fid) != len(hash) {
+		return data, errors.New(ERR_Failed)
+	}
+
+	for i := 0; i < len(hash); i++ {
+		hash[i] = types.U8(fid[i])
+	}
+
+	b, err := types.Encode(hash)
+	if err != nil {
+		return data, errors.Wrap(err, "[Encode]")
+	}
+
+	key, err := types.CreateStorageKey(
+		c.metadata,
+		pallet_FileBank,
+		fileBank_DealMap,
+		b,
+	)
+	if err != nil {
+		return data, errors.Wrap(err, "[CreateStorageKey]")
+	}
+
+	ok, err := c.api.RPC.State.GetStorageLatest(key, &data)
+	if err != nil {
+		return data, errors.Wrap(err, "[GetStorageLatest]")
+	}
+	if !ok {
+		return data, ERR_RPC_EMPTY_VALUE
+	}
+	return data, nil
+}
