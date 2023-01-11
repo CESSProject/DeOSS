@@ -56,11 +56,7 @@ type RtnBlockInfo struct {
 // It is used to authorize users
 func (n *Node) GetHandle(c *gin.Context) {
 	getName := c.Param("name")
-	if getName == "" {
-		acc, _ := n.Chn.GetCessAccount()
-		c.JSON(http.StatusOK, acc)
-		return
-	}
+
 	// operation
 	operation := c.Request.Header.Get(configs.Header_Operation)
 	// view file
@@ -214,6 +210,11 @@ func (n *Node) GetHandle(c *gin.Context) {
 	// account
 	account := c.Request.Header.Get(configs.Header_Account)
 	if account == "" {
+		if operation == Opt_Account {
+			account, _ = n.Chn.GetCessAccount()
+			c.JSON(http.StatusOK, account)
+			return
+		}
 		c.JSON(400, "InvalidHead.MissingAccount")
 		return
 	}

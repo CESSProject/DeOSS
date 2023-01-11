@@ -378,36 +378,45 @@ func (n *Node) uploadToStorage(ch chan string, fpath []string, fid string, lasts
 
 	n.Logs.Upfile("info", fmt.Errorf("files:%v", fpath))
 
-	// Get all scheduler
-	schds, err := n.Chn.GetSchedulerList()
+	//Judge whether the file has been uploaded
+	filedealinfo, err := n.Chn.GetFileDealMap(fid)
 	if err != nil {
 		ch <- ERR_RETRY
 		return
 	}
 
-	utils.RandSlice(schds)
+	accAssign, _ := utils.EncodePublicKeyAsCessAccount(filedealinfo.Scheduler[:])
+	scheList, err := n.Chn.GetSchedulerList()
+	if err != nil {
+		ch <- ERR_RETRY
+		return
+	}
 
-	for i := 0; i < len(schds); i++ {
+	for i := 0; i < len(scheList); i++ {
+		accTemp, _ := utils.EncodePublicKeyAsCessAccount(scheList[i].ControllerUser[:])
+		if accTemp != accAssign {
+			continue
+		}
 		wsURL := fmt.Sprintf("%d.%d.%d.%d:%d",
-			schds[i].Ip.Value[0],
-			schds[i].Ip.Value[1],
-			schds[i].Ip.Value[2],
-			schds[i].Ip.Value[3],
-			schds[i].Ip.Port,
+			scheList[i].Ip.Value[0],
+			scheList[i].Ip.Value[1],
+			scheList[i].Ip.Value[2],
+			scheList[i].Ip.Value[3],
+			scheList[i].Ip.Port,
 		)
 		n.Logs.Upfile("info", fmt.Errorf("will send to: %v", wsURL))
 
 		conTcp, err := dialTcpServer(wsURL)
 		if err != nil {
 			n.Logs.Upfile("err", fmt.Errorf("dial %v err: %v", wsURL, err))
-			continue
+			break
 		}
 
 		token, err := client.AuthReq(conTcp, n.Cfile.GetCtrlPrk())
 		if err != nil {
 			conTcp.Close()
 			n.Logs.Upfile("err", fmt.Errorf("dial %v err: %v", wsURL, err))
-			continue
+			break
 		}
 
 		var fsize int64
@@ -426,14 +435,11 @@ func (n *Node) uploadToStorage(ch chan string, fpath []string, fid string, lasts
 				conTcp.Close()
 				break
 			}
-			fmt.Println("file send succ!")
 		}
 		if err != nil {
-			continue
+			break
 		}
-		fmt.Println("file send succ2!")
-		acc, _ := utils.EncodePublicKeyAsCessAccount(schds[i].ControllerUser[:])
-		ch <- acc
+		ch <- accAssign
 		return
 	}
 	ch <- ERR_RETRY
@@ -504,6 +510,8 @@ func (n *Node) TrackFile() {
 		time.Sleep(time.Second * 10)
 		count++
 		files, _ := filepath.Glob(filepath.Join(n.TrackDir, "*"))
+
+		fmt.Println("Track files: ", files)
 
 		if len(files) > 0 {
 			for _, v := range files {

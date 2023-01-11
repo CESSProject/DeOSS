@@ -7,6 +7,7 @@ const (
 const (
 	Opt_View     = "view"
 	Opt_Download = "download"
+	Opt_Account  = "account"
 )
 
 const (
