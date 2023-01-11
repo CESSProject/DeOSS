@@ -143,7 +143,7 @@ func (n *Node) GetHandle(c *gin.Context) {
 
 			for j := 0; j < len(fmeta.Backups[0].Slice_info); j++ {
 				for i := 0; i < len(fmeta.Backups); i++ {
-					// Download the file from the scheduler service
+					// Download the file from the bucket service
 					fname := filepath.Join(n.FileDir, string(fmeta.Backups[i].Slice_info[j].Slice_hash[:]))
 					mip := fmt.Sprintf("%d.%d.%d.%d:%d",
 						fmeta.Backups[i].Slice_info[j].Miner_ip.Value[0],
@@ -152,11 +152,16 @@ func (n *Node) GetHandle(c *gin.Context) {
 						fmeta.Backups[i].Slice_info[j].Miner_ip.Value[3],
 						fmeta.Backups[i].Slice_info[j].Miner_ip.Port,
 					)
+
 					if (j + 1) == len(fmeta.Backups[i].Slice_info) {
 						fsize = int64(fmeta.Size % configs.SIZE_SLICE)
+						if fsize == 0 {
+							fsize = configs.SIZE_SLICE
+						}
 					} else {
 						fsize = configs.SIZE_SLICE
 					}
+
 					err = n.downloadFromStorage(fname, fsize, mip)
 					if err != nil {
 						n.Logs.Downfile("error", fmt.Errorf("[%v] Downloading %drd shard err: %v", c.ClientIP(), i, err))
