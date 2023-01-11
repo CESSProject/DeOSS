@@ -324,6 +324,7 @@ func (n *Node) putHandle(c *gin.Context) {
 
 	// Record in tracklist
 	os.Create(filepath.Join(n.TrackDir, hashtree))
+
 	// Start the file backup thread
 	go n.task_StoreFile(chunkPath, hashtree, lastSize)
 
@@ -511,16 +512,15 @@ func (n *Node) TrackFile() {
 		count++
 		files, _ := filepath.Glob(filepath.Join(n.TrackDir, "*"))
 
-		fmt.Println("Track files: ", files)
-
 		if len(files) > 0 {
+			fmt.Println("Track files: ", files)
 			for _, v := range files {
 				sches, err := n.Chn.GetSchedulerList()
 				if err != nil {
 					continue
 				}
 
-				val, _ := n.Cach.Get([]byte(v))
+				val, _ := n.Cach.Get([]byte(filepath.Base(v)))
 				json.Unmarshal(val, &fileSt)
 
 				fmeta, _ := n.Chn.GetFileMetaInfo(v)
@@ -572,6 +572,7 @@ func (n *Node) TrackFile() {
 						linuxFileAttr = fs.Sys().(*syscall.Stat_t)
 						if time.Since(time.Unix(linuxFileAttr.Atim.Sec, 0)).Hours() > configs.FileCacheExpirationTime {
 							os.Remove(filepath.Join(n.FileDir, v))
+							os.Remove(filepath.Join(n.FileDir, v+".tag"))
 						}
 					}
 				}

@@ -159,6 +159,11 @@ func register(cfg confile.Confiler, client chain.Chainer) error {
 			return err
 		}
 	}
+	ctlAccount, err := client.GetCessAccount()
+	if err != nil {
+		return err
+	}
+	os.RemoveAll(filepath.Join(cfg.GetDataDir(), ctlAccount, configs.BaseDir))
 	return nil
 }
 
