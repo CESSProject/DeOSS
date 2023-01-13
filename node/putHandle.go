@@ -290,7 +290,7 @@ func (n *Node) putHandle(c *gin.Context) {
 			return
 		}
 		// Declaration file
-		txhash, err = n.Chn.DeclarationFile(hashtree, uint64(fsata.Size()), chunkPath, userBrief)
+		txhash, err = n.Chn.UploadDeal(hashtree, uint64(fsata.Size()), chunkPath, userBrief)
 		if err != nil || txhash == "" {
 			n.Logs.Upfile("err", fmt.Errorf("[%v] %v", c.ClientIP(), err))
 			c.JSON(http.StatusBadRequest, err.Error())
@@ -320,7 +320,7 @@ func (n *Node) putHandle(c *gin.Context) {
 		IsScheduler: false,
 	}
 	val, _ := json.Marshal(&fileSt)
-	n.Cach.Put([]byte(hashtree), val)
+	n.Cach.Put([]byte(Key_StoreProgress+hashtree), val)
 
 	// Record in tracklist
 	os.Create(filepath.Join(n.TrackDir, hashtree))
@@ -357,7 +357,7 @@ func (n *Node) task_StoreFile(fpath []string, fid string, lastsize int64) {
 				fileSt.Scheduler = result
 				val_new, _ := json.Marshal(&fileSt)
 				n.Cach.Put([]byte(fid), val_new)
-				n.Logs.Upfile("info", fmt.Errorf("[%v] File save successfully", fid))
+				n.Logs.Upfile("info", fmt.Errorf("[%v] File scheduling succeeded", fid))
 				return
 			} else {
 				go n.uploadToStorage(ch_Scheduler, fpath, fid, lastsize)
@@ -377,11 +377,14 @@ func (n *Node) uploadToStorage(ch chan string, fpath []string, fid string, lasts
 		}
 	}()
 
-	n.Logs.Upfile("info", fmt.Errorf("files:%v", fpath))
+	for i := 0; i < len(fpath); i++ {
+		n.Logs.Upfile("info", fmt.Errorf("[%v] slice-%d: %v", fid, i, filepath.Base(fpath[i])))
+	}
 
 	//Judge whether the file has been uploaded
 	filedealinfo, err := n.Chn.GetFileDealMap(fid)
 	if err != nil {
+		n.Logs.Upfile("err", fmt.Errorf("[%v] err: %v", fid, err))
 		ch <- ERR_RETRY
 		return
 	}
@@ -389,12 +392,16 @@ func (n *Node) uploadToStorage(ch chan string, fpath []string, fid string, lasts
 	accAssign, _ := utils.EncodePublicKeyAsCessAccount(filedealinfo.Scheduler[:])
 	scheList, err := n.Chn.GetSchedulerList()
 	if err != nil {
+		n.Logs.Upfile("err", fmt.Errorf("[%v] err: %v", fid, err))
 		ch <- ERR_RETRY
 		return
 	}
 
+	n.Logs.Upfile("info", fmt.Errorf("[%v] Assigned: %v", fid, accAssign))
+
 	for i := 0; i < len(scheList); i++ {
 		accTemp, _ := utils.EncodePublicKeyAsCessAccount(scheList[i].ControllerUser[:])
+		n.Logs.Upfile("info", fmt.Errorf("[%v] Found: %v", fid, accTemp))
 		if accTemp != accAssign {
 			continue
 		}
@@ -405,18 +412,19 @@ func (n *Node) uploadToStorage(ch chan string, fpath []string, fid string, lasts
 			scheList[i].Ip.Value[3],
 			scheList[i].Ip.Port,
 		)
-		n.Logs.Upfile("info", fmt.Errorf("will send to: %v", wsURL))
+
+		n.Logs.Upfile("info", fmt.Errorf("Will be send to: %v", accAssign))
 
 		conTcp, err := dialTcpServer(wsURL)
 		if err != nil {
-			n.Logs.Upfile("err", fmt.Errorf("dial %v err: %v", wsURL, err))
+			n.Logs.Upfile("err", fmt.Errorf("[%v] err: %v", fid, err))
 			break
 		}
 
 		token, err := client.AuthReq(conTcp, n.Cfile.GetCtrlPrk())
 		if err != nil {
 			conTcp.Close()
-			n.Logs.Upfile("err", fmt.Errorf("dial %v err: %v", wsURL, err))
+			n.Logs.Upfile("err", fmt.Errorf("[%v] err: %v", fid, err))
 			break
 		}
 
@@ -432,7 +440,7 @@ func (n *Node) uploadToStorage(ch chan string, fpath []string, fid string, lasts
 			}
 			err = client.FileReq(conTcp, token, fid, fpath[j], fsize, lastfile)
 			if err != nil {
-				n.Logs.Upfile("err", err)
+				n.Logs.Upfile("err", fmt.Errorf("[%v] err: %v", fid, err))
 				conTcp.Close()
 				break
 			}
@@ -590,26 +598,26 @@ func Chunking(fpath string) ([]string, int64, error) {
 		return nil, 0, fmt.Errorf("Not a file")
 	}
 
-	count := fstat.Size() / (configs.SIZE_1MiB * 512)
+	count := fstat.Size() / configs.SIZE_SLICE
 
-	lastSize := fstat.Size() % (configs.SIZE_1MiB * 512)
+	lastSize := fstat.Size() % configs.SIZE_SLICE
 	if lastSize > 0 {
 		count += 1
 	}
 
 	rtnList := make([]string, count)
 
-	appendSize := configs.SIZE_1MiB*512 - lastSize
+	appendSize := configs.SIZE_SLICE - lastSize
 
 	fbase, err := os.Open(fpath)
 	if err != nil {
 		return nil, 0, err
 	}
-	buf := make([]byte, configs.SIZE_1MiB*512)
+	buf := make([]byte, configs.SIZE_SLICE)
 	appendSizeBuf := make([]byte, appendSize)
 	baseDir := filepath.Dir(fpath)
 	for i := int64(0); i < count; i++ {
-		fbase.Seek(i*configs.SIZE_1MiB*512, 0)
+		fbase.Seek(i*configs.SIZE_SLICE, 0)
 		n, err := fbase.Read(buf)
 		if err != nil && err != io.EOF {
 			return nil, 0, err
@@ -622,7 +630,7 @@ func Chunking(fpath string) ([]string, int64, error) {
 		}
 
 		if (i + 1) < count {
-			if n != configs.SIZE_1MiB*512 {
+			if n != configs.SIZE_SLICE {
 				fs.Close()
 				return nil, 0, err
 			}

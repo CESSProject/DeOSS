@@ -11,6 +11,7 @@ const (
 )
 
 const (
-	Key_Digest = "digest:"
-	Key_Slices = "slices:"
+	Key_Digest        = "digest:"
+	Key_Slices        = "slices:"
+	Key_StoreProgress = "progress"
 )

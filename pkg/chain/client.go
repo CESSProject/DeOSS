@@ -70,7 +70,7 @@ type Chainer interface {
 	//
 	DeleteFile(owner_pkey []byte, filehash string) (string, error)
 	//
-	DeclarationFile(filehash string, filesize uint64, slicehash []string, user UserBrief) (string, error)
+	UploadDeal(filehash string, filesize uint64, slicehash []string, user UserBrief) (string, error)
 	//
 	FileSecreach(filehash string, user UserBrief) (string, error)
 	//

@@ -527,7 +527,7 @@ func (c *chainClient) DeleteBucket(owner_pkey []byte, name string) (string, erro
 	}
 }
 
-func (c *chainClient) DeclarationFile(filehash string, filesize uint64, slicehash []string, user UserBrief) (string, error) {
+func (c *chainClient) UploadDeal(filehash string, filesize uint64, slicehash []string, user UserBrief) (string, error) {
 	defer func() { recover() }()
 	var (
 		txhash      string

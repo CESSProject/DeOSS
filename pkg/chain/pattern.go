@@ -68,10 +68,10 @@ type BloomCollect struct {
 // file meta info
 type FileMetaInfo struct {
 	Size       types.U64
-	Index      types.U32
 	State      types.Bytes
+	Completion types.U32
 	UserBriefs []UserBrief
-	Backups    []Backup
+	Backups    [configs.BackupNum]Backup
 }
 
 type UserBrief struct {
@@ -83,7 +83,6 @@ type UserBrief struct {
 // Backups
 type Backup struct {
 	Backup_index types.U8
-	State        types.Bool
 	Slice_info   []SliceInfo
 }
 

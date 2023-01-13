@@ -126,6 +126,7 @@ func (n *Node) GetHandle(c *gin.Context) {
 			// file meta info
 			fmeta, err := n.Chn.GetFileMetaInfo(getName)
 			if err != nil {
+				n.Logs.Downfile("err", err)
 				if err.Error() == chain.ERR_Empty {
 					c.JSON(404, "NotFound")
 					return
@@ -161,12 +162,13 @@ func (n *Node) GetHandle(c *gin.Context) {
 					} else {
 						fsize = configs.SIZE_SLICE
 					}
-
+					fmt.Println("file size: ", fsize)
 					err = n.downloadFromStorage(fname, fsize, mip)
 					if err != nil {
 						n.Logs.Downfile("error", fmt.Errorf("[%v] Downloading %drd shard err: %v", c.ClientIP(), i, err))
 						if (i + 1) == len(fmeta.Backups) {
 							c.JSON(500, "InternalError")
+							n.Logs.Downfile("err", err)
 							return
 						}
 						continue
@@ -176,6 +178,7 @@ func (n *Node) GetHandle(c *gin.Context) {
 
 			f, err := os.Create(fpath)
 			if err != nil {
+				n.Logs.Downfile("err", err)
 				c.JSON(500, "InternalError")
 				return
 			}
@@ -185,12 +188,14 @@ func (n *Node) GetHandle(c *gin.Context) {
 				fslice, err := os.Open(filepath.Join(n.FileDir, string(fmeta.Backups[0].Slice_info[j].Slice_hash[:])))
 				if err != nil {
 					f.Close()
+					n.Logs.Downfile("err", err)
 					c.JSON(500, "InternalError")
 					return
 				}
 				for {
 					num, err = fslice.Read(buf)
 					if err != nil && err != io.EOF {
+						n.Logs.Downfile("err", err)
 						c.JSON(500, "InternalError")
 						return
 					}

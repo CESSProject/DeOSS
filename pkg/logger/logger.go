@@ -135,10 +135,8 @@ func (l *logs) Downfile(level string, err error) {
 		switch level {
 		case "info":
 			v.Sugar().Infof("[%v:%d] %v", filepath.Base(file), line, err)
-		case "error", "err":
+		case "err", "error":
 			v.Sugar().Errorf("[%v:%d] %v", filepath.Base(file), line, err)
-		case "warn":
-			v.Sugar().Warnf("[%v:%d] %v", filepath.Base(file), line, err)
 		}
 	}
 }
