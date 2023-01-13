@@ -41,6 +41,8 @@ const (
 	Cache = "cache"
 	// file dir
 	File = "file"
+	// tracked files
+	Track = "track"
 )
 
 const (

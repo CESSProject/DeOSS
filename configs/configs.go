@@ -54,13 +54,15 @@ const (
 	TCP_ReadBuffer = 12000
 	//
 	Tcp_Dial_Timeout = time.Duration(time.Second * 5)
+	//
+	FileCacheExpirationTime = 720
 )
 
 const (
 	// Time out waiting for transaction completion
 	TimeOut_WaitBlock = time.Duration(time.Second * 15)
 	//
-	DirPermission = 755
+	DirPermission = 0755
 )
 
 // explanation
