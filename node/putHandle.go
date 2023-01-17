@@ -24,7 +24,6 @@ import (
 	"io"
 	"net"
 	"net/http"
-	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -38,239 +37,140 @@ import (
 	"github.com/CESSProject/cess-oss/pkg/hashtree"
 	"github.com/CESSProject/cess-oss/pkg/utils"
 	"github.com/centrifuge/go-substrate-rpc-client/v4/types"
-	jwt "github.com/dgrijalva/jwt-go"
 	"github.com/gin-gonic/gin"
 )
 
-// It is used to authorize users
+// putHandle is used to create buckets and upload files
 func (n *Node) putHandle(c *gin.Context) {
 	var (
-		err      error
-		tokenStr string
-		acc      string
-		txhash   string
+		err                 error
+		httpCode            int
+		filesize            int64
+		fpath               string
+		filehash            string
+		roothash            string
+		putName             string
+		clientIp            string
+		account             string
+		txHash              string
+		bucketName          string
+		userBrief           chain.UserBrief
+		fileStorageProgress client.StorageProgress
 	)
 
-	// get token from head
-	tokenStr = c.Request.Header.Get(configs.Header_Auth)
-	if tokenStr == "" {
-		n.Logs.Upfile("err", fmt.Errorf("[%v] missing token", c.ClientIP()))
-		c.JSON(http.StatusBadRequest, "InvalidHead.MissToken")
-		return
-	}
+	clientIp = c.ClientIP()
+	n.Logs.Upfile("info", fmt.Sprintf("[%v] %v", clientIp, INFO_PutRequest))
 
-	// parse tokenStr
-	signKey, err := utils.CalcMD5(n.Cfile.GetCtrlPrk())
+	// verify token
+	httpCode, account, err = n.VerifyToken(c)
 	if err != nil {
-		n.Logs.Upfile("err", fmt.Errorf("[%v] %v", c.ClientIP(), err))
-		c.JSON(http.StatusInternalServerError, "InvalidProfile")
-		return
-	}
-
-	token, err := jwt.ParseWithClaims(
-		tokenStr,
-		&CustomClaims{},
-		func(token *jwt.Token) (interface{}, error) {
-			return signKey, nil
-		})
-
-	if claims, ok := token.Claims.(*CustomClaims); ok && token.Valid {
-		acc = claims.Account
-	} else {
-		n.Logs.Upfile("err", fmt.Errorf("[%v] Token verification failed", c.ClientIP()))
-		c.JSON(http.StatusForbidden, "NoPermission")
+		n.Logs.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, err))
+		c.JSON(httpCode, err)
 		return
 	}
 
 	// get owner's public key
-	pkey, err := utils.DecodePublicKeyOfCessAccount(acc)
+	pkey, err := utils.DecodePublicKeyOfCessAccount(account)
 	if err != nil {
-		n.Logs.Upfile("error", fmt.Errorf("[%v] Account decode failed", c.ClientIP()))
-		c.JSON(http.StatusBadRequest, "InvalidHead.Token")
+		n.Logs.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, err))
+		c.JSON(http.StatusBadRequest, ERR_InvalidToken)
 		return
 	}
 
-	// parameter name
-	putName := c.Param("name")
+	// get parameter name
+	putName = c.Param(PUT_ParameterName)
 	if putName == "" {
-		n.Logs.Upfile("error", fmt.Errorf("[%v] Empty name", c.ClientIP()))
-		c.JSON(http.StatusBadRequest, "InvalidParameter.Name")
+		n.Logs.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, ERR_InvalidName))
+		c.JSON(http.StatusBadRequest, ERR_InvalidName)
 		return
 	}
 
-	// bucket name
-	bucketName := c.Request.Header.Get(configs.Header_BucketName)
+	// get bucket name
+	bucketName = c.Request.Header.Get(Header_BucketName)
+
 	// create bucket operation
 	if bucketName == "" {
-		if VerifyBucketName(putName) {
-			txhash, err = n.Chn.CreateBucket(pkey, putName)
-			if err != nil {
-				n.Logs.Upfile("error", fmt.Errorf("[%v] %v", c.ClientIP(), err))
-				c.JSON(http.StatusBadRequest, err.Error())
-				return
-			}
-			c.JSON(http.StatusOK, map[string]string{"Block hash:": txhash})
-			return
+		httpCode, err = n.PutBucket(putName, pkey)
+		if err != nil {
+			n.Logs.Upfile("err", err.Error())
 		}
-		c.JSON(http.StatusBadRequest, "InvalidHead.BucketName")
+		c.JSON(httpCode, err)
 		return
 	}
 
 	// upload file operation
 	// verify bucket name
 	if !VerifyBucketName(bucketName) {
-		n.Logs.Upfile("error", fmt.Errorf("[%v] Wrong BucketName", c.ClientIP()))
-		c.JSON(http.StatusBadRequest, "InvalidHead.BucketName")
+		n.Logs.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, ERR_InvalidBucketName))
+		c.JSON(http.StatusBadRequest, ERR_InvalidBucketName)
 		return
-	}
-
-	userBrief := chain.UserBrief{
-		User:        types.NewAccountID(pkey),
-		File_name:   types.Bytes(putName),
-		Bucket_name: types.Bytes(bucketName),
-	}
-
-	// Digest
-	digest := c.Request.Header.Get(configs.Header_Digest)
-	if digest != "" {
-		_, err := n.Chn.GetFileMetaInfo(digest)
-		if err == nil {
-			n.Chn.FileSecreach(digest, userBrief)
-			c.JSON(http.StatusOK, digest)
-			return
-		}
-
-		val, err := n.Cach.Get([]byte(digest))
-		if err == nil {
-			var fileSt client.StorageProgress
-			err = json.Unmarshal(val, &fileSt)
-			if err != nil {
-				n.Logs.Upfile("info", fmt.Errorf("[%v] Data has been uploaded", string(val)))
-				c.JSON(http.StatusOK, string(val))
-				return
-			}
-			n.Logs.Upfile("info", fmt.Errorf("[%v] Data is being backed up", fileSt.FileId))
-			c.JSON(http.StatusOK, fileSt.FileId)
-			return
-		}
 	}
 
 	// Determine whether to authorize the space
-	grantor, err := n.Chn.GetGrantor(pkey)
+	httpCode, err = n.VerifyGrantor(pkey)
 	if err != nil {
-		n.Logs.Upfile("error", fmt.Errorf("[%v] %v", c.ClientIP(), err))
-		if err.Error() == chain.ERR_Empty {
-			c.JSON(http.StatusBadRequest, "Unauthorized")
-			return
-		}
-		c.JSON(http.StatusInternalServerError, "InternalError")
+		n.Logs.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, err))
+		c.JSON(httpCode, err)
 		return
 	}
-	account_chain, _ := utils.EncodePublicKeyAsCessAccount(grantor[:])
-	account_local, _ := n.Chn.GetCessAccount()
-	if account_chain != account_local {
-		if err != nil {
-			n.Logs.Upfile("error", fmt.Errorf("[%v] %v", c.ClientIP(), err))
-			c.JSON(http.StatusBadRequest, "Unauthorized")
-			return
-		}
+
+	userBrief.User = types.NewAccountID(pkey)
+	userBrief.File_name = types.Bytes(putName)
+	userBrief.Bucket_name = types.Bytes(bucketName)
+
+	// Is Stored
+	httpCode, err = n.IsStored(c.Request.Header.Get(Header_Digest), userBrief)
+	if err != nil {
+		n.Logs.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, err))
+		c.JSON(httpCode, err)
+		return
 	}
 
 	// Judging the length of the body
 	content_length := c.Request.ContentLength
 	if content_length <= 0 {
-		n.Logs.Upfile("error", fmt.Errorf("[%v] Empty file", c.ClientIP()))
-		c.JSON(http.StatusBadRequest, "InvalidParameter.EmptyFile")
+		n.Logs.Upfile("error", fmt.Sprintf("[%v] %v", clientIp, ERR_EmptyFile))
+		c.JSON(http.StatusBadRequest, ERR_EmptyFile)
 		return
 	}
 
-	// Create file storage directory
-	_, err = os.Stat(n.FileDir)
+	filesize, filehash, fpath, httpCode, err = n.SaveFormFile(c, account, putName)
 	if err != nil {
-		err = os.MkdirAll(n.FileDir, configs.DirPermission)
-		if err != nil {
-			n.Logs.Upfile("error", fmt.Errorf("[%v] %v", c.ClientIP(), err))
-			c.JSON(http.StatusInternalServerError, "InternalError")
-			return
-		}
-		os.Chmod(n.FileDir, configs.DirPermission)
-	}
-
-	// Calculate the full path of the file
-	fpath := filepath.Join(n.FileDir, url.QueryEscape(putName))
-	_, err = os.Stat(fpath)
-	if err == nil {
-		c.JSON(http.StatusBadRequest, "Invalid.DuplicateFileName")
-		return
-	}
-
-	// Get form file
-	formfile, err := c.FormFile("file")
-	if err != nil {
-		n.Logs.Upfile("error", fmt.Errorf("[%v] %v", c.ClientIP(), err))
-		c.JSON(http.StatusBadRequest, "InvalidParameter.FormFile")
-		return
-	}
-
-	// save form file
-	err = c.SaveUploadedFile(formfile, fpath)
-	if err != nil {
-		n.Logs.Upfile("error", fmt.Errorf("[%v] %v", c.ClientIP(), err))
-		c.JSON(http.StatusInternalServerError, "InternalError")
-		return
-	}
-	defer os.Remove(fpath)
-
-	// Get file info
-	fsata, err := os.Stat(fpath)
-	if err != nil {
-		n.Logs.Upfile("error", fmt.Errorf("[%v] %v", c.ClientIP(), err))
-		c.JSON(http.StatusInternalServerError, "InternalError")
-		return
-	}
-
-	// Calculate file hash
-	hash256, err := utils.CalcPathSHA256(fpath)
-	if err != nil {
-		n.Logs.Upfile("error", fmt.Errorf("[%v] %v", c.ClientIP(), err))
-		c.JSON(http.StatusInternalServerError, "InternalError")
+		n.Logs.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, err))
+		c.JSON(httpCode, err)
 		return
 	}
 
 	// Chunk the file
 	chunkPath, lastSize, err := Chunking(fpath)
 	if err != nil {
-		n.Logs.Upfile("error", fmt.Errorf("[%v] %v", c.ClientIP(), err))
-		c.JSON(http.StatusInternalServerError, "InternalError")
+		n.Logs.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, err))
+		c.JSON(http.StatusInternalServerError, err)
 		return
 	}
 
 	// Calculate merkle hash tree
 	hTree, err := hashtree.NewHashTree(chunkPath)
 	if err != nil {
-		n.Logs.Upfile("error", fmt.Errorf("[%v] NewHashTree", c.ClientIP()))
-		c.JSON(http.StatusInternalServerError, "InternalError")
+		n.Logs.Upfile("error", fmt.Sprintf("[%v] %v", clientIp))
+		c.JSON(http.StatusInternalServerError, err)
 		return
 	}
 
 	// Merkel root hash
-	hashtree := hex.EncodeToString(hTree.MerkleRoot())
+	roothash = hex.EncodeToString(hTree.MerkleRoot())
+	n.Logs.Upfile("info", fmt.Sprintf("[%v] Merkel root hash: %v", clientIp, roothash))
 
 	//Judge whether the file has been uploaded
-	_, err = n.Chn.GetFileDealMap(hashtree)
+	httpCode, err = n.IsUploaded(roothash)
 	if err != nil {
-		if err.Error() != chain.ERR_Empty {
-			n.Logs.Upfile("err", err)
-			c.JSON(http.StatusInternalServerError, "InternalError")
-			return
-		}
-	} else {
-		c.JSON(http.StatusBadRequest, "File is being stored, try again later!")
+		n.Logs.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, err))
+		c.JSON(httpCode, err)
 		return
 	}
 
 	// Record file hash and corresponding Merkel hash
-	n.Cach.Put([]byte(Key_Digest+hash256), []byte(hashtree))
+	n.Cach.Put([]byte(Key_Digest+filehash), []byte(roothash))
 
 	// Record file Merkle hash and all corresponding leaf hashes
 	var slicesHash string
@@ -280,56 +180,43 @@ func (n *Node) putHandle(c *gin.Context) {
 			slicesHash += "#"
 		}
 	}
-	n.Cach.Put([]byte(Key_Slices+hashtree), []byte(slicesHash))
+	n.Cach.Put([]byte(Key_Slices+roothash), []byte(slicesHash))
 
-	// Query the metadata information of the file on the chain
-	_, err = n.Chn.GetFileMetaInfo(hashtree)
+	// Is Stored
+	httpCode, err = n.IsStored(roothash, userBrief)
 	if err != nil {
-		if err.Error() != chain.ERR_Empty {
-			c.JSON(http.StatusInternalServerError, "InternalError")
-			return
-		}
-		// Declaration file
-		txhash, err = n.Chn.UploadDeal(hashtree, uint64(fsata.Size()), chunkPath, userBrief)
-		if err != nil || txhash == "" {
-			n.Logs.Upfile("err", fmt.Errorf("[%v] %v", c.ClientIP(), err))
-			c.JSON(http.StatusBadRequest, err.Error())
-			return
-		}
-	} else {
-		// There is file information on the chain, and this transfer is done in seconds
-		txhash, err = n.Chn.FileSecreach(digest, userBrief)
-		if err != nil || txhash == "" {
-			n.Logs.Upfile("err", fmt.Errorf("[%v] %v", c.ClientIP(), err))
-			c.JSON(http.StatusBadRequest, err.Error())
-			return
-		}
-		c.JSON(http.StatusOK, hashtree)
+		n.Logs.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, err))
+		c.JSON(httpCode, err)
 		return
 	}
 
-	// File storage status
-	var fileSt = client.StorageProgress{
-		FileId:      hashtree,
-		FileSize:    fsata.Size(),
-		FileState:   chain.FILE_STATE_PENDING,
-		Scheduler:   "",
-		IsUpload:    true,
-		IsCheck:     true,
-		IsShard:     true,
-		IsScheduler: false,
+	// Upload Deal
+	txHash, err = n.Chn.UploadDeal(roothash, uint64(filesize), chunkPath, userBrief)
+	if err != nil || txHash == "" {
+		n.Logs.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, err))
+		c.JSON(http.StatusBadRequest, err.Error())
+		return
 	}
-	val, _ := json.Marshal(&fileSt)
-	n.Cach.Put([]byte(Key_StoreProgress+hashtree), val)
+
+	// File Storage Progress
+	fileStorageProgress.FileId = roothash
+	fileStorageProgress.FileSize = filesize
+	fileStorageProgress.FileState = chain.FILE_STATE_PENDING
+	fileStorageProgress.IsUpload = true
+	fileStorageProgress.IsCheck = true
+	fileStorageProgress.IsShard = true
+
+	val, _ := json.Marshal(&fileStorageProgress)
+	n.Cach.Put([]byte(Key_StoreProgress+roothash), val)
 
 	// Record in tracklist
-	os.Create(filepath.Join(n.TrackDir, hashtree))
+	os.Create(filepath.Join(n.TrackDir, roothash))
 
 	// Start the file backup thread
-	go n.task_StoreFile(chunkPath, hashtree, lastSize)
+	go n.task_StoreFile(chunkPath, roothash, lastSize)
 
-	n.Logs.Upfile("info", fmt.Errorf("[%v] Upload success", hashtree))
-	c.JSON(http.StatusOK, hashtree)
+	n.Logs.Upfile("info", fmt.Sprintf("[%v] Upload success: %v", clientIp, roothash))
+	c.JSON(http.StatusOK, roothash)
 	return
 }
 
@@ -341,7 +228,7 @@ func (n *Node) task_StoreFile(fpath []string, fid string, lastsize int64) {
 	}()
 	var ch_Scheduler = make(chan string, 1)
 
-	n.Logs.Upfile("info", fmt.Errorf("[%v] Start the file backup management process", fid))
+	n.Logs.Upfile("info", fmt.Sprint("[%v] Start the file backup management process", fid))
 	go n.uploadToStorage(ch_Scheduler, fpath, fid, lastsize)
 	for {
 		select {
@@ -357,7 +244,7 @@ func (n *Node) task_StoreFile(fpath []string, fid string, lastsize int64) {
 				fileSt.Scheduler = result
 				val_new, _ := json.Marshal(&fileSt)
 				n.Cach.Put([]byte(fid), val_new)
-				n.Logs.Upfile("info", fmt.Errorf("[%v] File scheduling succeeded", fid))
+				n.Logs.Upfile("info", fmt.Sprintf("[%v] File scheduling succeeded", fid))
 				return
 			} else {
 				go n.uploadToStorage(ch_Scheduler, fpath, fid, lastsize)
@@ -378,13 +265,13 @@ func (n *Node) uploadToStorage(ch chan string, fpath []string, fid string, lasts
 	}()
 
 	for i := 0; i < len(fpath); i++ {
-		n.Logs.Upfile("info", fmt.Errorf("[%v] slice-%d: %v", fid, i, filepath.Base(fpath[i])))
+		n.Logs.Upfile("info", fmt.Sprintf("[%v] slice-%d: %v", fid, i, filepath.Base(fpath[i])))
 	}
 
 	//Judge whether the file has been uploaded
 	filedealinfo, err := n.Chn.GetFileDealMap(fid)
 	if err != nil {
-		n.Logs.Upfile("err", fmt.Errorf("[%v] err: %v", fid, err))
+		n.Logs.Upfile("err", fmt.Sprintf("[%v] err: %v", fid, err))
 		ch <- ERR_RETRY
 		return
 	}
@@ -392,16 +279,16 @@ func (n *Node) uploadToStorage(ch chan string, fpath []string, fid string, lasts
 	accAssign, _ := utils.EncodePublicKeyAsCessAccount(filedealinfo.Scheduler[:])
 	scheList, err := n.Chn.GetSchedulerList()
 	if err != nil {
-		n.Logs.Upfile("err", fmt.Errorf("[%v] err: %v", fid, err))
+		n.Logs.Upfile("err", fmt.Sprintf("[%v] err: %v", fid, err))
 		ch <- ERR_RETRY
 		return
 	}
 
-	n.Logs.Upfile("info", fmt.Errorf("[%v] Assigned: %v", fid, accAssign))
+	n.Logs.Upfile("info", fmt.Sprintf("[%v] Assigned: %v", fid, accAssign))
 
 	for i := 0; i < len(scheList); i++ {
 		accTemp, _ := utils.EncodePublicKeyAsCessAccount(scheList[i].ControllerUser[:])
-		n.Logs.Upfile("info", fmt.Errorf("[%v] Found: %v", fid, accTemp))
+		n.Logs.Upfile("info", fmt.Sprintf("[%v] Found: %v", fid, accTemp))
 		if accTemp != accAssign {
 			continue
 		}
@@ -413,18 +300,18 @@ func (n *Node) uploadToStorage(ch chan string, fpath []string, fid string, lasts
 			scheList[i].Ip.Port,
 		)
 
-		n.Logs.Upfile("info", fmt.Errorf("Will be send to: %v", accAssign))
+		n.Logs.Upfile("info", fmt.Sprintf("Will be send to: %v", accAssign))
 
 		conTcp, err := dialTcpServer(wsURL)
 		if err != nil {
-			n.Logs.Upfile("err", fmt.Errorf("[%v] err: %v", fid, err))
+			n.Logs.Upfile("err", fmt.Sprintf("[%v] err: %v", fid, err))
 			break
 		}
 
 		token, err := client.AuthReq(conTcp, n.Cfile.GetCtrlPrk())
 		if err != nil {
 			conTcp.Close()
-			n.Logs.Upfile("err", fmt.Errorf("[%v] err: %v", fid, err))
+			n.Logs.Upfile("err", fmt.Sprintf("[%v] err: %v", fid, err))
 			break
 		}
 
@@ -440,7 +327,7 @@ func (n *Node) uploadToStorage(ch chan string, fpath []string, fid string, lasts
 			}
 			err = client.FileReq(conTcp, token, fid, fpath[j], fsize, lastfile)
 			if err != nil {
-				n.Logs.Upfile("err", fmt.Errorf("[%v] err: %v", fid, err))
+				n.Logs.Upfile("err", fmt.Sprintf("[%v] err: %v", fid, err))
 				conTcp.Close()
 				break
 			}

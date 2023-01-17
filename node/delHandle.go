@@ -20,7 +20,6 @@ import (
 	"net/http"
 	"unsafe"
 
-	"github.com/CESSProject/cess-oss/configs"
 	"github.com/CESSProject/cess-oss/pkg/chain"
 	"github.com/CESSProject/cess-oss/pkg/utils"
 	jwt "github.com/dgrijalva/jwt-go"
@@ -36,7 +35,7 @@ func (n *Node) delHandle(c *gin.Context) {
 	)
 
 	// token
-	tokenString := c.Request.Header.Get(configs.Header_Auth)
+	tokenString := c.Request.Header.Get(Header_Auth)
 	if tokenString == "" {
 		c.JSON(400, "InvalidHead.MissToken")
 		return

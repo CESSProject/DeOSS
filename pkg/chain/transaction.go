@@ -110,29 +110,11 @@ func (c *chainClient) Register(ip, port string) (string, error) {
 	// Do the transfer and track the actual status
 	sub, err := c.api.RPC.Author.SubmitAndWatchExtrinsic(ext)
 	if err != nil {
-		if !strings.Contains(err.Error(), "Priority is too low") {
-			return txhash, errors.Wrap(err, "[SubmitAndWatchExtrinsic]")
-		}
-		var tryCount = 0
-		for tryCount < 20 {
-			o.Nonce = types.NewUCompactFromUInt(uint64(accountInfo.Nonce + types.NewU32(1)))
-			// Sign the transaction
-			err = ext.Sign(c.keyring, o)
-			if err != nil {
-				return txhash, errors.Wrap(err, "[Sign]")
-			}
-			sub, err = c.api.RPC.Author.SubmitAndWatchExtrinsic(ext)
-			if err == nil {
-				break
-			}
-			tryCount++
-		}
-	}
-	if err != nil {
 		return txhash, errors.Wrap(err, "[SubmitAndWatchExtrinsic]")
 	}
 	defer sub.Unsubscribe()
-	timeout := time.After(c.timeForBlockOut)
+	timeout := time.NewTimer(c.timeForBlockOut)
+	defer timeout.Stop()
 	for {
 		select {
 		case status := <-sub.Chan():
@@ -153,7 +135,7 @@ func (c *chainClient) Register(ip, port string) (string, error) {
 			}
 		case err = <-sub.Err():
 			return txhash, errors.Wrap(err, "[sub]")
-		case <-timeout:
+		case <-timeout.C:
 			return txhash, ERR_RPC_TIMEOUT
 		}
 	}
@@ -240,29 +222,11 @@ func (c *chainClient) Update(ip, port string) (string, error) {
 	// Do the transfer and track the actual status
 	sub, err := c.api.RPC.Author.SubmitAndWatchExtrinsic(ext)
 	if err != nil {
-		if !strings.Contains(err.Error(), "Priority is too low") {
-			return txhash, errors.Wrap(err, "[SubmitAndWatchExtrinsic]")
-		}
-		var tryCount = 0
-		for tryCount < 20 {
-			o.Nonce = types.NewUCompactFromUInt(uint64(accountInfo.Nonce + types.NewU32(1)))
-			// Sign the transaction
-			err = ext.Sign(c.keyring, o)
-			if err != nil {
-				return txhash, errors.Wrap(err, "[Sign]")
-			}
-			sub, err = c.api.RPC.Author.SubmitAndWatchExtrinsic(ext)
-			if err == nil {
-				break
-			}
-			tryCount++
-		}
-	}
-	if err != nil {
 		return txhash, errors.Wrap(err, "[SubmitAndWatchExtrinsic]")
 	}
 	defer sub.Unsubscribe()
-	timeout := time.After(c.timeForBlockOut)
+	timeout := time.NewTimer(c.timeForBlockOut)
+	defer timeout.Stop()
 	for {
 		select {
 		case status := <-sub.Chan():
@@ -283,7 +247,7 @@ func (c *chainClient) Update(ip, port string) (string, error) {
 			}
 		case err = <-sub.Err():
 			return txhash, errors.Wrap(err, "[sub]")
-		case <-timeout:
+		case <-timeout.C:
 			return txhash, ERR_RPC_TIMEOUT
 		}
 	}
@@ -361,29 +325,11 @@ func (c *chainClient) CreateBucket(owner_pkey []byte, name string) (string, erro
 	// Do the transfer and track the actual status
 	sub, err := c.api.RPC.Author.SubmitAndWatchExtrinsic(ext)
 	if err != nil {
-		if !strings.Contains(err.Error(), "Priority is too low") {
-			return txhash, errors.Wrap(err, "[SubmitAndWatchExtrinsic]")
-		}
-		var tryCount = 0
-		for tryCount < 20 {
-			o.Nonce = types.NewUCompactFromUInt(uint64(accountInfo.Nonce + types.NewU32(1)))
-			// Sign the transaction
-			err = ext.Sign(c.keyring, o)
-			if err != nil {
-				return txhash, errors.Wrap(err, "[Sign]")
-			}
-			sub, err = c.api.RPC.Author.SubmitAndWatchExtrinsic(ext)
-			if err == nil {
-				break
-			}
-			tryCount++
-		}
-	}
-	if err != nil {
 		return txhash, errors.Wrap(err, "[SubmitAndWatchExtrinsic]")
 	}
 	defer sub.Unsubscribe()
-	timeout := time.After(c.timeForBlockOut)
+	timeout := time.NewTimer(c.timeForBlockOut)
+	defer timeout.Stop()
 	for {
 		select {
 		case status := <-sub.Chan():
@@ -404,7 +350,7 @@ func (c *chainClient) CreateBucket(owner_pkey []byte, name string) (string, erro
 			}
 		case err = <-sub.Err():
 			return txhash, errors.Wrap(err, "[sub]")
-		case <-timeout:
+		case <-timeout.C:
 			return txhash, ERR_RPC_TIMEOUT
 		}
 	}
@@ -478,29 +424,11 @@ func (c *chainClient) DeleteBucket(owner_pkey []byte, name string) (string, erro
 	// Do the transfer and track the actual status
 	sub, err := c.api.RPC.Author.SubmitAndWatchExtrinsic(ext)
 	if err != nil {
-		if !strings.Contains(err.Error(), "Priority is too low") {
-			return txhash, errors.Wrap(err, "[SubmitAndWatchExtrinsic]")
-		}
-		var tryCount = 0
-		for tryCount < 20 {
-			o.Nonce = types.NewUCompactFromUInt(uint64(accountInfo.Nonce + types.NewU32(1)))
-			// Sign the transaction
-			err = ext.Sign(c.keyring, o)
-			if err != nil {
-				return txhash, errors.Wrap(err, "[Sign]")
-			}
-			sub, err = c.api.RPC.Author.SubmitAndWatchExtrinsic(ext)
-			if err == nil {
-				break
-			}
-			tryCount++
-		}
-	}
-	if err != nil {
 		return txhash, errors.Wrap(err, "[SubmitAndWatchExtrinsic]")
 	}
 	defer sub.Unsubscribe()
-	timeout := time.After(c.timeForBlockOut)
+	timeout := time.NewTimer(c.timeForBlockOut)
+	defer timeout.Stop()
 	for {
 		select {
 		case status := <-sub.Chan():
@@ -521,7 +449,7 @@ func (c *chainClient) DeleteBucket(owner_pkey []byte, name string) (string, erro
 			}
 		case err = <-sub.Err():
 			return txhash, errors.Wrap(err, "[sub]")
-		case <-timeout:
+		case <-timeout.C:
 			return txhash, ERR_RPC_TIMEOUT
 		}
 	}
@@ -723,29 +651,11 @@ func (c *chainClient) DeleteFile(owner_pkey []byte, filehash string) (string, er
 	// Do the transfer and track the actual status
 	sub, err := c.api.RPC.Author.SubmitAndWatchExtrinsic(ext)
 	if err != nil {
-		if !strings.Contains(err.Error(), "Priority is too low") {
-			return txhash, errors.Wrap(err, "[SubmitAndWatchExtrinsic]")
-		}
-		var tryCount = 0
-		for tryCount < 20 {
-			o.Nonce = types.NewUCompactFromUInt(uint64(accountInfo.Nonce + types.NewU32(1)))
-			// Sign the transaction
-			err = ext.Sign(c.keyring, o)
-			if err != nil {
-				return txhash, errors.Wrap(err, "[Sign]")
-			}
-			sub, err = c.api.RPC.Author.SubmitAndWatchExtrinsic(ext)
-			if err == nil {
-				break
-			}
-			tryCount++
-		}
-	}
-	if err != nil {
 		return txhash, errors.Wrap(err, "[SubmitAndWatchExtrinsic]")
 	}
 	defer sub.Unsubscribe()
-	timeout := time.After(c.timeForBlockOut)
+	timeout := time.NewTimer(c.timeForBlockOut)
+	defer timeout.Stop()
 	for {
 		select {
 		case status := <-sub.Chan():
@@ -766,7 +676,7 @@ func (c *chainClient) DeleteFile(owner_pkey []byte, filehash string) (string, er
 			}
 		case err = <-sub.Err():
 			return txhash, errors.Wrap(err, "[sub]")
-		case <-timeout:
+		case <-timeout.C:
 			return txhash, ERR_RPC_TIMEOUT
 		}
 	}
@@ -847,25 +757,6 @@ func (c *chainClient) FileSecreach(filehash string, user UserBrief) (string, err
 
 	// Do the transfer and track the actual status
 	sub, err := c.api.RPC.Author.SubmitAndWatchExtrinsic(ext)
-	if err != nil {
-		if !strings.Contains(err.Error(), "Priority is too low") {
-			return txhash, errors.Wrap(err, "[SubmitAndWatchExtrinsic]")
-		}
-		var tryCount = 0
-		for tryCount < 20 {
-			o.Nonce = types.NewUCompactFromUInt(uint64(accountInfo.Nonce + types.NewU32(1)))
-			// Sign the transaction
-			err = ext.Sign(c.keyring, o)
-			if err != nil {
-				return txhash, errors.Wrap(err, "[Sign]")
-			}
-			sub, err = c.api.RPC.Author.SubmitAndWatchExtrinsic(ext)
-			if err == nil {
-				break
-			}
-			tryCount++
-		}
-	}
 	if err != nil {
 		return txhash, errors.Wrap(err, "[SubmitAndWatchExtrinsic]")
 	}

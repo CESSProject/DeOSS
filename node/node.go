@@ -53,10 +53,10 @@ func (n *Node) Run() {
 	config.AllowAllOrigins = true
 	config.AllowMethods = []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"}
 	config.AddAllowHeaders(
-		configs.Header_Auth,
-		configs.Header_Account,
-		configs.Header_BucketName,
-		configs.Header_Digest,
+		Header_Auth,
+		Header_Account,
+		Header_BucketName,
+		Header_Digest,
 		"*",
 	)
 	n.Handle.Use(cors.New(config))

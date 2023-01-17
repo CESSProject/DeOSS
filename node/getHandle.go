@@ -58,7 +58,7 @@ func (n *Node) GetHandle(c *gin.Context) {
 	getName := c.Param("name")
 
 	// operation
-	operation := c.Request.Header.Get(configs.Header_Operation)
+	operation := c.Request.Header.Get(Header_Operation)
 	// view file
 	if len(getName) == int(unsafe.Sizeof(chain.FileHash{})) && operation != "" {
 		if operation == Opt_View {
@@ -218,7 +218,7 @@ func (n *Node) GetHandle(c *gin.Context) {
 	}
 
 	// account
-	account := c.Request.Header.Get(configs.Header_Account)
+	account := c.Request.Header.Get(Header_Account)
 	if account == "" {
 		if operation == Opt_Account {
 			account, _ = n.Chn.GetCessAccount()
@@ -296,13 +296,13 @@ func (n *Node) downloadFromStorage(fpath string, fsize int64, mip string) error 
 
 	conTcp, err := dialTcpServer(mip)
 	if err != nil {
-		n.Logs.Upfile("err", fmt.Errorf("dial %v err: %v", mip, err))
+		n.Logs.Downfile("err", fmt.Errorf("dial %v err: %v", mip, err))
 		return err
 	}
 
 	token, err := client.AuthReq(conTcp, n.Cfile.GetCtrlPrk())
 	if err != nil {
-		n.Logs.Upfile("err", fmt.Errorf("dial %v err: %v", mip, err))
+		n.Logs.Downfile("err", fmt.Errorf("dial %v err: %v", mip, err))
 		return err
 	}
 

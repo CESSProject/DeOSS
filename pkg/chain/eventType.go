@@ -128,10 +128,11 @@ type Event_UpdateIasCert struct {
 
 // ------------------------FileBank-------------------------------
 type Event_DeleteFile struct {
-	Phase  types.Phase
-	Acc    types.AccountID
-	Fileid FileHash
-	Topics []types.Hash
+	Phase    types.Phase
+	Operator types.AccountID
+	Owner    types.AccountID
+	FileHash FileHash
+	Topics   []types.Hash
 }
 
 type Event_BuySpace struct {
@@ -369,3 +370,24 @@ type CessEventRecords struct {
 	ElectionProviderMultiPhase_SolutionStored       []Event_SolutionStored
 	Balances_Withdraw                               []Event_Balances_Withdraw
 }
+
+const (
+	EVENT_SegmentBook                = "SegmentBook_"
+	EVENT_SegmentBook_SubmitReport   = EVENT_SegmentBook + "SubmitReport"
+	EVENT_SegmentBook_ChallengeStart = EVENT_SegmentBook + "ChallengeStart"
+
+	EVENT_FileBank                  = "FileBank_"
+	EVENT_FileBank_DeleteFile       = EVENT_FileBank + "DeleteFile"
+	EVENT_FileBank_UploadDeal       = EVENT_FileBank + "UploadDeal"
+	EVENT_FileBank_CreateBucket     = EVENT_FileBank + "CreateBucket"
+	EVENT_FileBank_DeleteBucket     = EVENT_FileBank + "DeleteBucket"
+	EVENT_FileBank_UploadDealFailed = EVENT_FileBank + "UploadDealFailed"
+	EVENT_FileBank_FlyUpload        = EVENT_FileBank + "FlyUpload"
+
+	EVENT_Oss                 = "Oss_"
+	EVENT_Oss_OssRegister     = EVENT_Oss + "OssRegister"
+	EVENT_Oss_OssUpdate       = EVENT_Oss + "OssUpdate"
+	EVENT_Oss_OssDestroy      = EVENT_Oss + "OssDestroy"
+	EVENT_Oss_Authorize       = EVENT_Oss + "Authorize"
+	EVENT_Oss_CancelAuthorize = EVENT_Oss + "CancelAuthorize"
+)

@@ -21,7 +21,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/CESSProject/cess-oss/configs"
 	"github.com/CESSProject/cess-oss/pkg/utils"
 	"github.com/CESSProject/go-keyring"
 	jwt "github.com/dgrijalva/jwt-go"
@@ -82,7 +81,7 @@ func (n *Node) authHandle(c *gin.Context) {
 		req.Account,
 		jwt.StandardClaims{
 			NotBefore: int64(time.Now().Unix() - 60),
-			ExpiresAt: int64(time.Now().Unix() + int64(configs.TokenDated)),
+			ExpiresAt: int64(time.Now().Unix() + int64(TokenDated)),
 		},
 	}
 

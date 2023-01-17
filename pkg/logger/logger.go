@@ -34,7 +34,7 @@ type Logger interface {
 	Log(string, string, error)
 	Pnc(string, error)
 	Common(string, error)
-	Upfile(string, error)
+	Upfile(string, string)
 	Downfile(string, error)
 }
 
@@ -113,7 +113,7 @@ func (l *logs) Common(level string, err error) {
 	}
 }
 
-func (l *logs) Upfile(level string, err error) {
+func (l *logs) Upfile(level string, err string) {
 	_, file, line, _ := runtime.Caller(1)
 	v, ok := l.log["upfile"]
 	if ok {
@@ -121,9 +121,7 @@ func (l *logs) Upfile(level string, err error) {
 		case "info":
 			v.Sugar().Infof("[%v:%d] %v", filepath.Base(file), line, err)
 		case "err", "error":
-			v.Sugar().Errorf("[%v:%d] %v", filepath.Base(file), line, err)
-		case "warn":
-			v.Sugar().Warnf("[%v:%d] %v", filepath.Base(file), line, err)
+			v.Sugar().Errorf("[%v:%d] %s", filepath.Base(file), line, err)
 		}
 	}
 }
