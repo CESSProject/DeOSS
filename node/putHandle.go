@@ -56,18 +56,14 @@ func (n *Node) putHandle(c *gin.Context) {
 		bucketName          string
 		userBrief           chain.UserBrief
 		fileStorageProgress client.StorageProgress
+		respMsg             = &RespMsg{}
 	)
 
 	clientIp = c.ClientIP()
 	n.Logs.Upfile("info", fmt.Sprintf("[%v] %v", clientIp, INFO_PutRequest))
 
 	// verify token
-	httpCode, account, err = n.VerifyToken(c)
-	if err != nil {
-		n.Logs.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, err))
-		c.JSON(httpCode, err)
-		return
-	}
+	account = n.VerifyToken(c, respMsg)
 
 	// get owner's public key
 	pkey, err := utils.DecodePublicKeyOfCessAccount(account)
@@ -137,8 +133,12 @@ func (n *Node) putHandle(c *gin.Context) {
 	filesize, filehash, fpath, httpCode, err = n.SaveFormFile(c, account, putName)
 	if err != nil {
 		n.Logs.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, err))
-		c.JSON(httpCode, err)
-		return
+		filesize, filehash, fpath, httpCode, err = n.SaveBody(c, account, putName)
+		if err != nil {
+			n.Logs.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, err))
+			c.JSON(httpCode, err)
+			return
+		}
 	}
 
 	// Chunk the file
@@ -152,7 +152,7 @@ func (n *Node) putHandle(c *gin.Context) {
 	// Calculate merkle hash tree
 	hTree, err := hashtree.NewHashTree(chunkPath)
 	if err != nil {
-		n.Logs.Upfile("error", fmt.Sprintf("[%v] %v", clientIp))
+		n.Logs.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, errors.New(ERR_ReportProblem+err.Error())))
 		c.JSON(http.StatusInternalServerError, err)
 		return
 	}
@@ -228,7 +228,7 @@ func (n *Node) task_StoreFile(fpath []string, fid string, lastsize int64) {
 	}()
 	var ch_Scheduler = make(chan string, 1)
 
-	n.Logs.Upfile("info", fmt.Sprint("[%v] Start the file backup management process", fid))
+	n.Logs.Upfile("info", fmt.Sprintf("[%v] Start the file backup management process", fid))
 	go n.uploadToStorage(ch_Scheduler, fpath, fid, lastsize)
 	for {
 		select {

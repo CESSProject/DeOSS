@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"mime/multipart"
 	"net/http"
 	"net/url"
@@ -36,7 +37,7 @@ import (
 )
 
 // VerifyToken is used to parse and verify token
-func (n *Node) VerifyToken(c *gin.Context) (int, string, error) {
+func (n *Node) VerifyToken(c *gin.Context, respmsg *RespMsg) string {
 	var (
 		ok       bool
 		err      error
@@ -46,16 +47,23 @@ func (n *Node) VerifyToken(c *gin.Context) (int, string, error) {
 		account  string
 		signKey  []byte
 	)
+	if respmsg.Err != nil {
+		return account
+	}
 	// get token from head
 	tokenstr = c.Request.Header.Get(Header_Auth)
 	if tokenstr == "" {
-		return http.StatusBadRequest, account, errors.New(ERR_MissToken)
+		respmsg.Code = http.StatusBadRequest
+		respmsg.Err = errors.New(ERR_MissToken)
+		return account
 	}
 
 	// parse token
 	signKey, err = utils.CalcMD5(n.Cfile.GetCtrlPrk())
 	if err != nil {
-		return http.StatusInternalServerError, account, errors.New(ERR_EmptySeed)
+		respmsg.Code = http.StatusInternalServerError
+		respmsg.Err = errors.New(ERR_EmptySeed)
+		return account
 	}
 
 	token, err = jwt.ParseWithClaims(
@@ -68,9 +76,13 @@ func (n *Node) VerifyToken(c *gin.Context) (int, string, error) {
 	if claims, ok = token.Claims.(*CustomClaims); ok && token.Valid {
 		account = claims.Account
 	} else {
-		return http.StatusForbidden, account, errors.New(ERR_NoPermission)
+		respmsg.Code = http.StatusInternalServerError
+		respmsg.Err = errors.New(ERR_NoPermission)
+		return account
 	}
-	return http.StatusOK, account, nil
+	respmsg.Code = http.StatusOK
+	respmsg.Err = nil
+	return account
 }
 
 // PutBucket is used to create buckets
@@ -217,6 +229,69 @@ func (n *Node) SaveFormFile(c *gin.Context, account, name string) (int64, string
 	}
 
 	defer os.Remove(fpath)
+
+	// Get file info
+	finfo, err := os.Stat(fpath)
+	if err != nil {
+		return 0, "", "", http.StatusInternalServerError, errors.New(ERR_ReportProblem + err.Error())
+	}
+
+	// Calculate file hash
+	hash256, err := utils.CalcPathSHA256(fpath)
+	if err != nil {
+		return 0, "", "", http.StatusInternalServerError, errors.New(ERR_ReportProblem + err.Error())
+	}
+
+	// Rename
+	hashpath = filepath.Join(savedir, hash256)
+	err = os.Rename(fpath, hashpath)
+	if err != nil {
+		return 0, "", "", http.StatusInternalServerError, errors.New(ERR_ReportProblem + err.Error())
+	}
+
+	return finfo.Size(), hash256, hashpath, http.StatusOK, nil
+}
+
+// SaveBody is used to save body content
+func (n *Node) SaveBody(c *gin.Context, account, name string) (int64, string, string, int, error) {
+	var (
+		err      error
+		savedir  string
+		fpath    string
+		hashpath string
+	)
+	savedir = filepath.Join(n.FileDir, account)
+	// Create file storage directory
+	_, err = os.Stat(savedir)
+	if err != nil {
+		err = os.MkdirAll(savedir, configs.DirPermission)
+		if err != nil {
+			return 0, "", "", http.StatusInternalServerError, errors.New(ERR_ReportProblem + err.Error())
+		}
+	}
+
+	// Calculate the full path of the file
+	fpath = filepath.Join(savedir, url.QueryEscape(name))
+	_, err = os.Stat(fpath)
+	if err == nil {
+		return 0, "", "", http.StatusInternalServerError, errors.New(ERR_DuplicateFileName)
+	}
+
+	f, err := os.Create(fpath)
+	if err == nil {
+		return 0, "", "", http.StatusInternalServerError, errors.New(ERR_ReportProblem + err.Error())
+	}
+	defer os.Remove(fpath)
+
+	// save body content
+	buf, err := ioutil.ReadAll(c.Request.Body)
+	if err == nil {
+		return 0, "", "", http.StatusBadRequest, errors.New(ERR_ReportProblem + err.Error())
+	}
+
+	f.Write(buf)
+	f.Sync()
+	f.Close()
 
 	// Get file info
 	finfo, err := os.Stat(fpath)
