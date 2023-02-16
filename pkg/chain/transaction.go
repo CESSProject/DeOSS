@@ -17,6 +17,7 @@
 package chain
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 	"time"
@@ -34,7 +35,12 @@ func (c *chainClient) Register(ip, port string) (string, error) {
 	)
 
 	c.lock.Lock()
-	defer c.lock.Unlock()
+	defer func() {
+		c.lock.Unlock()
+		if err := recover(); err != nil {
+			fmt.Println(utils.RecoverError(err))
+		}
+	}()
 
 	if !c.IsChainClientOk() {
 		c.SetChainState(false)
@@ -164,7 +170,12 @@ func (c *chainClient) Update(ip, port string) (string, error) {
 	)
 
 	c.lock.Lock()
-	defer c.lock.Unlock()
+	defer func() {
+		c.lock.Unlock()
+		if err := recover(); err != nil {
+			fmt.Println(utils.RecoverError(err))
+		}
+	}()
 
 	if !c.IsChainClientOk() {
 		c.SetChainState(false)
@@ -292,7 +303,12 @@ func (c *chainClient) CreateBucket(owner_pkey []byte, name string) (string, erro
 	)
 
 	c.lock.Lock()
-	defer c.lock.Unlock()
+	defer func() {
+		c.lock.Unlock()
+		if err := recover(); err != nil {
+			fmt.Println(utils.RecoverError(err))
+		}
+	}()
 
 	if !c.IsChainClientOk() {
 		c.SetChainState(false)
@@ -412,7 +428,12 @@ func (c *chainClient) DeleteBucket(owner_pkey []byte, name string) (string, erro
 	)
 
 	c.lock.Lock()
-	defer c.lock.Unlock()
+	defer func() {
+		c.lock.Unlock()
+		if err := recover(); err != nil {
+			fmt.Println(utils.RecoverError(err))
+		}
+	}()
 
 	if !c.IsChainClientOk() {
 		c.SetChainState(false)
@@ -528,7 +549,12 @@ func (c *chainClient) DeclarationFile(filehash string, user UserBrief) (string, 
 	)
 
 	c.lock.Lock()
-	defer c.lock.Unlock()
+	defer func() {
+		c.lock.Unlock()
+		if err := recover(); err != nil {
+			fmt.Println(utils.RecoverError(err))
+		}
+	}()
 
 	if !c.IsChainClientOk() {
 		c.SetChainState(false)
@@ -652,7 +678,12 @@ func (c *chainClient) DeleteFile(owner_pkey []byte, filehash string) (string, er
 	)
 
 	c.lock.Lock()
-	defer c.lock.Unlock()
+	defer func() {
+		c.lock.Unlock()
+		if err := recover(); err != nil {
+			fmt.Println(utils.RecoverError(err))
+		}
+	}()
 
 	if !c.IsChainClientOk() {
 		c.SetChainState(false)

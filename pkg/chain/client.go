@@ -47,6 +47,8 @@ type Chainer interface {
 	GetCessAccount() (string, error)
 	// GetAccountInfo is used to get account information
 	GetAccountInfo(pkey []byte) (types.AccountInfo, error)
+	//KeepConnect()
+	KeepConnect()
 
 	// GetSchedulerList is used to get information about all schedules
 	GetSchedulerList() ([]SchedulerInfo, error)
@@ -138,6 +140,10 @@ func (c *chainClient) IsChainClientOk() bool {
 			return false
 		}
 		c.api = cli
+		c.metadata, err = c.api.RPC.State.GetMetadataLatest()
+		if err != nil {
+			return false
+		}
 		return true
 	}
 	return true
@@ -160,9 +166,15 @@ func reconnectChainClient(rpcAddr string) (*gsrpc.SubstrateAPI, error) {
 }
 
 func healthchek(a *gsrpc.SubstrateAPI) error {
-	defer func() {
-		recover()
-	}()
+	defer func() { recover() }()
 	_, err := a.RPC.System.Health()
 	return err
+}
+
+func (c *chainClient) KeepConnect() {
+	tick := time.NewTicker(time.Second * 20)
+	select {
+	case <-tick.C:
+		healthchek(c.api)
+	}
 }

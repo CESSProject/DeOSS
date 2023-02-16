@@ -19,6 +19,7 @@ const (
 	MsgRecvHead
 	MsgRecvFile
 	MsgFileSt
+	MsgVersion
 )
 
 const (
@@ -177,6 +178,21 @@ func NewFileStMsg(fid string) *Message {
 	m.MsgType = MsgFileSt
 	m.FileName = ""
 	m.FileHash = fid
+	m.FileSize = 0
+	m.LastMark = false
+	m.FileType = FileType_file
+	m.Pubkey = nil
+	m.SignMsg = nil
+	m.Sign = nil
+	m.Bytes = nil
+	return m
+}
+
+func NewVersionMsg() *Message {
+	m := &Message{}
+	m.MsgType = MsgVersion
+	m.FileName = ""
+	m.FileHash = ""
 	m.FileSize = 0
 	m.LastMark = false
 	m.FileType = FileType_file

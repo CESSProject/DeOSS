@@ -36,6 +36,7 @@ type Logger interface {
 	Common(string, error)
 	Upfile(string, error)
 	Downfile(string, error)
+	Record(error)
 }
 
 type logs struct {
@@ -139,6 +140,14 @@ func (l *logs) Downfile(level string, err error) {
 		case "warn":
 			v.Sugar().Warnf("[%v:%d] %v", filepath.Base(file), line, err)
 		}
+	}
+}
+
+func (l *logs) Record(err error) {
+	_, file, line, _ := runtime.Caller(1)
+	v, ok := l.log["record"]
+	if ok {
+		v.Sugar().Infof("[%v:%d] %v", filepath.Base(file), line, err)
 	}
 }
 

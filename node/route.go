@@ -19,6 +19,8 @@ package node
 func (n *Node) addRoute() {
 	n.Handle.POST("/auth", n.authHandle)
 
+	n.Handle.POST("/:name", n.postHandle)
+
 	n.Handle.PUT("/:name", n.putHandle)
 
 	n.Handle.DELETE("/:name", n.delHandle)

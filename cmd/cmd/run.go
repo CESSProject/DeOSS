@@ -56,6 +56,8 @@ func Command_Run_Runfunc(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
+	go node.Chain.KeepConnect()
+
 	//Build Data Directory
 	logDir, cacheDir, node.FileDir, node.TrackDir, err = buildDir(node.Confile, node.Chain)
 	if err != nil {

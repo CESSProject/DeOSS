@@ -63,6 +63,16 @@ const (
 	TimeOut_WaitBlock = time.Duration(time.Second * 15)
 	//
 	DirPermission = 0755
+	//
+	TotalFile = "TotalFile"
+)
+
+const (
+	PublicOssDomainName = "https://deoss-pub-gateway.cess.cloud"
+	SelfBucketName      = "bucket1"
+	SelfAccount         = "cXhRuajzmiNvJWyagvNDyE9sWsCZoEXrrSWhEbiPvn9LQxWLx"
+	UploadCountPerDay   = 20
+	MaxFileSize         = SIZE_1MiB * 100
 )
 
 // explanation
@@ -85,5 +95,6 @@ var (
 		"upfile",   //Upload file log
 		"panic",    //Panic log
 		"downfile", //Download log
+		"record",
 	}
 )

@@ -17,6 +17,8 @@
 package node
 
 import (
+	"log"
+
 	"github.com/CESSProject/cess-oss/configs"
 	"github.com/CESSProject/cess-oss/pkg/chain"
 	"github.com/CESSProject/cess-oss/pkg/confile"
@@ -48,10 +50,10 @@ func New() *Node {
 func (n *Node) Run() {
 	gin.SetMode(gin.ReleaseMode)
 	n.Handle = gin.Default()
-	n.Handle.MaxMultipartMemory = configs.SIZE_1GiB * 32
+	n.Handle.MaxMultipartMemory = configs.SIZE_1GiB * 16
 	config := cors.DefaultConfig()
 	config.AllowAllOrigins = true
-	config.AllowMethods = []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"}
+	config.AllowMethods = []string{"HEAD", "GET", "POST", "PUT", "DELETE", "OPTIONS"}
 	config.AddAllowHeaders(
 		configs.Header_Auth,
 		configs.Header_Account,
@@ -63,6 +65,7 @@ func (n *Node) Run() {
 	n.addRoute()
 	// Track file
 	go n.TrackFile()
+	log.Println("Listening on port :", n.Confile.GetServicePort())
 	// Run
 	n.Handle.Run(":" + n.Confile.GetServicePort())
 }

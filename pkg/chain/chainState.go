@@ -18,9 +18,11 @@ package chain
 
 import (
 	"fmt"
+	"log"
 
 	"github.com/CESSProject/cess-oss/pkg/utils"
 	"github.com/centrifuge/go-substrate-rpc-client/v4/types"
+	"github.com/centrifuge/go-substrate-rpc-client/xxhash"
 	"github.com/pkg/errors"
 )
 
@@ -50,6 +52,11 @@ func (c *chainClient) GetChainStatus() bool {
 
 // Get miner information on the chain
 func (c *chainClient) GetStorageMinerInfo(pkey []byte) (MinerInfo, error) {
+	defer func() {
+		if err := recover(); err != nil {
+			fmt.Println(utils.RecoverError(err))
+		}
+	}()
 	var data MinerInfo
 
 	if !c.IsChainClientOk() {
@@ -80,6 +87,11 @@ func (c *chainClient) GetStorageMinerInfo(pkey []byte) (MinerInfo, error) {
 
 // Get all miner information on the cess chain
 func (c *chainClient) GetAllStorageMiner() ([]types.AccountID, error) {
+	defer func() {
+		if err := recover(); err != nil {
+			fmt.Println(utils.RecoverError(err))
+		}
+	}()
 	var data []types.AccountID
 
 	if !c.IsChainClientOk() {
@@ -109,6 +121,11 @@ func (c *chainClient) GetAllStorageMiner() ([]types.AccountID, error) {
 
 // Query file meta info
 func (c *chainClient) GetFileMetaInfo(fid string) (FileMetaInfo, error) {
+	defer func() {
+		if err := recover(); err != nil {
+			fmt.Println(utils.RecoverError(err))
+		}
+	}()
 	var (
 		data FileMetaInfo
 		hash FileHash
@@ -158,6 +175,11 @@ func (c *chainClient) GetCessAccount() (string, error) {
 }
 
 func (c *chainClient) GetAccountInfo(pkey []byte) (types.AccountInfo, error) {
+	defer func() {
+		if err := recover(); err != nil {
+			fmt.Println(utils.RecoverError(err))
+		}
+	}()
 	var data types.AccountInfo
 
 	if !c.IsChainClientOk() {
@@ -192,6 +214,11 @@ func (c *chainClient) GetAccountInfo(pkey []byte) (types.AccountInfo, error) {
 }
 
 func (c *chainClient) GetState(pubkey []byte) (string, error) {
+	defer func() {
+		if err := recover(); err != nil {
+			fmt.Println(utils.RecoverError(err))
+		}
+	}()
 	var data Ipv4Type
 
 	if !c.IsChainClientOk() {
@@ -232,6 +259,11 @@ func (c *chainClient) GetState(pubkey []byte) (string, error) {
 }
 
 func (c *chainClient) GetGrantor(pkey []byte) (types.AccountID, error) {
+	defer func() {
+		if err := recover(); err != nil {
+			fmt.Println(utils.RecoverError(err))
+		}
+	}()
 	var data types.AccountID
 
 	if !c.IsChainClientOk() {
@@ -266,6 +298,11 @@ func (c *chainClient) GetGrantor(pkey []byte) (types.AccountID, error) {
 }
 
 func (c *chainClient) GetBucketInfo(owner_pkey []byte, name string) (BucketInfo, error) {
+	defer func() {
+		if err := recover(); err != nil {
+			fmt.Println(utils.RecoverError(err))
+		}
+	}()
 	var data BucketInfo
 
 	if !c.IsChainClientOk() {
@@ -306,6 +343,11 @@ func (c *chainClient) GetBucketInfo(owner_pkey []byte, name string) (BucketInfo,
 }
 
 func (c *chainClient) GetBucketList(owner_pkey []byte) ([]types.Bytes, error) {
+	defer func() {
+		if err := recover(); err != nil {
+			fmt.Println(utils.RecoverError(err))
+		}
+	}()
 	var data []types.Bytes
 
 	if !c.IsChainClientOk() {
@@ -341,6 +383,13 @@ func (c *chainClient) GetBucketList(owner_pkey []byte) ([]types.Bytes, error) {
 
 // Get scheduler information on the cess chain
 func (c *chainClient) GetSchedulerList() ([]SchedulerInfo, error) {
+	c.lock.Lock()
+	defer func() {
+		c.lock.Unlock()
+		if err := recover(); err != nil {
+			//fmt.Println(utils.RecoverError(err))
+		}
+	}()
 	var data []SchedulerInfo
 
 	if !c.IsChainClientOk() {
@@ -366,4 +415,57 @@ func (c *chainClient) GetSchedulerList() ([]SchedulerInfo, error) {
 		return data, ERR_RPC_EMPTY_VALUE
 	}
 	return data, nil
+}
+
+// Pallert
+const (
+	_FILEBANK = "FileBank"
+	_SYSTEM   = "System"
+	_CACHER   = "Cacher"
+)
+
+// Chain state
+const (
+	// System
+	_SYSTEM_ACCOUNT = "Account"
+	_SYSTEM_EVENTS  = "Events"
+	// FileMap
+	_FILEMAP_FILEMETA = "File"
+	// Miner
+	_CACHER_CACHER = "Cachers"
+)
+
+type CacherInfo struct {
+	Acc       types.AccountID
+	Ip        Ipv4Type
+	BytePrice types.U128
+}
+
+func (c *chainClient) GetCachers() ([]CacherInfo, error) {
+	var list []CacherInfo
+	key := createPrefixedKey(_CACHER_CACHER, _CACHER)
+	keys, err := c.api.RPC.State.GetKeysLatest(key)
+	if err != nil {
+		return list, errors.Wrap(err, "get cachers info error")
+	}
+	set, err := c.api.RPC.State.QueryStorageAtLatest(keys)
+	if err != nil {
+		return list, errors.Wrap(err, "get cachers info error")
+	}
+	for _, elem := range set {
+		for _, change := range elem.Changes {
+			var cacher CacherInfo
+			if err := types.Decode(change.StorageData, &cacher); err != nil {
+				//logger.Uld.Sugar().Error("get cachers info error,hash:", err)
+				log.Println(err)
+				continue
+			}
+			list = append(list, cacher)
+		}
+	}
+	return list, nil
+}
+
+func createPrefixedKey(method, prefix string) []byte {
+	return append(xxhash.New128([]byte(prefix)).Sum(nil), xxhash.New128([]byte(method)).Sum(nil)...)
 }

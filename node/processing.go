@@ -39,6 +39,8 @@ type ConMgr struct {
 	stop       chan struct{}
 }
 
+var scheVersion string
+
 func (c *ConMgr) handler(cache db.Cacher) error {
 	var (
 		err      error
@@ -147,6 +149,14 @@ func (c *ConMgr) handler(cache db.Cacher) error {
 			default:
 			}
 			return errors.New("Close message")
+		case MsgVersion:
+			c.waitNotify <- m.Bytes[0] == byte(Status_Ok)
+			scheVersion = m.FileName
+			switch cap(m.Bytes) {
+			case configs.TCP_ReadBuffer:
+				readBufPool.Put(m.Bytes)
+			default:
+			}
 
 		default:
 			switch cap(m.Bytes) {
@@ -285,7 +295,23 @@ func (c *ConMgr) sendSingleFile(filePath string, fid string, fsize int64, lastma
 	}()
 	fileInfo, _ := file.Stat()
 
-	//log.Println("Ready to write file: ", filePath)
+	c.conn.SendMsg(NewVersionMsg())
+
+	timerVer := time.NewTimer(10 * time.Second)
+	defer timerVer.Stop()
+	select {
+	case ok := <-c.waitNotify:
+		if !ok {
+			return fmt.Errorf("send err")
+		}
+	case <-timerVer.C:
+		return fmt.Errorf("wait server msg timeout")
+	}
+
+	if scheVersion == "" {
+		return fmt.Errorf("sche version empty")
+	}
+
 	c.conn.SendMsg(NewHeadMsg(fileInfo.Name(), fid, lastmark, pkey, signmsg, sign))
 
 	timerHead := time.NewTimer(10 * time.Second)

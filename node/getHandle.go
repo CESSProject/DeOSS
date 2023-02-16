@@ -24,6 +24,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"unsafe"
 
 	"github.com/CESSProject/cess-oss/configs"
@@ -58,6 +59,143 @@ type RtnBlockInfo struct {
 // It is used to authorize users
 func (n *Node) GetHandle(c *gin.Context) {
 	getName := c.Param("name")
+	if getName == "version" {
+		c.JSON(200, configs.Version)
+		return
+	}
+	if strings.ContainsAny(getName, ".") {
+		fext := filepath.Ext(getName)
+		contenttype, ok := contentType.Load(strings.ToLower(fext))
+		if !ok {
+			contenttype = "application/octet-stream"
+		}
+		hash := strings.TrimSuffix(getName, fext)
+		if len(hash) == int(unsafe.Sizeof(chain.FileHash{})) {
+			fpath := filepath.Join(n.FileDir, hash)
+			fstat, err := os.Stat(fpath)
+			if err == nil {
+
+				// c.Writer.Header().Add("Content-Disposition", fmt.Sprintf("attachment; filename=%v", getName))
+				// c.Writer.Header().Add("Content-Type", "application/octet-stream")
+				// c.File(fpath)
+
+				c.Header("Accept-ranges", "bytes")
+				c.Writer.Header().Add("Access-control-allow-headers", "Content-Type")
+				c.Writer.Header().Add("Access-control-allow-headers", "Range")
+				c.Writer.Header().Add("Access-control-allow-headers", "User-Agent")
+				c.Writer.Header().Add("Access-control-allow-headers", "X-Request-With")
+				c.Header("Accept-control-allow-methods", "GET")
+				c.Header("Accept-control-allow-origin", "*")
+				c.Writer.Header().Add("Accept-control-expose-headers", "Content-Range")
+				c.Writer.Header().Add("Accept-control-expose-headers", "X-Chunked-Output")
+				c.Writer.Header().Add("Accept-control-expose-headers", "X-Stream-Output")
+				c.Header("Cache-control", "public, max-age=29030400, immutable")
+				c.Header("Content-length", fmt.Sprintf("%d", fstat.Size()))
+				c.Header("Content-type", contenttype.(string))
+				c.Header("Cache-Control", "max-age=600")
+				if contenttype.(string) == "application/octet-stream" {
+					c.Header("Content-disposition", fmt.Sprintf("attachment; filename=%v", getName))
+				} else {
+					c.Header("Content-disposition", fmt.Sprintf("inline; filename=%v", getName))
+				}
+				f, _ := os.Open(fpath)
+				io.Copy(c.Writer, f)
+				select {
+				case <-c.Request.Context().Done():
+					return
+				}
+			}
+
+			// file meta info
+			fmeta, err := n.Chain.GetFileMetaInfo(hash)
+			if err != nil {
+				if err.Error() == chain.ERR_Empty {
+					c.JSON(404, "NotFound")
+					return
+				}
+				c.JSON(500, "InternalError")
+				return
+			}
+
+			if string(fmeta.State) != chain.FILE_STATE_ACTIVE {
+				c.JSON(403, "BackingUp")
+				return
+			}
+
+			r := len(fmeta.BlockInfo) / 3
+			d := len(fmeta.BlockInfo) - r
+			down_count := 0
+			for i := 0; i < len(fmeta.BlockInfo); i++ {
+				// Download the file from the scheduler service
+				fname := filepath.Join(n.FileDir, string(fmeta.BlockInfo[i].BlockId[:]))
+				if len(fmeta.BlockInfo) == 1 {
+					fname = fname[:(len(fname) - 4)]
+				}
+				mip := fmt.Sprintf("%d.%d.%d.%d:%d",
+					fmeta.BlockInfo[i].MinerIp.Value[0],
+					fmeta.BlockInfo[i].MinerIp.Value[1],
+					fmeta.BlockInfo[i].MinerIp.Value[2],
+					fmeta.BlockInfo[i].MinerIp.Value[3],
+					fmeta.BlockInfo[i].MinerIp.Port,
+				)
+				err = n.downloadFromStorage(fname, int64(fmeta.BlockInfo[i].BlockSize), mip)
+				if err != nil {
+					n.Logs.Downfile("error", fmt.Errorf("[%v] Downloading %drd shard err: %v", c.ClientIP(), i, err))
+				} else {
+					down_count++
+				}
+				if down_count >= d {
+					break
+				}
+			}
+
+			err = erasure.ReedSolomon_Restore(n.FileDir, getName, d, r, uint64(fmeta.Size))
+			if err != nil {
+				n.Logs.Downfile("error", fmt.Errorf("[%v] ReedSolomon_Restore: %v", c.ClientIP(), err))
+				c.JSON(500, "InternalError")
+				return
+			}
+
+			if r > 0 {
+				fstat, err := os.Stat(fpath)
+				if err != nil {
+					c.JSON(500, "InternalError")
+					return
+				}
+				if uint64(fstat.Size()) > uint64(fmeta.Size) {
+					tempfile := fpath + ".temp"
+					copyFile(fpath, tempfile, int64(fmeta.Size))
+					os.Remove(fpath)
+					os.Rename(tempfile, fpath)
+				}
+			}
+			c.Header("Accept-ranges", "bytes")
+			c.Writer.Header().Add("Access-control-allow-headers", "Content-Type")
+			c.Writer.Header().Add("Access-control-allow-headers", "Range")
+			c.Writer.Header().Add("Access-control-allow-headers", "User-Agent")
+			c.Writer.Header().Add("Access-control-allow-headers", "X-Request-With")
+			c.Header("Accept-control-allow-methods", "GET")
+			c.Header("Accept-control-allow-origin", "*")
+			c.Writer.Header().Add("Accept-control-expose-headers", "Content-Range")
+			c.Writer.Header().Add("Accept-control-expose-headers", "X-Chunked-Output")
+			c.Writer.Header().Add("Accept-control-expose-headers", "X-Stream-Output")
+			c.Header("Cache-control", "public, max-age=29030400, immutable")
+			c.Header("Content-length", fmt.Sprintf("%d", fstat.Size()))
+			c.Header("Content-type", fmt.Sprintf("%s", contenttype.(string)))
+			if contenttype.(string) == "application/octet-stream" {
+				c.Header("Content-disposition", fmt.Sprintf("attachment; filename=%v", getName))
+			} else {
+				c.Header("Content-disposition", fmt.Sprintf("inline; filename=%v", getName))
+			}
+			f, _ := os.Open(fpath)
+			io.Copy(c.Writer, f)
+			select {
+			case <-c.Request.Context().Done():
+				return
+			}
+		}
+	}
+
 	// operation
 	operation := c.Request.Header.Get(configs.Header_Operation)
 	// view file
@@ -83,8 +221,9 @@ func (n *Node) GetHandle(c *gin.Context) {
 				fileSt.IsCheck = true
 				fileSt.IsScheduler = true
 				fileSt.IsShard = true
+				fileSt.Miners = make(map[int]string, len(fmeta.BlockInfo))
 				for i := 0; i < len(fmeta.BlockInfo); i++ {
-					fileSt.Miners[i] = string(fmeta.BlockInfo[i].MinerAcc[:])
+					fileSt.Miners[i], _ = utils.EncodePublicKeyAsCessAccount(fmeta.BlockInfo[i].MinerAcc[:])
 				}
 				c.JSON(http.StatusOK, fileSt)
 				return
@@ -99,7 +238,6 @@ func (n *Node) GetHandle(c *gin.Context) {
 				fileSt.IsCheck = true
 				fileSt.IsShard = true
 				fileSt.IsScheduler = false
-				fileSt.Miners = nil
 				c.JSON(http.StatusOK, fileSt)
 				return
 			}
@@ -107,35 +245,6 @@ func (n *Node) GetHandle(c *gin.Context) {
 			json.Unmarshal(val, &fileSt)
 			c.JSON(http.StatusOK, fileSt)
 			return
-			// var fileInfo RtnFileType
-			// fileInfo.UserBriefs = make([]RtnUserBrief, len(fmeta.UserBriefs))
-			// fileInfo.BlockInfo = make([]RtnBlockInfo, len(fmeta.BlockInfo))
-			// fileInfo.FileSize = uint64(fmeta.Size)
-			// fileInfo.FileState = string(fmeta.State)
-			// for i := 0; i < len(fmeta.UserBriefs); i++ {
-			// 	var userAcc string
-			// 	fileInfo.UserBriefs[i].BucketName = string(fmeta.UserBriefs[i].Bucket_name)
-			// 	fileInfo.UserBriefs[i].FileName = string(fmeta.UserBriefs[i].File_name)
-			// 	userAcc, _ = utils.EncodePublicKeyAsCessAccount(fmeta.UserBriefs[i].User[:])
-			// 	fileInfo.UserBriefs[i].User = userAcc
-			// }
-			// for i := 0; i < len(fmeta.BlockInfo); i++ {
-			// 	var userAcc string
-			// 	var contact string
-			// 	fileInfo.BlockInfo[i].BlockId = string(fmeta.BlockInfo[i].BlockId[len(fmeta.BlockInfo[i].BlockId)-2:])
-			// 	fileInfo.BlockInfo[i].MinerId = uint64(fmeta.BlockInfo[i].MinerId)
-			// 	userAcc, _ = utils.EncodePublicKeyAsCessAccount(fmeta.BlockInfo[i].MinerAcc[:])
-			// 	fileInfo.BlockInfo[i].MinerAcc = userAcc
-			// 	contact = fmt.Sprintf("%d.%d.%d.%d:%d",
-			// 		fmeta.BlockInfo[i].MinerIp.Value[0],
-			// 		fmeta.BlockInfo[i].MinerIp.Value[1],
-			// 		fmeta.BlockInfo[i].MinerIp.Value[2],
-			// 		fmeta.BlockInfo[i].MinerIp.Value[3],
-			// 		fmeta.BlockInfo[i].MinerIp.Port)
-			// 	fileInfo.BlockInfo[i].MinerIp = contact
-			// }
-			// c.JSON(http.StatusOK, fileInfo)
-			// return
 		}
 		if operation == "download" {
 			// local cache

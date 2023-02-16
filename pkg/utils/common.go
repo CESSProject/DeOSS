@@ -18,6 +18,7 @@ package utils
 
 import (
 	"bytes"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"math/rand"
@@ -82,4 +83,14 @@ func IsIPv4(ipAddr string) bool {
 func IsIPv6(ipAddr string) bool {
 	ip := net.ParseIP(ipAddr)
 	return ip != nil && strings.Contains(ipAddr, ":")
+}
+
+func Int64ToBytes(i int64) []byte {
+	buf := make([]byte, 8)
+	binary.BigEndian.PutUint64(buf, uint64(i))
+	return buf
+}
+
+func BytesToInt64(buf []byte) int64 {
+	return int64(binary.BigEndian.Uint64(buf))
 }
