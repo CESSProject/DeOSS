@@ -65,6 +65,8 @@ const (
 	DirPermission = 0755
 	//
 	TotalFile = "TotalFile"
+	//
+	TotalFailedFile = "TotalFailedFile"
 )
 
 const (

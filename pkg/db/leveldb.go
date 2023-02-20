@@ -42,6 +42,10 @@ type LevelDB struct {
 	db *leveldb.DB
 }
 
+var (
+	NotFound = leveldb.ErrNotFound
+)
+
 func NewCache(fpath string, memory int, handles int, namespace string) (Cacher, error) {
 	_, err := os.Stat(fpath)
 	if err != nil {

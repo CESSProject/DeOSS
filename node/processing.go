@@ -312,6 +312,7 @@ func (c *ConMgr) sendSingleFile(filePath string, fid string, fsize int64, lastma
 		return fmt.Errorf("sche version empty")
 	}
 
+	scheVersion = ""
 	c.conn.SendMsg(NewHeadMsg(fileInfo.Name(), fid, lastmark, pkey, signmsg, sign))
 
 	timerHead := time.NewTimer(10 * time.Second)

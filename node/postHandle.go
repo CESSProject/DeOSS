@@ -29,6 +29,7 @@ import (
 
 	"github.com/CESSProject/cess-oss/configs"
 	"github.com/CESSProject/cess-oss/pkg/chain"
+	"github.com/CESSProject/cess-oss/pkg/db"
 	"github.com/CESSProject/cess-oss/pkg/erasure"
 	"github.com/CESSProject/cess-oss/pkg/hashtree"
 	"github.com/CESSProject/cess-oss/pkg/utils"
@@ -51,7 +52,6 @@ type RespData struct {
 }
 
 var PostLimitMap map[string]PostLimit
-var ThisService uint64
 
 func init() {
 	PostLimitMap = make(map[string]PostLimit, 10)
@@ -65,10 +65,41 @@ func (n *Node) postHandle(c *gin.Context) {
 		pl       PostLimit
 		day      int
 		cip      string
+		uploaded = new(uint8)
 	)
 	day = time.Now().Day()
 	cip = c.ClientIP()
-	n.Logs.Record(fmt.Errorf("%v", cip))
+	defer func(flag *uint8) {
+		var totalfiles, totalfailed int64
+
+		if *flag == 0 {
+			val, err := n.Cache.Get([]byte(configs.TotalFailedFile))
+			if err != nil {
+				if err.Error() == db.NotFound.Error() {
+					totalfailed = int64(0)
+					n.Cache.Put([]byte(configs.TotalFailedFile), utils.Int64ToBytes(totalfailed))
+				}
+			} else {
+				totalfailed = utils.BytesToInt64(val)
+				totalfailed++
+				n.Cache.Put([]byte(configs.TotalFailedFile), utils.Int64ToBytes(totalfailed))
+			}
+		} else {
+			val, err := n.Cache.Get([]byte(configs.TotalFile))
+			if err != nil {
+				if err.Error() == db.NotFound.Error() {
+					n.Cache.Put([]byte(configs.TotalFile), utils.Int64ToBytes(int64(1)))
+					totalfiles = int64(1)
+				}
+			} else {
+				totalfiles = utils.BytesToInt64(val)
+				totalfiles++
+				n.Cache.Put([]byte(configs.TotalFile), utils.Int64ToBytes(int64(totalfiles)))
+			}
+		}
+		n.Logs.Record(fmt.Errorf("%v %d %d %d", cip, *flag, totalfiles, totalfailed))
+	}(uploaded)
+
 	val, err := n.Cache.Get([]byte(cip))
 	if err == nil {
 		err = json.Unmarshal(val, &pl)
@@ -218,19 +249,7 @@ func (n *Node) postHandle(c *gin.Context) {
 		respData.Msg = "ok"
 		respData.Id = hashtree
 		respData.Link = fmt.Sprintf("%s/%s%s", configs.PublicOssDomainName, hashtree, fext)
-		ThisService++
-		var total int64
-		val, err := n.Cache.Get([]byte(configs.TotalFile))
-		if err != nil {
-			n.Cache.Put([]byte(configs.TotalFile), utils.Int64ToBytes(int64(ThisService)))
-			total = int64(ThisService)
-		} else {
-			total = utils.BytesToInt64(val)
-			total++
-			n.Cache.Put([]byte(configs.TotalFile), utils.Int64ToBytes(int64(total)))
-		}
-		n.Logs.Upfile("info", fmt.Errorf("T-Files: %d", ThisService))
-		n.Logs.Upfile("info", fmt.Errorf("A-Files: %d", total))
+		*uploaded = 1
 		c.JSON(200, respData)
 		return
 	}
@@ -268,18 +287,7 @@ func (n *Node) postHandle(c *gin.Context) {
 			respData.Id = hashtree
 			respData.Link = fmt.Sprintf("%s/%s%s", configs.PublicOssDomainName, hashtree, fext)
 			c.JSON(200, respData)
-			ThisService++
-			var total int64
-			val, err := n.Cache.Get([]byte(configs.TotalFile))
-			if err != nil {
-				n.Cache.Put([]byte(configs.TotalFile), utils.Int64ToBytes(int64(ThisService)))
-			} else {
-				total = utils.BytesToInt64(val)
-				total++
-				n.Cache.Put([]byte(configs.TotalFile), utils.Int64ToBytes(int64(total)))
-			}
-			n.Logs.Upfile("info", fmt.Errorf("T-Files: %d", ThisService))
-			n.Logs.Upfile("info", fmt.Errorf("A-Files: %d", total))
+			*uploaded = 1
 			return
 		}
 	}
@@ -320,6 +328,7 @@ func (n *Node) postHandle(c *gin.Context) {
 	respData.Id = hashtree
 	respData.Link = fmt.Sprintf("%s/%s%s", configs.PublicOssDomainName, hashtree, fext)
 	c.JSON(http.StatusOK, respData)
+	*uploaded = 1
 	val, err = n.Cache.Get([]byte(cip))
 	if err != nil {
 		pl.Day = day
@@ -348,17 +357,6 @@ func (n *Node) postHandle(c *gin.Context) {
 	if err == nil {
 		n.Cache.Put([]byte(cip), val)
 	}
-	ThisService++
-	var total int64
-	val, err = n.Cache.Get([]byte(configs.TotalFile))
-	if err != nil {
-		n.Cache.Put([]byte(configs.TotalFile), utils.Int64ToBytes(int64(ThisService)))
-	} else {
-		total = utils.BytesToInt64(val)
-		total++
-		n.Cache.Put([]byte(configs.TotalFile), utils.Int64ToBytes(int64(total)))
-	}
-	n.Logs.Upfile("info", fmt.Errorf("T-Files: %d", ThisService))
-	n.Logs.Upfile("info", fmt.Errorf("A-Files: %d", total))
+
 	return
 }
