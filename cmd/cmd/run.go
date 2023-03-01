@@ -1,18 +1,19 @@
 /*
-Copyright 2022 CESS scheduler authors
+   Copyright 2022 CESS (Cumulus Encrypted Storage System) authors
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at
 
-	http://www.apache.org/licenses/LICENSE-2.0
+        http://www.apache.org/licenses/LICENSE-2.0
 
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
 */
+
 package cmd
 
 import (
@@ -23,13 +24,13 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/CESSProject/cess-oss/configs"
-	"github.com/CESSProject/cess-oss/node"
-	"github.com/CESSProject/cess-oss/pkg/chain"
-	"github.com/CESSProject/cess-oss/pkg/confile"
-	"github.com/CESSProject/cess-oss/pkg/db"
-	"github.com/CESSProject/cess-oss/pkg/logger"
-	"github.com/CESSProject/cess-oss/pkg/utils"
+	"github.com/CESSProject/DeOSS/configs"
+	"github.com/CESSProject/DeOSS/node"
+	"github.com/CESSProject/DeOSS/pkg/chain"
+	"github.com/CESSProject/DeOSS/pkg/confile"
+	"github.com/CESSProject/DeOSS/pkg/db"
+	"github.com/CESSProject/DeOSS/pkg/logger"
+	"github.com/CESSProject/DeOSS/pkg/utils"
 	"github.com/spf13/cobra"
 )
 

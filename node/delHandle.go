@@ -1,5 +1,5 @@
 /*
-   Copyright 2022 CESS scheduler authors
+   Copyright 2022 CESS (Cumulus Encrypted Storage System) authors
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -20,9 +20,9 @@ import (
 	"net/http"
 	"unsafe"
 
-	"github.com/CESSProject/cess-oss/configs"
-	"github.com/CESSProject/cess-oss/pkg/chain"
-	"github.com/CESSProject/cess-oss/pkg/utils"
+	"github.com/CESSProject/DeOSS/configs"
+	"github.com/CESSProject/DeOSS/pkg/chain"
+	"github.com/CESSProject/DeOSS/pkg/utils"
 	jwt "github.com/dgrijalva/jwt-go"
 	"github.com/gin-gonic/gin"
 )
