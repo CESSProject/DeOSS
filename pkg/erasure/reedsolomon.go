@@ -1,5 +1,5 @@
 /*
-   Copyright 2022 CESS scheduler authors
+   Copyright 2022 CESS (Cumulus Encrypted Storage System) authors
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -23,7 +23,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/CESSProject/cess-oss/configs"
+	"github.com/CESSProject/DeOSS/configs"
 	"github.com/klauspost/reedsolomon"
 )
 

@@ -1,6 +1,6 @@
-# <h1 align="center">CESS-OSS &middot; [![GitHub license](https://img.shields.io/badge/license-Apache2-blue)](#LICENSE) <a href=""><img src="https://img.shields.io/badge/golang-%3E%3D1.19-blue.svg"/></a> [![Go Reference](https://pkg.go.dev/badge/github.com/CESSProject/cess-oss.svg)](https://pkg.go.dev/github.com/CESSProject/cess-oss)</h1>
+# <h1 align="center">DeOSS &middot; [![GitHub license](https://img.shields.io/badge/license-Apache2-blue)](#LICENSE) <a href=""><img src="https://img.shields.io/badge/golang-%3E%3D1.19-blue.svg"/></a> [![Go Reference](https://pkg.go.dev/badge/github.com/CESSProject/DeOSS.svg)](https://pkg.go.dev/github.com/CESSProject/DeOSS)</h1>
 
-CESS-OSS is a service that using REST API specification for accessing CESS cloud storage.
+DeOSS is a service that using REST API specification for accessing CESS cloud storage.
 
 
 ## Reporting a Vulnerability
@@ -46,17 +46,17 @@ echo "export PATH=$PATH:/usr/local/go/bin" >> ~/.bashrc && source ~/.bashrc
 go version
 ```
 
-### Step 3: Build a oss
+### Step 3: Build a DeOSS
 
 ```
-git clone https://github.com/CESSProject/cess-oss.git
-cd cess-oss/
-go build -o oss cmd/main.go
+git clone https://github.com/CESSProject/DeOSS.git
+cd DeOSS/
+go build -o DeOSS cmd/main.go
 ```
-If all goes well, you will get a program called `oss`.
+If all goes well, you will get a program called `DeOSS`.
 
 
-## Get started with oss
+## Get started with DeOSS
 
 ### Step 1: Register a polka wallet
 
@@ -68,12 +68,12 @@ If you are using the test network, Please join the [CESS discord](https://discor
 
 ### Step 3: Prepare configuration file
 
-Use `oss` to generate configuration file templates directly in the current directory:
+Use `DeOSS` to generate configuration file templates directly in the current directory:
 ```shell
-sudo chmod +x oss
-./oss profile
+sudo chmod +x DeOSS
+./DeOSS profile
 ```
-The content of the configuration file template is as follows. You need to fill in your own information into the file. By default, the `oss` uses conf.toml in the current directory as the runtime configuration file. You can use `-c` or `--config` to specify the configuration file Location.
+The content of the configuration file template is as follows. You need to fill in your own information into the file. By default, the `DeOSS` uses conf.toml in the current directory as the runtime configuration file. You can use `-c` or `--config` to specify the configuration file Location.
 
 ```toml
 # The rpc address of the chain node
@@ -91,43 +91,43 @@ AccountSeed = ""
 `wss://testnet-rpc0.cess.cloud/ws/`<br>
 `wss://testnet-rpc1.cess.cloud/ws/`
 
-### Step 4: Start the oss service
+### Step 4: Start the DeOSS service
 
 ```shell
-sudo nohup ./oss run 2>&1 &
+sudo nohup ./DeOSS run 2>&1 &
 ```
 
-## Other usage guidelines for oss
-### Update the oss address
+## Other usage guidelines for DeOSS
+### Update the DeOSS address
 ```
-./oss update <ip> <port>
-```
-
-### View the oss address
-```
-./oss state
+./DeOSS update <ip> <port>
 ```
 
+### View the DeOSS address
+```
+./DeOSS state
+```
 
-# Usage for oss API
 
-The public API endpoint URL of CESS-OSS is the server you deploy, All endpoints described in this document should be made relative to this root URL,The following example uses URL instead.
+# Usage for DeOSS API
+
+The public API endpoint URL of DeOSS is the server you deploy, All endpoints described in this document should be made relative to this root URL,The following example uses URL instead.
 
 
 
-**Before using oss, you must authorize it as follows:** 
+**Before using DeOSS, you must authorize it as follows:** 
 
 1. First register your wallet account: [Create an account](https://github.com/CESSProject/W3F-illustration/blob/main/gateway/createAccount.PNG).
 
 2. Purchase cess storage space:[BuySpace](https://github.com/CESSProject/W3F-illustration/blob/b712b330772912e8e4a84c03afac1d3a224b9488/gateway/buySpace.jpg)
 
-3. Authorize the use right of the space to oss:[Authorize](https://github.com/CESSProject/W3F-illustration/blob/b712b330772912e8e4a84c03afac1d3a224b9488/gateway/authorize.jpg)
+3. Authorize the use right of the space to DeOSS:[Authorize](https://github.com/CESSProject/W3F-illustration/blob/b712b330772912e8e4a84c03afac1d3a224b9488/gateway/authorize.jpg)
 
 
 
 ## Authentication
 
-The CESS-OSS API uses bearer tokens to authenticate requests. 
+The DeOSS API uses bearer tokens to authenticate requests. 
 
 Your tokens carry many privileges, so be sure to keep them secure! Do not share your *secret tokens* in publicly accessible locations such as a GitHub repository, client-side code, and so forth.
 
@@ -254,7 +254,7 @@ Response schema: `application/json`
 | 400       | InvalidHead.BucketName        | wrong bucket name         |
 | 400       | InvalidHead.Token             | token error               |
 | 400       | Invalid.DuplicateFileName     | Duplicate file name       |
-| 400       | Unauthorized                  | oss is not authorized     |
+| 400       | Unauthorized                  | DeOSS is not authorized   |
 | 400       | InvalidParameter.EmptyFile    | file is empty             |
 | 400       | InvalidParameter.FormFile     | form File                 |
 | 400       | InvalidParameter.File         | error receiving file      |

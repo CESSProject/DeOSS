@@ -1,5 +1,5 @@
 /*
-   Copyright 2022 CESS scheduler authors
+   Copyright 2022 CESS (Cumulus Encrypted Storage System) authors
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/CESSProject/cess-oss/pkg/utils"
+	"github.com/CESSProject/DeOSS/pkg/utils"
 	"github.com/centrifuge/go-substrate-rpc-client/v4/types"
 	"github.com/centrifuge/go-substrate-rpc-client/xxhash"
 	"github.com/pkg/errors"
