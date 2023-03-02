@@ -1,6 +1,6 @@
 # <h1 align="center">DeOSS &middot; [![GitHub license](https://img.shields.io/badge/license-Apache2-blue)](#LICENSE) <a href=""><img src="https://img.shields.io/badge/golang-%3E%3D1.19-blue.svg"/></a> [![Go Reference](https://pkg.go.dev/badge/github.com/CESSProject/DeOSS.svg)](https://pkg.go.dev/github.com/CESSProject/DeOSS)</h1>
 
-DeOSS is a service that using REST API specification for accessing CESS cloud storage.
+DeOSS is a service that using REST API specification for accessing CESS.
 
 
 ## Reporting a Vulnerability
@@ -23,37 +23,22 @@ sudo apt update && sudo upgrade
 sudo apt install make gcc git curl wget vim util-linux -y
 ```
 
-### Step 2: Install go locale
+### Step 2: Go installation
 
-CESS-Gateway requires [Go1.19](https://golang.org/dl/) or higher.
-> See the [official Golang installation instructions](https://golang.org/doc/install) If you get stuck in the following process.
+DeOSS requires [Go1.19](https://golang.org/dl/) or higher.
 
-- Download go1.19 compress the package and extract it to the /use/local directory:
+Please refer to the  [official installation guide](https://go.dev/doc/install).
 
-```shell
-sudo wget -c https://golang.org/dl/go1.19.linux-amd64.tar.gz -O - | sudo tar -xz -C /usr/local
-```
-
-- You'll need to add `/usr/local/go/bin` to your path. For most Linux distributions you can run something like:
-
-```shell
-echo "export PATH=$PATH:/usr/local/go/bin" >> ~/.bashrc && source ~/.bashrc
-```
-
-- View your go version:
-
-```shell
-go version
-```
+Finally, enter the `go version` in the console to view the go version number.
 
 ### Step 3: Build a DeOSS
 
 ```
 git clone https://github.com/CESSProject/DeOSS.git
 cd DeOSS/
-go build -o DeOSS cmd/main.go
+go build -o deoss cmd/main.go
 ```
-If all goes well, you will get a program called `DeOSS`.
+If all goes well, you will get a program called `deoss`.
 
 
 ## Get started with DeOSS
@@ -68,12 +53,12 @@ If you are using the test network, Please join the [CESS discord](https://discor
 
 ### Step 3: Prepare configuration file
 
-Use `DeOSS` to generate configuration file templates directly in the current directory:
+Use `deoss` to generate configuration file templates directly in the current directory:
 ```shell
-sudo chmod +x DeOSS
-./DeOSS profile
+sudo chmod +x deoss
+./deoss profile
 ```
-The content of the configuration file template is as follows. You need to fill in your own information into the file. By default, the `DeOSS` uses conf.toml in the current directory as the runtime configuration file. You can use `-c` or `--config` to specify the configuration file Location.
+The content of the configuration file template is as follows. You need to fill in your own information into the file. By default, the `deoss` uses conf.toml in the current directory as the runtime configuration file. You can use `-c` or `--config` to specify the configuration file Location.
 
 ```toml
 # The rpc address of the chain node
@@ -94,18 +79,18 @@ AccountSeed = ""
 ### Step 4: Start the DeOSS service
 
 ```shell
-sudo nohup ./DeOSS run 2>&1 &
+sudo nohup ./deoss run 2>&1 &
 ```
 
 ## Other usage guidelines for DeOSS
 ### Update the DeOSS address
 ```
-./DeOSS update <ip> <port>
+./deoss update <ip> <port>
 ```
 
 ### View the DeOSS address
 ```
-./DeOSS state
+./deoss state
 ```
 
 
