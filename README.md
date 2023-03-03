@@ -32,12 +32,21 @@ Please refer to the  [official installation guide](https://go.dev/doc/install).
 Finally, enter the `go version` in the console to view the go version number.
 
 ### Step 3: Build a DeOSS
-
+Clone deoss source code:
 ```
 git clone https://github.com/CESSProject/DeOSS.git
+```
+Run unit test:
+```
 cd DeOSS/
+go test -v ./...
+```
+
+Build a deoss:
+```
 go build -o deoss cmd/main.go
 ```
+
 If all goes well, you will get a program called `deoss`.
 
 
