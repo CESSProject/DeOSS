@@ -662,7 +662,7 @@ func (c *chainClient) DeclarationFile(filehash string, user UserBrief) (string, 
 	}
 }
 
-func (c *chainClient) DeleteFile(owner_pkey []byte, filehash string) (string, error) {
+func (c *chainClient) DeleteFile(owner_pkey []byte, filehash []string) (string, []FileHash, error) {
 	var (
 		txhash      string
 		accountInfo types.AccountInfo
@@ -678,17 +678,22 @@ func (c *chainClient) DeleteFile(owner_pkey []byte, filehash string) (string, er
 
 	if !c.IsChainClientOk() {
 		c.SetChainState(false)
-		return txhash, ERR_RPC_CONNECTION
+		return txhash, nil, ERR_RPC_CONNECTION
 	}
 	c.SetChainState(true)
 
-	var hash FileHash
-	if len(filehash) != len(hash) {
-		return txhash, errors.New("invalid filehash")
+	var hash = make([]FileHash, len(filehash))
+
+	for j := 0; j < len(filehash); j++ {
+		if len(filehash[j]) != len(hash[j]) {
+			return txhash, nil, errors.New("invalid filehash")
+		}
+		for i := 0; i < len(hash[j]); i++ {
+			hash[j][i] = types.U8(filehash[j][i])
+		}
 	}
-	for i := 0; i < len(hash); i++ {
-		hash[i] = types.U8(filehash[i])
-	}
+
+	fmt.Println(hash)
 
 	call, err := types.NewCall(
 		c.metadata,
@@ -697,12 +702,12 @@ func (c *chainClient) DeleteFile(owner_pkey []byte, filehash string) (string, er
 		hash,
 	)
 	if err != nil {
-		return txhash, errors.Wrap(err, "[NewCall]")
+		return txhash, nil, errors.Wrap(err, "[NewCall]")
 	}
 
 	ext := types.NewExtrinsic(call)
 	if err != nil {
-		return txhash, errors.Wrap(err, "[NewExtrinsic]")
+		return txhash, nil, errors.Wrap(err, "[NewExtrinsic]")
 	}
 
 	key, err := types.CreateStorageKey(
@@ -712,15 +717,15 @@ func (c *chainClient) DeleteFile(owner_pkey []byte, filehash string) (string, er
 		c.keyring.PublicKey,
 	)
 	if err != nil {
-		return txhash, errors.Wrap(err, "[CreateStorageKey]")
+		return txhash, nil, errors.Wrap(err, "[CreateStorageKey]")
 	}
 
 	ok, err := c.api.RPC.State.GetStorageLatest(key, &accountInfo)
 	if err != nil {
-		return txhash, errors.Wrap(err, "[GetStorageLatest]")
+		return txhash, nil, errors.Wrap(err, "[GetStorageLatest]")
 	}
 	if !ok {
-		return txhash, ERR_RPC_EMPTY_VALUE
+		return txhash, hash, ERR_RPC_EMPTY_VALUE
 	}
 
 	o := types.SignatureOptions{
@@ -736,14 +741,14 @@ func (c *chainClient) DeleteFile(owner_pkey []byte, filehash string) (string, er
 	// Sign the transaction
 	err = ext.Sign(c.keyring, o)
 	if err != nil {
-		return txhash, errors.Wrap(err, "[Sign]")
+		return txhash, nil, errors.Wrap(err, "[Sign]")
 	}
 
 	// Do the transfer and track the actual status
 	sub, err := c.api.RPC.Author.SubmitAndWatchExtrinsic(ext)
 	if err != nil {
 		if !strings.Contains(err.Error(), "Priority is too low") {
-			return txhash, errors.Wrap(err, "[SubmitAndWatchExtrinsic]")
+			return txhash, nil, errors.Wrap(err, "[SubmitAndWatchExtrinsic]")
 		}
 		var tryCount = 0
 		for tryCount < 20 {
@@ -751,7 +756,7 @@ func (c *chainClient) DeleteFile(owner_pkey []byte, filehash string) (string, er
 			// Sign the transaction
 			err = ext.Sign(c.keyring, o)
 			if err != nil {
-				return txhash, errors.Wrap(err, "[Sign]")
+				return txhash, nil, errors.Wrap(err, "[Sign]")
 			}
 			sub, err = c.api.RPC.Author.SubmitAndWatchExtrinsic(ext)
 			if err == nil {
@@ -761,7 +766,7 @@ func (c *chainClient) DeleteFile(owner_pkey []byte, filehash string) (string, er
 		}
 	}
 	if err != nil {
-		return txhash, errors.Wrap(err, "[SubmitAndWatchExtrinsic]")
+		return txhash, nil, errors.Wrap(err, "[SubmitAndWatchExtrinsic]")
 	}
 	defer sub.Unsubscribe()
 	timeout := time.After(c.timeForBlockOut)
@@ -773,20 +778,20 @@ func (c *chainClient) DeleteFile(owner_pkey []byte, filehash string) (string, er
 				txhash, _ = types.EncodeToHex(status.AsInBlock)
 				h, err := c.api.RPC.State.GetStorageRaw(c.keyEvents, status.AsInBlock)
 				if err != nil {
-					return txhash, errors.Wrap(err, "[GetStorageRaw]")
+					return txhash, nil, errors.Wrap(err, "[GetStorageRaw]")
 				}
 
 				types.EventRecordsRaw(*h).DecodeEventRecords(c.metadata, &events)
 
 				if len(events.FileBank_DeleteFile) > 0 {
-					return txhash, nil
+					return txhash, events.FileBank_DeleteFile[0].FailedList, nil
 				}
-				return txhash, errors.New(ERR_Failed)
+				return txhash, nil, errors.New(ERR_Failed)
 			}
 		case err = <-sub.Err():
-			return txhash, errors.Wrap(err, "[sub]")
+			return txhash, nil, errors.Wrap(err, "[sub]")
 		case <-timeout:
-			return txhash, ERR_RPC_TIMEOUT
+			return txhash, nil, ERR_RPC_TIMEOUT
 		}
 	}
 }

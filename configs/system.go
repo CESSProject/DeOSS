@@ -14,11 +14,11 @@ import (
 // system
 const (
 	// name
-	Name = "cess-oss"
+	Name = "DeOSS"
 	// Name space
 	NameSpace = Name
 	// version
-	Version = Name + " " + "v0.1.2 230220.0954 dev"
+	Version = Name + " " + "v0.1.2"
 	// description
 	Description = "Implementation of object storage service based on cess platform"
 )

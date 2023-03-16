@@ -60,7 +60,7 @@ type Chainer interface {
 	// DeleteBucket is used to delete buckets created by users
 	DeleteBucket(owner_pkey []byte, name string) (string, error)
 	//
-	DeleteFile(owner_pkey []byte, filehash string) (string, error)
+	DeleteFile(owner_pkey []byte, filehash []string) (string, []FileHash, error)
 	//
 	DeclarationFile(filehash string, user UserBrief) (string, error)
 }
