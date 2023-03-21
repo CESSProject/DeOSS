@@ -12,6 +12,69 @@ import (
 	"github.com/pkg/errors"
 )
 
+// DOT is "." character
+const DOT = "."
+
+// Pallets
+const (
+	// OSS is a module about DeOSS
+	OSS = "Oss"
+	// FILEBANK is a module about data metadata, bucket info, etc.
+	FILEBANK = "FileBank"
+	// SMINER is a module about storage miners
+	SMINER = "Sminer"
+	// TEEWOEKER is a module about TEE
+	TEEWORKER = "TeeWorker"
+	// AUDIT is a module on data challenges
+	AUDIT = "Audit"
+	// SYSTEM is a module about the system
+	SYSTEM = "System"
+)
+
+// Pallet's method
+const (
+	// OSS
+	AUTHORITYLIST = "AuthorityList"
+	// SMINER
+	ALLMINER   = "AllMiner"
+	MINERITEMS = "MinerItems"
+	// TEEWORKER
+	SCHEDULERMAP = "SchedulerMap"
+	// FILEBANK
+	FILE       = "File"
+	FILELIST   = "UserHoldFileList"
+	BUCKET     = "Bucket"
+	BUCKETLIST = "UserBucketList"
+	// SYSTEM
+	ACCOUNT = "Account"
+	EVENTS  = "Events"
+)
+
+// Extrinsics
+const (
+	// FILEBANK
+	TX_FILEBANK_UPDATE    = FILEBANK + DOT + "update"
+	TX_FILEBANK_UPLOAD    = FILEBANK + DOT + "upload"
+	TX_FILEBANK_CRTBUCKET = FILEBANK + DOT + "create_bucket"
+	TX_FILEBANK_DELBUCKET = FILEBANK + DOT + "delete_bucket"
+	TX_FILEBANK_DELFILE   = FILEBANK + DOT + "delete_file"
+	TX_FILEBANK_UPLOADDEC = FILEBANK + DOT + "upload_declaration"
+	// OSS
+	TX_OSS_REGISTER = OSS + DOT + "register"
+	TX_OSS_UPDATE   = OSS + DOT + "update"
+)
+
+const (
+	FILE_STATE_ACTIVE  = "active"
+	FILE_STATE_PENDING = "pending"
+)
+
+const (
+	MINER_STATE_POSITIVE = "positive"
+	MINER_STATE_FROZEN   = "frozen"
+	MINER_STATE_EXIT     = "exit"
+)
+
 const (
 	ERR_Failed  = "failed"
 	ERR_Timeout = "timeout"

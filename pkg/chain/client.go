@@ -101,8 +101,8 @@ func NewChainClient(rpcAddr, secret string, t time.Duration) (Chainer, error) {
 	}
 	cli.keyEvents, err = types.CreateStorageKey(
 		cli.metadata,
-		pallet_System,
-		events,
+		SYSTEM,
+		EVENTS,
 		nil,
 	)
 	if err != nil {
