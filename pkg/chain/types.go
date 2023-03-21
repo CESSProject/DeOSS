@@ -12,6 +12,70 @@ import (
 	"github.com/pkg/errors"
 )
 
+// DOT is "." character
+const DOT = "."
+
+// Pallets
+const (
+	// OSS is a module about DeOSS
+	OSS = "Oss"
+	// FILEBANK is a module about data metadata, bucket info, etc.
+	FILEBANK = "FileBank"
+	// TEEWOEKER is a module about TEE
+	TEEWORKER = "TeeWorker"
+	// SMINER is a module about storage miners
+	SMINER = "Sminer"
+	// SYSTEM is a module about the system
+	SYSTEM = "System"
+)
+
+// Chain state
+const (
+	// OSS
+	// OSS
+	AUTHORITYLIST = "AuthorityList"
+
+	// SMINER
+	ALLMINER   = "AllMiner"
+	MINERITEMS = "MinerItems"
+
+	// TEEWORKER
+	SCHEDULERMAP = "SchedulerMap"
+
+	// FILEBANK
+	FILE       = "File"
+	BUCKET     = "Bucket"
+	BUCKETLIST = "UserBucketList"
+
+	// SYSTEM
+	ACCOUNT = "Account"
+	EVENTS  = "Events"
+)
+
+// Extrinsics
+const (
+	// OSS
+	TX_OSS_REGISTER = OSS + DOT + "register"
+	TX_OSS_UPDATE   = OSS + DOT + "update"
+
+	// FILEBANK
+	TX_FILEBANK_PUTBUCKET = FILEBANK + DOT + "create_bucket"
+	TX_FILEBANK_DELBUCKET = FILEBANK + DOT + "delete_bucket"
+	TX_FILEBANK_DELFILE   = FILEBANK + DOT + "delete_file"
+	TX_FILEBANK_UPLOADDEC = FILEBANK + DOT + "upload_declaration"
+)
+
+const (
+	FILE_STATE_ACTIVE  = "active"
+	FILE_STATE_PENDING = "pending"
+)
+
+const (
+	MINER_STATE_POSITIVE = "positive"
+	MINER_STATE_FROZEN   = "frozen"
+	MINER_STATE_EXIT     = "exit"
+)
+
 const (
 	ERR_Failed  = "failed"
 	ERR_Timeout = "timeout"
@@ -89,13 +153,6 @@ type SchedulerInfo struct {
 	Ip             Ipv4Type
 	StashUser      types.AccountID
 	ControllerUser types.AccountID
-}
-
-type Ipv4Type_Query struct {
-	Placeholder types.U8 //
-	Index       types.U8
-	Value       [4]types.U8
-	Port        types.U16
 }
 
 type IpAddress struct {

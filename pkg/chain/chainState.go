@@ -58,8 +58,8 @@ func (c *chainClient) GetStorageMinerInfo(pkey []byte) (MinerInfo, error) {
 
 	key, err := types.CreateStorageKey(
 		c.metadata,
-		pallet_Sminer,
-		minerItems,
+		SMINER,
+		MINERITEMS,
 		pkey,
 	)
 	if err != nil {
@@ -93,8 +93,8 @@ func (c *chainClient) GetAllStorageMiner() ([]types.AccountID, error) {
 
 	key, err := types.CreateStorageKey(
 		c.metadata,
-		pallet_Sminer,
-		allMinerItems,
+		SMINER,
+		ALLMINER,
 	)
 	if err != nil {
 		return nil, errors.Wrap(err, "[CreateStorageKey]")
@@ -143,8 +143,8 @@ func (c *chainClient) GetFileMetaInfo(fid string) (FileMetaInfo, error) {
 
 	key, err := types.CreateStorageKey(
 		c.metadata,
-		pallet_FileBank,
-		fileMetaInfo,
+		FILEBANK,
+		FILE,
 		b,
 	)
 	if err != nil {
@@ -186,8 +186,8 @@ func (c *chainClient) GetAccountInfo(pkey []byte) (types.AccountInfo, error) {
 
 	key, err := types.CreateStorageKey(
 		c.metadata,
-		pallet_System,
-		account,
+		SYSTEM,
+		ACCOUNT,
 		b,
 	)
 	if err != nil {
@@ -225,8 +225,8 @@ func (c *chainClient) GetState(pubkey []byte) (string, error) {
 
 	key, err := types.CreateStorageKey(
 		c.metadata,
-		pallet_Oss,
-		oss,
+		OSS,
+		OSS,
 		b,
 	)
 	if err != nil {
@@ -270,8 +270,8 @@ func (c *chainClient) GetGrantor(pkey []byte) (types.AccountID, error) {
 
 	key, err := types.CreateStorageKey(
 		c.metadata,
-		pallet_Oss,
-		Grantor,
+		OSS,
+		AUTHORITYLIST,
 		b,
 	)
 	if err != nil {
@@ -314,8 +314,8 @@ func (c *chainClient) GetBucketInfo(owner_pkey []byte, name string) (BucketInfo,
 
 	key, err := types.CreateStorageKey(
 		c.metadata,
-		pallet_FileBank,
-		fileBank_Bucket,
+		FILEBANK,
+		BUCKET,
 		owner,
 		name_byte,
 	)
@@ -354,8 +354,8 @@ func (c *chainClient) GetBucketList(owner_pkey []byte) ([]types.Bytes, error) {
 
 	key, err := types.CreateStorageKey(
 		c.metadata,
-		pallet_FileBank,
-		fileBank_BucketList,
+		FILEBANK,
+		BUCKETLIST,
 		owner,
 	)
 	if err != nil {
@@ -391,8 +391,8 @@ func (c *chainClient) GetSchedulerList() ([]SchedulerInfo, error) {
 
 	key, err := types.CreateStorageKey(
 		c.metadata,
-		pallet_FileMap,
-		schedulerMap,
+		TEEWORKER,
+		SCHEDULERMAP,
 	)
 	if err != nil {
 		return data, errors.Wrap(err, "[CreateStorageKey]")

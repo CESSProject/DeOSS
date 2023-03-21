@@ -54,7 +54,7 @@ func (c *chainClient) Register(ip, port string) (string, error) {
 
 	call, err := types.NewCall(
 		c.metadata,
-		OssRegister,
+		TX_OSS_REGISTER,
 		ipType.IPv4,
 	)
 	if err != nil {
@@ -68,8 +68,8 @@ func (c *chainClient) Register(ip, port string) (string, error) {
 
 	key, err := types.CreateStorageKey(
 		c.metadata,
-		pallet_System,
-		account,
+		SYSTEM,
+		ACCOUNT,
 		c.keyring.PublicKey,
 	)
 	if err != nil {
@@ -131,7 +131,7 @@ func (c *chainClient) Register(ip, port string) (string, error) {
 		select {
 		case status := <-sub.Chan():
 			if status.IsInBlock {
-				events := CessEventRecords{}
+				events := EventRecords{}
 				txhash, _ = types.EncodeToHex(status.AsInBlock)
 				h, err := c.api.RPC.State.GetStorageRaw(c.keyEvents, status.AsInBlock)
 				if err != nil {
@@ -189,7 +189,7 @@ func (c *chainClient) Update(ip, port string) (string, error) {
 
 	call, err := types.NewCall(
 		c.metadata,
-		OssUpdate,
+		TX_OSS_UPDATE,
 		ipType.IPv4,
 	)
 	if err != nil {
@@ -203,8 +203,8 @@ func (c *chainClient) Update(ip, port string) (string, error) {
 
 	key, err := types.CreateStorageKey(
 		c.metadata,
-		pallet_System,
-		account,
+		SYSTEM,
+		ACCOUNT,
 		c.keyring.PublicKey,
 	)
 	if err != nil {
@@ -265,7 +265,7 @@ func (c *chainClient) Update(ip, port string) (string, error) {
 		select {
 		case status := <-sub.Chan():
 			if status.IsInBlock {
-				events := CessEventRecords{}
+				events := EventRecords{}
 				txhash, _ = types.EncodeToHex(status.AsInBlock)
 				h, err := c.api.RPC.State.GetStorageRaw(c.keyEvents, status.AsInBlock)
 				if err != nil {
@@ -313,7 +313,7 @@ func (c *chainClient) CreateBucket(owner_pkey []byte, name string) (string, erro
 	// }
 	call, err := types.NewCall(
 		c.metadata,
-		FileBank_CreateBucket,
+		TX_FILEBANK_PUTBUCKET,
 		types.NewAccountID(owner_pkey),
 		types.NewBytes([]byte(name)),
 	)
@@ -328,8 +328,8 @@ func (c *chainClient) CreateBucket(owner_pkey []byte, name string) (string, erro
 
 	key, err := types.CreateStorageKey(
 		c.metadata,
-		pallet_System,
-		account,
+		SYSTEM,
+		ACCOUNT,
 		c.keyring.PublicKey,
 	)
 	if err != nil {
@@ -390,7 +390,7 @@ func (c *chainClient) CreateBucket(owner_pkey []byte, name string) (string, erro
 		select {
 		case status := <-sub.Chan():
 			if status.IsInBlock {
-				events := CessEventRecords{}
+				events := EventRecords{}
 				txhash, _ = types.EncodeToHex(status.AsInBlock)
 				h, err := c.api.RPC.State.GetStorageRaw(c.keyEvents, status.AsInBlock)
 				if err != nil {
@@ -434,7 +434,7 @@ func (c *chainClient) DeleteBucket(owner_pkey []byte, name string) (string, erro
 
 	call, err := types.NewCall(
 		c.metadata,
-		FileBank_DeleteBucket,
+		TX_FILEBANK_DELBUCKET,
 		types.NewAccountID(owner_pkey),
 		types.NewBytes([]byte(name)),
 	)
@@ -449,8 +449,8 @@ func (c *chainClient) DeleteBucket(owner_pkey []byte, name string) (string, erro
 
 	key, err := types.CreateStorageKey(
 		c.metadata,
-		pallet_System,
-		account,
+		SYSTEM,
+		ACCOUNT,
 		c.keyring.PublicKey,
 	)
 	if err != nil {
@@ -511,7 +511,7 @@ func (c *chainClient) DeleteBucket(owner_pkey []byte, name string) (string, erro
 		select {
 		case status := <-sub.Chan():
 			if status.IsInBlock {
-				events := CessEventRecords{}
+				events := EventRecords{}
 				txhash, _ = types.EncodeToHex(status.AsInBlock)
 				h, err := c.api.RPC.State.GetStorageRaw(c.keyEvents, status.AsInBlock)
 				if err != nil {
@@ -563,7 +563,7 @@ func (c *chainClient) DeclarationFile(filehash string, user UserBrief) (string, 
 
 	call, err := types.NewCall(
 		c.metadata,
-		FileBank_UploadDeclaration,
+		TX_FILEBANK_UPLOADDEC,
 		hash,
 		user,
 	)
@@ -578,8 +578,8 @@ func (c *chainClient) DeclarationFile(filehash string, user UserBrief) (string, 
 
 	key, err := types.CreateStorageKey(
 		c.metadata,
-		pallet_System,
-		account,
+		SYSTEM,
+		ACCOUNT,
 		c.keyring.PublicKey,
 	)
 	if err != nil {
@@ -640,7 +640,7 @@ func (c *chainClient) DeclarationFile(filehash string, user UserBrief) (string, 
 		select {
 		case status := <-sub.Chan():
 			if status.IsInBlock {
-				events := CessEventRecords{}
+				events := EventRecords{}
 				txhash, _ = types.EncodeToHex(status.AsInBlock)
 				h, err := c.api.RPC.State.GetStorageRaw(c.keyEvents, status.AsInBlock)
 				if err != nil {
@@ -697,7 +697,7 @@ func (c *chainClient) DeleteFile(owner_pkey []byte, filehash []string) (string, 
 
 	call, err := types.NewCall(
 		c.metadata,
-		FileBank_DeleteFile,
+		TX_FILEBANK_DELFILE,
 		types.NewAccountID(owner_pkey),
 		hash,
 	)
@@ -712,8 +712,8 @@ func (c *chainClient) DeleteFile(owner_pkey []byte, filehash []string) (string, 
 
 	key, err := types.CreateStorageKey(
 		c.metadata,
-		pallet_System,
-		account,
+		SYSTEM,
+		ACCOUNT,
 		c.keyring.PublicKey,
 	)
 	if err != nil {
@@ -774,7 +774,7 @@ func (c *chainClient) DeleteFile(owner_pkey []byte, filehash []string) (string, 
 		select {
 		case status := <-sub.Chan():
 			if status.IsInBlock {
-				events := CessEventRecords{}
+				events := EventRecords{}
 				txhash, _ = types.EncodeToHex(status.AsInBlock)
 				h, err := c.api.RPC.State.GetStorageRaw(c.keyEvents, status.AsInBlock)
 				if err != nil {
