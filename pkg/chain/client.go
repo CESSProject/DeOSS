@@ -101,8 +101,8 @@ func NewChainClient(rpcAddr, secret string, t time.Duration) (Chainer, error) {
 	}
 	cli.keyEvents, err = types.CreateStorageKey(
 		cli.metadata,
-		pallet_System,
-		events,
+		SYSTEM,
+		EVENTS,
 		nil,
 	)
 	if err != nil {
@@ -149,7 +149,8 @@ func (c *chainClient) GetChainState() bool {
 }
 
 func (c *chainClient) NewAccountId(pubkey []byte) types.AccountID {
-	return types.NewAccountID(pubkey)
+	acc, _ := types.NewAccountID(pubkey)
+	return *acc
 }
 
 func reconnectChainClient(rpcAddr string) (*gsrpc.SubstrateAPI, error) {
