@@ -154,13 +154,6 @@ type SchedulerInfo struct {
 	ControllerUser types.AccountID
 }
 
-type Ipv4Type_Query struct {
-	Placeholder types.U8 //
-	Index       types.U8
-	Value       [4]types.U8
-	Port        types.U16
-}
-
 type IpAddress struct {
 	IPv4 Ipv4Type
 	IPv6 Ipv6Type

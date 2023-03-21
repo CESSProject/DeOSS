@@ -217,8 +217,9 @@ func (n *Node) putHandle(c *gin.Context) {
 			c.JSON(500, "InternalError")
 			return
 		}
+		acc, _ := types.NewAccountID(pkey)
 		userBrief := chain.UserBrief{
-			User:        types.NewAccountID(pkey),
+			User:        *acc,
 			File_name:   types.Bytes(putName),
 			Bucket_name: types.Bytes(bucketName),
 		}

@@ -149,7 +149,8 @@ func (c *chainClient) GetChainState() bool {
 }
 
 func (c *chainClient) NewAccountId(pubkey []byte) types.AccountID {
-	return types.NewAccountID(pubkey)
+	acc, _ := types.NewAccountID(pubkey)
+	return *acc
 }
 
 func reconnectChainClient(rpcAddr string) (*gsrpc.SubstrateAPI, error) {

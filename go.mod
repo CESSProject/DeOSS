@@ -8,7 +8,7 @@ require (
 	github.com/bwmarrin/snowflake v0.3.0
 	github.com/cbergoon/merkletree v0.2.0
 	github.com/centrifuge/go-substrate-rpc-client v2.0.0+incompatible
-	github.com/centrifuge/go-substrate-rpc-client/v4 v4.0.5
+	github.com/centrifuge/go-substrate-rpc-client/v4 v4.0.12
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/gin-contrib/cors v1.4.0
 	github.com/gin-gonic/gin v1.9.0

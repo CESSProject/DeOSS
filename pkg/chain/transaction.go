@@ -15,6 +15,7 @@ import (
 
 	"github.com/CESSProject/DeOSS/pkg/utils"
 	"github.com/centrifuge/go-substrate-rpc-client/v4/types"
+	"github.com/centrifuge/go-substrate-rpc-client/v4/types/codec"
 	"github.com/pkg/errors"
 )
 
@@ -132,7 +133,7 @@ func (c *chainClient) Register(ip, port string) (string, error) {
 		case status := <-sub.Chan():
 			if status.IsInBlock {
 				events := CessEventRecords{}
-				txhash, _ = types.EncodeToHex(status.AsInBlock)
+				txhash, _ = codec.EncodeToHex(status.AsInBlock)
 				h, err := c.api.RPC.State.GetStorageRaw(c.keyEvents, status.AsInBlock)
 				if err != nil {
 					return txhash, errors.Wrap(err, "[GetStorageRaw]")
@@ -266,7 +267,7 @@ func (c *chainClient) Update(ip, port string) (string, error) {
 		case status := <-sub.Chan():
 			if status.IsInBlock {
 				events := CessEventRecords{}
-				txhash, _ = types.EncodeToHex(status.AsInBlock)
+				txhash, _ = codec.EncodeToHex(status.AsInBlock)
 				h, err := c.api.RPC.State.GetStorageRaw(c.keyEvents, status.AsInBlock)
 				if err != nil {
 					return txhash, errors.Wrap(err, "[GetStorageRaw]")
@@ -307,14 +308,15 @@ func (c *chainClient) CreateBucket(owner_pkey []byte, name string) (string, erro
 	}
 	c.SetChainState(true)
 
-	// b, err := types.Encode(name)
-	// if err != nil {
-	// 	return txhash, errors.Wrap(err, "[Encode]")
-	// }
+	acc, err := types.NewAccountID(owner_pkey)
+	if err != nil {
+		return txhash, errors.Wrap(err, "[NewAccountID]")
+	}
+
 	call, err := types.NewCall(
 		c.metadata,
 		TX_FILEBANK_CRTBUCKET,
-		types.NewAccountID(owner_pkey),
+		*acc,
 		types.NewBytes([]byte(name)),
 	)
 	if err != nil {
@@ -391,7 +393,7 @@ func (c *chainClient) CreateBucket(owner_pkey []byte, name string) (string, erro
 		case status := <-sub.Chan():
 			if status.IsInBlock {
 				events := CessEventRecords{}
-				txhash, _ = types.EncodeToHex(status.AsInBlock)
+				txhash, _ = codec.EncodeToHex(status.AsInBlock)
 				h, err := c.api.RPC.State.GetStorageRaw(c.keyEvents, status.AsInBlock)
 				if err != nil {
 					return txhash, errors.Wrap(err, "[GetStorageRaw]")
@@ -432,10 +434,15 @@ func (c *chainClient) DeleteBucket(owner_pkey []byte, name string) (string, erro
 	}
 	c.SetChainState(true)
 
+	acc, err := types.NewAccountID(owner_pkey)
+	if err != nil {
+		return txhash, errors.Wrap(err, "[NewAccountID]")
+	}
+
 	call, err := types.NewCall(
 		c.metadata,
 		TX_FILEBANK_DELBUCKET,
-		types.NewAccountID(owner_pkey),
+		*acc,
 		types.NewBytes([]byte(name)),
 	)
 	if err != nil {
@@ -512,7 +519,7 @@ func (c *chainClient) DeleteBucket(owner_pkey []byte, name string) (string, erro
 		case status := <-sub.Chan():
 			if status.IsInBlock {
 				events := CessEventRecords{}
-				txhash, _ = types.EncodeToHex(status.AsInBlock)
+				txhash, _ = codec.EncodeToHex(status.AsInBlock)
 				h, err := c.api.RPC.State.GetStorageRaw(c.keyEvents, status.AsInBlock)
 				if err != nil {
 					return txhash, errors.Wrap(err, "[GetStorageRaw]")
@@ -641,7 +648,7 @@ func (c *chainClient) DeclarationFile(filehash string, user UserBrief) (string, 
 		case status := <-sub.Chan():
 			if status.IsInBlock {
 				events := CessEventRecords{}
-				txhash, _ = types.EncodeToHex(status.AsInBlock)
+				txhash, _ = codec.EncodeToHex(status.AsInBlock)
 				h, err := c.api.RPC.State.GetStorageRaw(c.keyEvents, status.AsInBlock)
 				if err != nil {
 					return txhash, errors.Wrap(err, "[GetStorageRaw]")
@@ -693,12 +700,15 @@ func (c *chainClient) DeleteFile(owner_pkey []byte, filehash []string) (string, 
 		}
 	}
 
-	fmt.Println(hash)
+	acc, err := types.NewAccountID(owner_pkey)
+	if err != nil {
+		return txhash, nil, errors.Wrap(err, "[NewAccountID]")
+	}
 
 	call, err := types.NewCall(
 		c.metadata,
 		TX_FILEBANK_DELFILE,
-		types.NewAccountID(owner_pkey),
+		*acc,
 		hash,
 	)
 	if err != nil {
@@ -775,7 +785,7 @@ func (c *chainClient) DeleteFile(owner_pkey []byte, filehash []string) (string, 
 		case status := <-sub.Chan():
 			if status.IsInBlock {
 				events := CessEventRecords{}
-				txhash, _ = types.EncodeToHex(status.AsInBlock)
+				txhash, _ = codec.EncodeToHex(status.AsInBlock)
 				h, err := c.api.RPC.State.GetStorageRaw(c.keyEvents, status.AsInBlock)
 				if err != nil {
 					return txhash, nil, errors.Wrap(err, "[GetStorageRaw]")

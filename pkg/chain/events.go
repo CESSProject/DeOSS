@@ -9,11 +9,11 @@ package chain
 
 import "github.com/centrifuge/go-substrate-rpc-client/v4/types"
 
-// **************************************************************
+// ******************************************************
 // cess event type
-// **************************************************************
+// ******************************************************
 
-// ------------------------SegmentBook----------------------------
+// ------------------------SegmentBook-------------------
 type Event_PPBNoOnTimeSubmit struct {
 	Phase     types.Phase
 	Acc       types.AccountID
@@ -49,7 +49,7 @@ type Event_OutstandingChallenges struct {
 	Topics []types.Hash
 }
 
-// ------------------------Sminer---------------------------------
+// ------------------------Sminer------------------------
 type Event_Registered struct {
 	Phase      types.Phase
 	Acc        types.AccountID
@@ -156,7 +156,7 @@ type Event_EndOfBufferPeriod struct {
 	Topics []types.Hash
 }
 
-// ------------------------FileBank-------------------------------
+// ------------------------FileBank----------------------
 type Event_DeleteFile struct {
 	Phase      types.Phase
 	Acc        types.AccountID
@@ -298,18 +298,18 @@ type Event_LeaseExpireIn24Hours struct {
 	Topics []types.Hash
 }
 
-// ------------------------FileMap--------------------------------
+// ------------------------TEE Worker--------------------
 type Event_RegistrationScheduler struct {
 	Phase  types.Phase
 	Acc    types.AccountID
-	Ip     Ipv4Type_Query
+	Ip     Ipv4Type
 	Topics []types.Hash
 }
 
 type Event_UpdateScheduler struct {
 	Phase    types.Phase
 	Acc      types.AccountID
-	Endpoint Ipv4Type_Query
+	Endpoint Ipv4Type
 	Topics   []types.Hash
 }
 
@@ -317,18 +317,18 @@ type Event_UpdateScheduler struct {
 type Event_OssRegister struct {
 	Phase    types.Phase
 	Acc      types.AccountID
-	Endpoint Ipv4Type_Query
+	Endpoint Ipv4Type
 	Topics   []types.Hash
 }
 
 type Event_OssUpdate struct {
 	Phase        types.Phase
 	Acc          types.AccountID
-	New_endpoint Ipv4Type_Query
+	New_endpoint Ipv4Type
 	Topics       []types.Hash
 }
 
-// ------------------------other system---------------------------
+// ------------------------System------------------------
 type Event_UnsignedPhaseStarted struct {
 	Phase  types.Phase
 	Round  types.U32
@@ -355,17 +355,17 @@ type Event_Balances_Withdraw struct {
 	Topics []types.Hash
 }
 
-//**************************************************************
+//*******************************************************
 
 // Events
 type CessEventRecords struct {
-	//AUDIT
+	// AUDIT
 	SegmentBook_PPBNoOnTimeSubmit     []Event_PPBNoOnTimeSubmit
 	SegmentBook_PPDNoOnTimeSubmit     []Event_PPDNoOnTimeSubmit
 	SegmentBook_ChallengeProof        []Event_ChallengeProof
 	SegmentBook_VerifyProof           []Event_VerifyProof
 	SegmentBook_OutstandingChallenges []Event_OutstandingChallenges
-	//SMINER
+	// SMINER
 	Sminer_Registered          []Event_Registered
 	Sminer_TimedTask           []Event_TimedTask
 	Sminer_DrawFaucetMoney     []Event_DrawFaucetMoney
@@ -383,7 +383,7 @@ type CessEventRecords struct {
 	Sminer_UpdataIp            []Event_UpdataIp
 	Sminer_StartOfBufferPeriod []Event_StartOfBufferPeriod
 	Sminer_EndOfBufferPeriod   []Event_EndOfBufferPeriod
-	//FILEBANK
+	// FILEBANK
 	FileBank_DeleteFile        []Event_DeleteFile
 	FileBank_FileUpload        []Event_FileUpload
 	FileBank_FileUpdate        []Event_FileUpdate
@@ -398,22 +398,18 @@ type CessEventRecords struct {
 	FileBank_UploadDeclaration []Event_UploadDeclaration
 	FileBank_CreateBucket      []Event_CreateBucket
 	FileBank_DeleteBucket      []Event_DeleteBucket
-	//StorageHandler
+	// StorageHandler
 	StorageHandler_BuySpace             []Event_BuySpace
 	StorageHandler_ExpansionSpace       []Event_ExpansionSpace
 	StorageHandler_RenewalSpace         []Event_RenewalSpace
 	StorageHandler_LeaseExpired         []Event_LeaseExpired
 	StorageHandler_LeaseExpireIn24Hours []Event_LeaseExpireIn24Hours
-	//TeeWorker
-	FileMap_RegistrationScheduler []Event_RegistrationScheduler
-	FileMap_UpdateScheduler       []Event_UpdateScheduler
-	//OSS
+	// TeeWorker
+	TeeWorker_RegistrationScheduler []Event_RegistrationScheduler
+	TeeWorker_UpdateScheduler       []Event_UpdateScheduler
+	// OSS
 	Oss_OssRegister []Event_OssRegister
 	Oss_OssUpdate   []Event_OssUpdate
-	//system
-	ElectionProviderMultiPhase_UnsignedPhaseStarted []Event_UnsignedPhaseStarted
-	ElectionProviderMultiPhase_SignedPhaseStarted   []Event_SignedPhaseStarted
-	ElectionProviderMultiPhase_SolutionStored       []Event_SolutionStored
-	Balances_Withdraw                               []Event_Balances_Withdraw
+	// System
 	types.EventRecords
 }
