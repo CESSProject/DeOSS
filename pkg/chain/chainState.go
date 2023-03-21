@@ -13,6 +13,7 @@ import (
 
 	"github.com/CESSProject/DeOSS/pkg/utils"
 	"github.com/centrifuge/go-substrate-rpc-client/v4/types"
+	"github.com/centrifuge/go-substrate-rpc-client/v4/types/codec"
 	"github.com/centrifuge/go-substrate-rpc-client/xxhash"
 	"github.com/pkg/errors"
 )
@@ -136,7 +137,7 @@ func (c *chainClient) GetFileMetaInfo(fid string) (FileMetaInfo, error) {
 		hash[i] = types.U8(fid[i])
 	}
 
-	b, err := types.Encode(hash)
+	b, err := codec.Encode(hash)
 	if err != nil {
 		return data, errors.Wrap(err, "[Encode]")
 	}
@@ -179,7 +180,12 @@ func (c *chainClient) GetAccountInfo(pkey []byte) (types.AccountInfo, error) {
 	}
 	c.SetChainState(true)
 
-	b, err := types.Encode(types.NewAccountID(pkey))
+	acc, err := types.NewAccountID(pkey)
+	if err != nil {
+		return data, errors.Wrap(err, "[NewAccountID]")
+	}
+
+	b, err := codec.Encode(*acc)
 	if err != nil {
 		return data, errors.Wrap(err, "[EncodeToBytes]")
 	}
@@ -218,7 +224,12 @@ func (c *chainClient) GetState(pubkey []byte) (string, error) {
 	}
 	c.SetChainState(true)
 
-	b, err := types.Encode(types.NewAccountID(pubkey))
+	acc, err := types.NewAccountID(pubkey)
+	if err != nil {
+		return "", errors.Wrap(err, "[NewAccountID]")
+	}
+
+	b, err := codec.Encode(*acc)
 	if err != nil {
 		return "", errors.Wrap(err, "[EncodeToBytes]")
 	}
@@ -263,7 +274,12 @@ func (c *chainClient) GetGrantor(pkey []byte) (types.AccountID, error) {
 	}
 	c.SetChainState(true)
 
-	b, err := types.Encode(types.NewAccountID(pkey))
+	acc, err := types.NewAccountID(pkey)
+	if err != nil {
+		return data, errors.Wrap(err, "[NewAccountID]")
+	}
+
+	b, err := codec.Encode(*acc)
 	if err != nil {
 		return data, errors.Wrap(err, "[EncodeToBytes]")
 	}
@@ -302,12 +318,17 @@ func (c *chainClient) GetBucketInfo(owner_pkey []byte, name string) (BucketInfo,
 	}
 	c.SetChainState(true)
 
-	owner, err := types.Encode(types.NewAccountID(owner_pkey))
+	acc, err := types.NewAccountID(owner_pkey)
+	if err != nil {
+		return data, errors.Wrap(err, "[NewAccountID]")
+	}
+
+	owner, err := codec.Encode(*acc)
 	if err != nil {
 		return data, errors.Wrap(err, "[EncodeToBytes]")
 	}
 
-	name_byte, err := types.Encode(name)
+	name_byte, err := codec.Encode(name)
 	if err != nil {
 		return data, errors.Wrap(err, "[Encode]")
 	}
@@ -347,7 +368,12 @@ func (c *chainClient) GetBucketList(owner_pkey []byte) ([]types.Bytes, error) {
 	}
 	c.SetChainState(true)
 
-	owner, err := types.Encode(types.NewAccountID(owner_pkey))
+	acc, err := types.NewAccountID(owner_pkey)
+	if err != nil {
+		return data, errors.Wrap(err, "[NewAccountID]")
+	}
+
+	owner, err := codec.Encode(*acc)
 	if err != nil {
 		return data, errors.Wrap(err, "[EncodeToBytes]")
 	}
@@ -446,7 +472,7 @@ func (c *chainClient) GetCachers() ([]CacherInfo, error) {
 	for _, elem := range set {
 		for _, change := range elem.Changes {
 			var cacher CacherInfo
-			if err := types.Decode(change.StorageData, &cacher); err != nil {
+			if err := codec.Decode(change.StorageData, &cacher); err != nil {
 				//logger.Uld.Sugar().Error("get cachers info error,hash:", err)
 				log.Println(err)
 				continue
