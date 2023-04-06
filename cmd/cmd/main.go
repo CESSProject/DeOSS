@@ -40,7 +40,11 @@ func init() {
 		Command_Update(),
 		Command_State(),
 	)
-	rootCmd.PersistentFlags().StringP("config", "c", "", "Custom profile")
+	rootCmd.PersistentFlags().StringP("config", "c", "conf.yaml", "Custom profile")
+	rootCmd.PersistentFlags().StringP("rpc", "", "wss://testnet-rpc0.cess.cloud/ws/", "rpc endpoint")
+	rootCmd.PersistentFlags().StringP("ws", "", "/", "workspace")
+	rootCmd.PersistentFlags().StringP("ip", "", "0.0.0.0", "listening ip address")
+	rootCmd.PersistentFlags().IntP("port", "p", 15000, "listening port")
 }
 
 func Command_Version() *cobra.Command {

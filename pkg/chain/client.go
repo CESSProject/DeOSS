@@ -52,7 +52,7 @@ type Chainer interface {
 	// GetState is used to obtain OSS status information
 	GetState(pubkey []byte) (string, error)
 	// Register is used to register oss services
-	Register(ip, port string) (string, error)
+	Register(ip string, port int) (string, error)
 	// Update is used to update the communication address of the scheduling service
 	Update(ip, port string) (string, error)
 	// CreateBucket is used to create a bucket for users
