@@ -14,12 +14,12 @@ import (
 
 	"github.com/CESSProject/DeOSS/configs"
 	"github.com/CESSProject/DeOSS/node"
-	"github.com/CESSProject/DeOSS/pkg/chain"
 	"github.com/CESSProject/DeOSS/pkg/confile"
 	"github.com/CESSProject/DeOSS/pkg/db"
 	"github.com/CESSProject/DeOSS/pkg/logger"
 	"github.com/CESSProject/DeOSS/pkg/utils"
 	sdkgo "github.com/CESSProject/sdk-go"
+	"github.com/CESSProject/sdk-go/core/chain"
 	"github.com/spf13/cobra"
 )
 
@@ -129,7 +129,7 @@ func buildConfigFile(cmd *cobra.Command) (confile.Confiler, error) {
 	return cfg, nil
 }
 
-func buildDir(cfg confile.Confiler, client chain.Chainer) (string, string, string, string, error) {
+func buildDir(cfg confile.Confiler, client chain.Chain) (string, string, string, string, error) {
 	ctlAccount, err := client.GetCessAccount()
 	if err != nil {
 		return "", "", "", "", err
