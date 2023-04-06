@@ -37,7 +37,6 @@ func Command_State_Runfunc(cmd *cobra.Command, args []string) {
 		sdkgo.ListenPort(n.Confile.GetServicePort()),
 		sdkgo.Workspace(n.Confile.GetWorkspace()),
 	)
-	//Build client
 	if err != nil {
 		log.Println(err)
 		os.Exit(1)

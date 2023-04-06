@@ -8,6 +8,7 @@
 package node
 
 import (
+	"fmt"
 	"log"
 
 	"github.com/CESSProject/DeOSS/configs"
@@ -56,7 +57,7 @@ func (n *Node) Run() {
 	n.addRoute()
 	// Track file
 	go n.TrackFile()
-	log.Println("Listening on port :", n.Confile.GetServicePort())
+	log.Println("Listening on port:", n.Confile.GetServicePort())
 	// Run
-	n.Handle.Run(":" + n.Confile.GetServicePort())
+	n.Handle.Run(fmt.Sprintf(":%d", n.Confile.GetServicePort()))
 }

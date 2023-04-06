@@ -336,7 +336,7 @@ func (n *Node) GetHandle(c *gin.Context) {
 
 	// view bucket
 	if VerifyBucketName(getName) {
-		bucketInfo, err := n.Chain.GetBucketInfo(pkey, getName)
+		bucketInfo, err := n.Cli.GetBucketInfo(pkey, getName)
 		if err != nil {
 			if err.Error() == chain.ERR_Empty {
 				c.JSON(404, "NotFound")

@@ -39,7 +39,7 @@ type Confiler interface {
 	GetServicePort() int
 	GetWorkspace() string
 	GetMnemonic() string
-	GetPublickey() []byte
+	GetPublickey() ([]byte, error)
 }
 
 type confile struct {
