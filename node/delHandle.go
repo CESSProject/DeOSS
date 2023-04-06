@@ -12,8 +12,8 @@ import (
 	"net/http"
 
 	"github.com/CESSProject/DeOSS/configs"
-	"github.com/CESSProject/DeOSS/pkg/chain"
 	"github.com/CESSProject/DeOSS/pkg/utils"
+	"github.com/CESSProject/sdk-go/core/chain"
 	jwt "github.com/dgrijalva/jwt-go"
 	"github.com/gin-gonic/gin"
 )
@@ -37,7 +37,7 @@ func (n *Node) delHandle(c *gin.Context) {
 		return
 	}
 
-	signKey, err := utils.CalcMD5(n.Confile.GetCtrlPrk())
+	signKey, err := utils.CalcMD5(n.Confile.GetMnemonic())
 	if err != nil {
 		c.JSON(500, "InternalError")
 		return
@@ -65,7 +65,7 @@ func (n *Node) delHandle(c *gin.Context) {
 
 	bucketName := c.Request.Header.Get(configs.Header_BucketName)
 	if bucketName != "" {
-		txHash, err = n.Chain.DeleteBucket(pkey, bucketName)
+		txHash, err = n.Cli.DeleteBucket(pkey, bucketName)
 		if err != nil {
 			c.JSON(400, err.Error())
 			return
@@ -81,7 +81,7 @@ func (n *Node) delHandle(c *gin.Context) {
 	}
 
 	fmt.Println(deleteName)
-	txHash, failList, err := n.Chain.DeleteFile(pkey, deleteName)
+	txHash, failList, err := n.Cli.DeleteFile(pkey, deleteName)
 	if err != nil {
 		c.JSON(400, err.Error())
 		return

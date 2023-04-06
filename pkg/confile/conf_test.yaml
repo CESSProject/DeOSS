@@ -1,0 +1,12 @@
+# The rpc endpoint of the chain node
+Rpc:
+  - "wss://testnet-rpc0.cess.cloud/ws/"
+  - "wss://testnet-rpc1.cess.cloud/ws/"
+# Account mnemonic
+Mnemonic: "swear theme bounce soccer hungry gesture hurdle asset typical call balcony wrist"
+# Service workspace
+Workspace: /
+# Service running address
+Address: "127.0.0.1"
+# Service listening port
+Port: 15000

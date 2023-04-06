@@ -8,13 +8,14 @@
 package node
 
 import (
+	"fmt"
 	"log"
 
 	"github.com/CESSProject/DeOSS/configs"
-	"github.com/CESSProject/DeOSS/pkg/chain"
 	"github.com/CESSProject/DeOSS/pkg/confile"
 	"github.com/CESSProject/DeOSS/pkg/db"
 	"github.com/CESSProject/DeOSS/pkg/logger"
+	"github.com/CESSProject/sdk-go/core/client"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 )
@@ -25,7 +26,7 @@ type Oss interface {
 
 type Node struct {
 	Confile  confile.Confiler
-	Chain    chain.Chainer
+	Cli      client.Client
 	Logs     logger.Logger
 	Cache    db.Cacher
 	Handle   *gin.Engine
@@ -56,7 +57,7 @@ func (n *Node) Run() {
 	n.addRoute()
 	// Track file
 	go n.TrackFile()
-	log.Println("Listening on port :", n.Confile.GetServicePort())
+	log.Println("Listening on port:", n.Confile.GetServicePort())
 	// Run
-	n.Handle.Run(":" + n.Confile.GetServicePort())
+	n.Handle.Run(fmt.Sprintf(":%d", n.Confile.GetServicePort()))
 }

@@ -8,16 +8,14 @@
 package cmd
 
 import (
-	"fmt"
 	"log"
 	"os"
 	"strconv"
-	"time"
 
 	"github.com/CESSProject/DeOSS/configs"
-	"github.com/CESSProject/DeOSS/pkg/chain"
-	"github.com/CESSProject/DeOSS/pkg/confile"
+	"github.com/CESSProject/DeOSS/node"
 	"github.com/CESSProject/DeOSS/pkg/utils"
+	sdkgo "github.com/CESSProject/sdk-go"
 	"github.com/spf13/cobra"
 )
 
@@ -41,47 +39,40 @@ func Command_Update_Runfunc(cmd *cobra.Command, args []string) {
 		}
 
 		// config file
-		var configFilePath string
-		configpath1, _ := cmd.Flags().GetString("config")
-		configpath2, _ := cmd.Flags().GetString("c")
-		if configpath1 != "" {
-			configFilePath = configpath1
-		} else {
-			configFilePath = configpath2
-		}
-
-		confile := confile.NewConfigfile()
-		if err := confile.Parse(configFilePath); err != nil {
+		var n = node.New()
+		// Building profile
+		n.Confile, err = buildConfigFile(cmd)
+		if err != nil {
 			log.Println(err)
 			os.Exit(1)
 		}
 
-		// chain client
-		c, err := chain.NewChainClient(
-			confile.GetRpcAddr(),
-			confile.GetCtrlPrk(),
-			time.Duration(time.Second*15),
+		n.Cli, err = sdkgo.New(
+			configs.Name,
+			sdkgo.ConnectRpcAddrs(n.Confile.GetRpcAddr()),
+			sdkgo.ListenPort(n.Confile.GetServicePort()),
+			sdkgo.Workspace(n.Confile.GetWorkspace()),
 		)
 		if err != nil {
 			log.Println(err)
 			os.Exit(1)
 		}
 
-		txhash, err := c.Update(os.Args[2], os.Args[3])
-		if err != nil {
-			if err.Error() == chain.ERR_RPC_EMPTY_VALUE.Error() {
-				log.Println("[err] Please check your wallet balance.")
-			} else {
-				if txhash != "" {
-					msg := configs.HELP_common + fmt.Sprintf(" %v\n", txhash)
-					msg += configs.HELP_update
-					log.Printf("[pending] %v\n", msg)
-				} else {
-					log.Printf("[err] %v\n", err)
-				}
-			}
-			os.Exit(1)
-		}
+		// txhash, err := c.Update(os.Args[2], os.Args[3])
+		// if err != nil {
+		// 	if err.Error() == chain.ERR_RPC_EMPTY_VALUE.Error() {
+		// 		log.Println("[err] Please check your wallet balance.")
+		// 	} else {
+		// 		if txhash != "" {
+		// 			msg := configs.HELP_common + fmt.Sprintf(" %v\n", txhash)
+		// 			msg += configs.HELP_update
+		// 			log.Printf("[pending] %v\n", msg)
+		// 		} else {
+		// 			log.Printf("[err] %v\n", err)
+		// 		}
+		// 	}
+		// 	os.Exit(1)
+		// }
 		log.Println("success")
 		os.Exit(0)
 	}
