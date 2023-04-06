@@ -63,6 +63,8 @@ github.com/CESSProject/sdk-go v0.0.0-20230405140246-8d8c5f9b5252 h1:F3FGLrb9Kagf
 github.com/CESSProject/sdk-go v0.0.0-20230405140246-8d8c5f9b5252/go.mod h1:68uu40RG0QWTO5b40n41FReqK9mCqoepHMseLI722Z0=
 github.com/CESSProject/sdk-go v0.0.1 h1:fis6yv/MP/aX0FQiuKmrHhZfmconHs+sLwl4A6iZd4Y=
 github.com/CESSProject/sdk-go v0.0.1/go.mod h1:68uu40RG0QWTO5b40n41FReqK9mCqoepHMseLI722Z0=
+github.com/CESSProject/sdk-go v0.0.2 h1:dP34qmqtNzBgmPLQuCtt30bJxgCDPQebdLrspcrbOGg=
+github.com/CESSProject/sdk-go v0.0.2/go.mod h1:68uu40RG0QWTO5b40n41FReqK9mCqoepHMseLI722Z0=
 github.com/ChainSafe/go-schnorrkel v1.0.0 h1:3aDA67lAykLaG1y3AOjs88dMxC88PgUuHRrLeDnvGIM=
 github.com/ChainSafe/go-schnorrkel v1.0.0/go.mod h1:dpzHYVxLZcp8pjlV+O+UR8K0Hp/z7vcchBSbMBEhCw4=
 github.com/DATA-DOG/go-sqlmock v1.3.3/go.mod h1:f/Ixk793poVmq4qj/V1dPUg2JEAKC73Q5eFN3EC/SaM=

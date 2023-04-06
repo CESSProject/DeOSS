@@ -42,7 +42,12 @@ func Command_State_Runfunc(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
-	ossState, err := n.Cli.QueryDeoss(n.Confile.GetPublickey())
+	pubkey, err := n.Confile.GetPublickey()
+	if err != nil {
+		log.Println(err)
+		os.Exit(1)
+	}
+	ossState, err := n.Cli.QueryDeoss(pubkey)
 	if err != nil || ossState == "" {
 		log.Printf("[err] %v\n", err)
 		os.Exit(1)
