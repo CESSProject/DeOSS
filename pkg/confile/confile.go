@@ -33,7 +33,7 @@ AccountSeed = ""`
 )
 
 type Confiler interface {
-	Parse(path string) error
+	Parse(fpath string, ip string, port int) error
 	GetRpcAddr() []string
 	GetServiceAddr() string
 	GetServicePort() int
@@ -54,7 +54,7 @@ func NewConfigfile() *confile {
 	return &confile{}
 }
 
-func (c *confile) Parse(fpath string) error {
+func (c *confile) Parse(fpath string, ip string, port int) error {
 	var confilePath = fpath
 	if confilePath == "" {
 		confilePath = ProfileDefault
@@ -84,11 +84,17 @@ func (c *confile) Parse(fpath string) error {
 		return errors.Errorf("Secret: %v", err)
 	}
 
+	if ip != "" {
+		c.Address = ip
+	}
 	if len(c.Rpc) == 0 ||
 		c.Address == "" {
 		return errors.New("The configuration file cannot have empty entries")
 	}
 
+	if port != 0 {
+		c.Port = port
+	}
 	if c.Port < 1024 {
 		return errors.Errorf("Prohibit the use of system reserved port: %v", c.Port)
 	}

@@ -58,6 +58,8 @@ const (
 	TotalFile = "TotalFile"
 	//
 	TotalFailedFile = "TotalFailedFile"
+	//
+	DefaultConfig = "./conf.yaml"
 )
 
 const (

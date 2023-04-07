@@ -65,7 +65,7 @@ func (n *Node) VerifyToken(c *gin.Context, respmsg *RespMsg) string {
 }
 
 // SaveFormFile is used to save form files
-func (n *Node) SaveFormFile(c *gin.Context, account, name string) (int64, string, string, int, error) {
+func (n *Node) SaveFormFile(c *gin.Context, account, name string) (string, int, error) {
 	var (
 		err      error
 		savedir  string
@@ -79,7 +79,7 @@ func (n *Node) SaveFormFile(c *gin.Context, account, name string) (int64, string
 	if err != nil {
 		err = os.MkdirAll(savedir, configs.DirPermission)
 		if err != nil {
-			return 0, "", "", http.StatusInternalServerError, errors.New(ERR_ReportProblem + err.Error())
+			return "", http.StatusInternalServerError, errors.New(ERR_ReportProblem + err.Error())
 		}
 	}
 
@@ -87,7 +87,7 @@ func (n *Node) SaveFormFile(c *gin.Context, account, name string) (int64, string
 	fpath = filepath.Join(savedir, url.QueryEscape(name))
 	_, err = os.Stat(fpath)
 	if err == nil {
-		return 0, "", "", http.StatusBadRequest, errors.New(ERR_DuplicateFileName)
+		return "", http.StatusBadRequest, errors.New(ERR_DuplicateFileName)
 	}
 
 	// Get form file
@@ -97,7 +97,7 @@ func (n *Node) SaveFormFile(c *gin.Context, account, name string) (int64, string
 		if err != nil {
 			formfile, err = c.FormFile(FormFileKey3)
 			if err != nil {
-				return 0, "", "", http.StatusBadRequest, errors.New(ERR_ReportProblem + err.Error())
+				return "", http.StatusBadRequest, errors.New(ERR_ReportProblem + err.Error())
 			}
 		}
 	}
@@ -105,35 +105,29 @@ func (n *Node) SaveFormFile(c *gin.Context, account, name string) (int64, string
 	// save form file
 	err = c.SaveUploadedFile(formfile, fpath)
 	if err != nil {
-		return 0, "", "", http.StatusInternalServerError, errors.New(ERR_ReportProblem + err.Error())
+		return "", http.StatusInternalServerError, errors.New(ERR_ReportProblem + err.Error())
 	}
 
 	defer os.Remove(fpath)
 
-	// Get file info
-	finfo, err := os.Stat(fpath)
-	if err != nil {
-		return 0, "", "", http.StatusInternalServerError, errors.New(ERR_ReportProblem + err.Error())
-	}
-
 	// Calculate file hash
 	hash256, err := utils.CalcPathSHA256(fpath)
 	if err != nil {
-		return 0, "", "", http.StatusInternalServerError, errors.New(ERR_ReportProblem + err.Error())
+		return "", http.StatusInternalServerError, errors.New(ERR_ReportProblem + err.Error())
 	}
 
 	// Rename
 	hashpath = filepath.Join(savedir, hash256)
 	err = os.Rename(fpath, hashpath)
 	if err != nil {
-		return 0, "", "", http.StatusInternalServerError, errors.New(ERR_ReportProblem + err.Error())
+		return "", http.StatusInternalServerError, errors.New(ERR_ReportProblem + err.Error())
 	}
 
-	return finfo.Size(), hash256, hashpath, http.StatusOK, nil
+	return hashpath, http.StatusOK, nil
 }
 
 // SaveBody is used to save body content
-func (n *Node) SaveBody(c *gin.Context, account, name string) (int64, string, string, int, error) {
+func (n *Node) SaveBody(c *gin.Context, account, name string) (string, int, error) {
 	var (
 		err      error
 		savedir  string
@@ -146,7 +140,7 @@ func (n *Node) SaveBody(c *gin.Context, account, name string) (int64, string, st
 	if err != nil {
 		err = os.MkdirAll(savedir, configs.DirPermission)
 		if err != nil {
-			return 0, "", "", http.StatusInternalServerError, errors.New(ERR_ReportProblem + err.Error())
+			return "", http.StatusInternalServerError, errors.New(ERR_ReportProblem + err.Error())
 		}
 	}
 
@@ -154,43 +148,37 @@ func (n *Node) SaveBody(c *gin.Context, account, name string) (int64, string, st
 	fpath = filepath.Join(savedir, url.QueryEscape(name))
 	_, err = os.Stat(fpath)
 	if err == nil {
-		return 0, "", "", http.StatusInternalServerError, errors.New(ERR_DuplicateFileName)
+		return "", http.StatusInternalServerError, errors.New(ERR_DuplicateFileName)
 	}
 
 	f, err := os.Create(fpath)
 	if err == nil {
-		return 0, "", "", http.StatusInternalServerError, errors.New(ERR_ReportProblem + err.Error())
+		return "", http.StatusInternalServerError, errors.New(ERR_ReportProblem + err.Error())
 	}
 	defer os.Remove(fpath)
 
 	// save body content
 	buf, err := ioutil.ReadAll(c.Request.Body)
 	if err == nil {
-		return 0, "", "", http.StatusBadRequest, errors.New(ERR_ReportProblem + err.Error())
+		return "", http.StatusBadRequest, errors.New(ERR_ReportProblem + err.Error())
 	}
 
 	f.Write(buf)
 	f.Sync()
 	f.Close()
 
-	// Get file info
-	finfo, err := os.Stat(fpath)
-	if err != nil {
-		return 0, "", "", http.StatusInternalServerError, errors.New(ERR_ReportProblem + err.Error())
-	}
-
 	// Calculate file hash
 	hash256, err := utils.CalcPathSHA256(fpath)
 	if err != nil {
-		return 0, "", "", http.StatusInternalServerError, errors.New(ERR_ReportProblem + err.Error())
+		return "", http.StatusInternalServerError, errors.New(ERR_ReportProblem + err.Error())
 	}
 
 	// Rename
 	hashpath = filepath.Join(savedir, hash256)
 	err = os.Rename(fpath, hashpath)
 	if err != nil {
-		return 0, "", "", http.StatusInternalServerError, errors.New(ERR_ReportProblem + err.Error())
+		return "", http.StatusInternalServerError, errors.New(ERR_ReportProblem + err.Error())
 	}
 
-	return finfo.Size(), hash256, hashpath, http.StatusOK, nil
+	return hashpath, http.StatusOK, nil
 }

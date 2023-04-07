@@ -20,18 +20,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-type FileStoreInfo struct {
-	FileId      string         `json:"file_id"`
-	FileState   string         `json:"file_state"`
-	Scheduler   string         `json:"scheduler"`
-	FileSize    int64          `json:"file_size"`
-	IsUpload    bool           `json:"is_upload"`
-	IsCheck     bool           `json:"is_check"`
-	IsShard     bool           `json:"is_shard"`
-	IsScheduler bool           `json:"is_scheduler"`
-	Miners      map[int]string `json:"miners,omitempty"`
-}
-
 type RecordInfo struct {
 	SegmentInfo []client.SegmentInfo `json:"segmentInfo"`
 	Owner       []byte               `json:"owner"`
@@ -46,9 +34,7 @@ func (n *Node) putHandle(c *gin.Context) {
 		err      error
 		clientIp string
 		account  string
-		filesize int64
 		fpath    string
-		filehash string
 		roothash string
 		httpCode int
 		respMsg  = &RespMsg{}
@@ -110,10 +96,10 @@ func (n *Node) putHandle(c *gin.Context) {
 		return
 	}
 
-	filesize, filehash, fpath, httpCode, err = n.SaveFormFile(c, account, putName)
+	fpath, httpCode, err = n.SaveFormFile(c, account, putName)
 	if err != nil {
 		n.Logs.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, err))
-		filesize, filehash, fpath, httpCode, err = n.SaveBody(c, account, putName)
+		fpath, httpCode, err = n.SaveBody(c, account, putName)
 		if err != nil {
 			n.Logs.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, err))
 			c.JSON(httpCode, err)
@@ -121,8 +107,6 @@ func (n *Node) putHandle(c *gin.Context) {
 		}
 	}
 
-	filesize = filesize
-	filehash = filehash
 	segmentInfo, roothash, err := n.Cli.ProcessingData(fpath)
 	if err != nil {
 		n.Logs.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, err))
