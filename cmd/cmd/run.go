@@ -19,21 +19,20 @@ import (
 	"github.com/CESSProject/DeOSS/pkg/logger"
 	"github.com/CESSProject/DeOSS/pkg/utils"
 	sdkgo "github.com/CESSProject/sdk-go"
-	"github.com/CESSProject/sdk-go/core/chain"
 	"github.com/spf13/cobra"
 )
 
 // Start service
 func Command_Run_Runfunc(cmd *cobra.Command, args []string) {
 	var (
-		err      error
-		logDir   string
-		cacheDir string
-		n        = node.New()
+		err    error
+		logDir string
+		dbDir  string
+		n      = node.New()
 	)
 
 	// Building Profile Instances
-	n.Confile, err = buildConfigFile(cmd)
+	n.Confile, err = buildConfigFile(cmd, "", 0)
 	if err != nil {
 		log.Println(err)
 		os.Exit(1)
@@ -52,8 +51,20 @@ func Command_Run_Runfunc(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
+	_, err = n.Cli.Register(configs.Name, "", 0)
+	if err != nil {
+		log.Println("Register err: ", err)
+		os.Exit(1)
+	}
+
+	logDir, dbDir, n.FileDir, n.TrackDir, err = buildDir(n.Cli.Workspace())
+	if err != nil {
+		log.Println("buildDir err: ", err)
+		os.Exit(1)
+	}
+
 	//Build cache
-	n.Cache, err = buildCache(cacheDir)
+	n.Cache, err = buildCache(dbDir)
 	if err != nil {
 		log.Println(err)
 		os.Exit(1)
@@ -70,18 +81,20 @@ func Command_Run_Runfunc(cmd *cobra.Command, args []string) {
 	n.Run()
 }
 
-func buildConfigFile(cmd *cobra.Command) (confile.Confiler, error) {
+func buildConfigFile(cmd *cobra.Command, ip4 string, port int) (confile.Confiler, error) {
 	var conFilePath string
 	configpath1, _ := cmd.Flags().GetString("config")
 	configpath2, _ := cmd.Flags().GetString("c")
 	if configpath1 != "" {
 		conFilePath = configpath1
-	} else {
+	} else if configpath2 != "" {
 		conFilePath = configpath2
+	} else {
+		conFilePath = configs.DefaultConfig
 	}
 
 	cfg := confile.NewConfigfile()
-	err := cfg.Parse(conFilePath)
+	err := cfg.Parse(conFilePath, ip4, port)
 	if err == nil {
 		return cfg, err
 	}
@@ -98,7 +111,7 @@ func buildConfigFile(cmd *cobra.Command) (confile.Confiler, error) {
 	if err != nil {
 		return cfg, err
 	}
-	port, err := cmd.Flags().GetInt("port")
+	port, err = cmd.Flags().GetInt("port")
 	if err != nil {
 		port, err = cmd.Flags().GetInt("p")
 		if err != nil {
@@ -129,37 +142,23 @@ func buildConfigFile(cmd *cobra.Command) (confile.Confiler, error) {
 	return cfg, nil
 }
 
-func buildDir(cfg confile.Confiler, client chain.Chain) (string, string, string, string, error) {
-	ctlAccount, err := client.GetCessAccount()
-	if err != nil {
-		return "", "", "", "", err
-	}
-	baseDir := filepath.Join(cfg.GetWorkspace(), ctlAccount, configs.BaseDir)
-
-	_, err = os.Stat(baseDir)
-	if err != nil {
-		err = os.MkdirAll(baseDir, configs.DirPermission)
-		if err != nil {
-			return "", "", "", "", err
-		}
-	}
-
-	logDir := filepath.Join(baseDir, configs.Log)
+func buildDir(workspace string) (string, string, string, string, error) {
+	logDir := filepath.Join(workspace, configs.Log)
 	if err := os.MkdirAll(logDir, configs.DirPermission); err != nil {
 		return "", "", "", "", err
 	}
 
-	cacheDir := filepath.Join(baseDir, configs.Cache)
+	cacheDir := filepath.Join(workspace, configs.Db)
 	if err := os.MkdirAll(cacheDir, configs.DirPermission); err != nil {
 		return "", "", "", "", err
 	}
 
-	fileDir := filepath.Join(baseDir, configs.File)
+	fileDir := filepath.Join(workspace, configs.File)
 	if err := os.MkdirAll(fileDir, configs.DirPermission); err != nil {
 		return "", "", "", "", err
 	}
 
-	trackDir := filepath.Join(baseDir, configs.Track)
+	trackDir := filepath.Join(workspace, configs.Track)
 	if err := os.MkdirAll(trackDir, configs.DirPermission); err != nil {
 		return "", "", "", "", err
 	}

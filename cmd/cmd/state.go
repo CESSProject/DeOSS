@@ -25,7 +25,7 @@ func Command_State_Runfunc(cmd *cobra.Command, args []string) {
 	var err error
 	var n = node.New()
 	// Building profile
-	n.Confile, err = buildConfigFile(cmd)
+	n.Confile, err = buildConfigFile(cmd, "", 0)
 	if err != nil {
 		log.Println(err)
 		os.Exit(1)

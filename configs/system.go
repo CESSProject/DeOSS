@@ -29,7 +29,7 @@ const (
 	// log file dir
 	Log = "log"
 	// database dir
-	Cache = "cache"
+	Db = "db"
 	// file dir
 	File = "file"
 	// tracked files

@@ -8,6 +8,7 @@
 package cmd
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"strconv"
@@ -16,6 +17,7 @@ import (
 	"github.com/CESSProject/DeOSS/node"
 	"github.com/CESSProject/DeOSS/pkg/utils"
 	sdkgo "github.com/CESSProject/sdk-go"
+	"github.com/CESSProject/sdk-go/core/chain"
 	"github.com/spf13/cobra"
 )
 
@@ -41,41 +43,45 @@ func Command_Update_Runfunc(cmd *cobra.Command, args []string) {
 		// config file
 		var n = node.New()
 		// Building profile
-		n.Confile, err = buildConfigFile(cmd)
+		n.Confile, err = buildConfigFile(cmd, os.Args[2], port)
 		if err != nil {
-			log.Println(err)
+			log.Println("ConfigFile:", err)
 			os.Exit(1)
 		}
 
+		fmt.Println("os.Args[2]: ", os.Args[2])
 		n.Cli, err = sdkgo.New(
 			configs.Name,
 			sdkgo.ConnectRpcAddrs(n.Confile.GetRpcAddr()),
 			sdkgo.ListenPort(n.Confile.GetServicePort()),
 			sdkgo.Workspace(n.Confile.GetWorkspace()),
+			sdkgo.ListenAddrStrings(os.Args[2]),
+			sdkgo.Mnemonic(n.Confile.GetMnemonic()),
 		)
 		if err != nil {
-			log.Println(err)
+			log.Println("Client: ", err)
 			os.Exit(1)
 		}
 
+		txhash, err := n.Cli.Update(configs.Name)
 		// txhash, err := c.Update(os.Args[2], os.Args[3])
-		// if err != nil {
-		// 	if err.Error() == chain.ERR_RPC_EMPTY_VALUE.Error() {
-		// 		log.Println("[err] Please check your wallet balance.")
-		// 	} else {
-		// 		if txhash != "" {
-		// 			msg := configs.HELP_common + fmt.Sprintf(" %v\n", txhash)
-		// 			msg += configs.HELP_update
-		// 			log.Printf("[pending] %v\n", msg)
-		// 		} else {
-		// 			log.Printf("[err] %v\n", err)
-		// 		}
-		// 	}
-		// 	os.Exit(1)
-		// }
+		if err != nil {
+			if err.Error() == chain.ERR_RPC_EMPTY_VALUE.Error() {
+				log.Println("[err] Please check your wallet balance.")
+			} else {
+				if txhash != "" {
+					msg := configs.HELP_common + fmt.Sprintf(" %v\n", txhash)
+					msg += configs.HELP_update
+					log.Printf("[pending] %v\n", msg)
+				} else {
+					log.Printf("[err] %v\n", err)
+				}
+			}
+			os.Exit(1)
+		}
 		log.Println("success")
 		os.Exit(0)
 	}
-	log.Println("[err] Please enter 'scheduler update <ipv4> <port>'")
+	log.Println("[err] Please use update <ipv4> <port>'")
 	os.Exit(1)
 }
