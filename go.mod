@@ -4,16 +4,14 @@ go 1.19
 
 require (
 	github.com/CESSProject/go-keyring v0.0.0-20220614131247-ee3a8da30fde
-	github.com/CESSProject/sdk-go v0.0.5
+	github.com/CESSProject/sdk-go v0.0.11
 	github.com/btcsuite/btcutil v1.0.3-0.20201208143702-a53e38424cce
 	github.com/bwmarrin/snowflake v0.3.0
 	github.com/cbergoon/merkletree v0.2.0
-	github.com/centrifuge/go-substrate-rpc-client v2.0.0+incompatible
 	github.com/centrifuge/go-substrate-rpc-client/v4 v4.0.12
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/gin-contrib/cors v1.4.0
 	github.com/gin-gonic/gin v1.9.0
-	github.com/klauspost/reedsolomon v1.11.7
 	github.com/natefinch/lumberjack v2.0.0+incompatible
 	github.com/pkg/errors v0.9.1
 	github.com/spf13/cobra v1.6.1
@@ -31,6 +29,7 @@ require (
 	github.com/benbjohnson/clock v1.3.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/bytedance/sonic v1.8.0 // indirect
+	github.com/centrifuge/go-substrate-rpc-client v2.0.0+incompatible // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/chenzhuoyu/base64x v0.0.0-20221115062448-fe3a3abad311 // indirect
 	github.com/containerd/cgroups v1.0.4 // indirect
@@ -76,6 +75,7 @@ require (
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/klauspost/compress v1.15.12 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.4 // indirect
+	github.com/klauspost/reedsolomon v1.11.7 // indirect
 	github.com/koron/go-ssdp v0.0.3 // indirect
 	github.com/leodido/go-urn v1.2.1 // indirect
 	github.com/libp2p/go-buffer-pool v0.1.0 // indirect

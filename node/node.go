@@ -57,7 +57,10 @@ func (n *Node) Run() {
 	n.addRoute()
 	// Track file
 	go n.TrackFile()
-	log.Println("Listening on port:", n.Confile.GetServicePort())
+	log.Println("Listening on port:", n.Confile.GetHttpPort())
 	// Run
-	n.Handle.Run(fmt.Sprintf(":%d", n.Confile.GetServicePort()))
+	err := n.Handle.Run(fmt.Sprintf(":%d", n.Confile.GetHttpPort()))
+	if err != nil {
+		log.Fatalf("err: %v", err)
+	}
 }
