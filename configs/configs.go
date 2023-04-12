@@ -91,5 +91,6 @@ var (
 		"panic",    //Panic log
 		"downfile", //Download log
 		"record",
+		"query",
 	}
 )

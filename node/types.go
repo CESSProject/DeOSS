@@ -15,6 +15,13 @@ const (
 )
 
 const (
+	Active = iota
+	Calculate
+	Missing
+	Recovery
+)
+
+const (
 	PUT_ParameterName = "name"
 	FormFileKey1      = "file"
 	FormFileKey2      = "File"

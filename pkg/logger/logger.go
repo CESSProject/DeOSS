@@ -22,12 +22,13 @@ import (
 )
 
 type Logger interface {
-	Log(string, string, error)
+	Log(string, string)
 	Pnc(string, error)
-	Common(string, error)
+	//Common(string, error)
 	Upfile(string, string)
-	Downfile(string, error)
+	Downfile(string, string)
 	Record(error)
+	Query(string, string)
 }
 
 type logs struct {
@@ -63,17 +64,15 @@ func NewLogs(logfiles map[string]string) (Logger, error) {
 	}, nil
 }
 
-func (l *logs) Log(name, level string, err error) {
+func (l *logs) Log(level string, msg string) {
 	_, file, line, _ := runtime.Caller(1)
-	v, ok := l.log[name]
+	v, ok := l.log["log"]
 	if ok {
 		switch level {
 		case "info":
-			v.Sugar().Infof("[%v:%d] %v", filepath.Base(file), line, err)
+			v.Sugar().Infof("[%v:%d] %v", filepath.Base(file), line, msg)
 		case "error", "err":
-			v.Sugar().Errorf("[%v:%d] %v", filepath.Base(file), line, err)
-		case "warn":
-			v.Sugar().Warnf("[%v:%d] %v", filepath.Base(file), line, err)
+			v.Sugar().Errorf("[%v:%d] %v", filepath.Base(file), line, msg)
 		}
 	}
 }
@@ -85,21 +84,6 @@ func (l *logs) Pnc(level string, err error) {
 		switch level {
 		case "error", "err":
 			v.Sugar().Errorf("[%v:%d] %v", filepath.Base(file), line, err)
-		}
-	}
-}
-
-func (l *logs) Common(level string, err error) {
-	_, file, line, _ := runtime.Caller(1)
-	v, ok := l.log["common"]
-	if ok {
-		switch level {
-		case "info":
-			v.Sugar().Infof("[%v:%d] %v", filepath.Base(file), line, err)
-		case "error", "err":
-			v.Sugar().Errorf("[%v:%d] %v", filepath.Base(file), line, err)
-		case "warn":
-			v.Sugar().Warnf("[%v:%d] %v", filepath.Base(file), line, err)
 		}
 	}
 }
@@ -117,17 +101,15 @@ func (l *logs) Upfile(level string, msg string) {
 	}
 }
 
-func (l *logs) Downfile(level string, err error) {
+func (l *logs) Downfile(level string, msg string) {
 	_, file, line, _ := runtime.Caller(1)
 	v, ok := l.log["downfile"]
 	if ok {
 		switch level {
 		case "info":
-			v.Sugar().Infof("[%v:%d] %v", filepath.Base(file), line, err)
-		case "error", "err":
-			v.Sugar().Errorf("[%v:%d] %v", filepath.Base(file), line, err)
-		case "warn":
-			v.Sugar().Warnf("[%v:%d] %v", filepath.Base(file), line, err)
+			v.Sugar().Infof("[%v:%d] %v", filepath.Base(file), line, msg)
+		case "err":
+			v.Sugar().Errorf("[%v:%d] %v", filepath.Base(file), line, msg)
 		}
 	}
 }
@@ -137,6 +119,19 @@ func (l *logs) Record(err error) {
 	v, ok := l.log["record"]
 	if ok {
 		v.Sugar().Infof("[%v:%d] %v", filepath.Base(file), line, err)
+	}
+}
+
+func (l *logs) Query(level string, msg string) {
+	_, file, line, _ := runtime.Caller(1)
+	v, ok := l.log["query"]
+	if ok {
+		switch level {
+		case "info":
+			v.Sugar().Infof("[%v:%d] %v", filepath.Base(file), line, msg)
+		case "err":
+			v.Sugar().Errorf("[%v:%d] %v", filepath.Base(file), line, msg)
+		}
 	}
 }
 
