@@ -8,6 +8,9 @@
 package node
 
 import (
+	"os"
+	"path/filepath"
+
 	"github.com/CESSProject/DeOSS/configs"
 	"github.com/gin-gonic/gin"
 )
@@ -40,6 +43,17 @@ func (n *Node) GetHandle(c *gin.Context) {
 		c.JSON(200, configs.Version)
 		return
 	}
+
+	fpath := filepath.Join(n.Cli.Workspace(), configs.File, getName)
+	_, err := os.Stat(fpath)
+	if err == nil {
+		c.File(fpath)
+		select {
+		case <-c.Request.Context().Done():
+			return
+		}
+	}
+
 	// if strings.ContainsAny(getName, ".") {
 	// 	fext := filepath.Ext(getName)
 	// 	contenttype, ok := contentType.Load(strings.ToLower(fext))
