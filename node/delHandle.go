@@ -81,7 +81,7 @@ func (n *Node) delHandle(c *gin.Context) {
 	}
 
 	fmt.Println(deleteName)
-	txHash, failList, err := n.Cli.DeleteFile(pkey, deleteName)
+	txHash, failList, err := n.Cli.DeleteFile(pkey, deleteName[0])
 	if err != nil {
 		c.JSON(400, err.Error())
 		return
@@ -89,6 +89,6 @@ func (n *Node) delHandle(c *gin.Context) {
 
 	c.JSON(http.StatusOK, struct {
 		Block_hash  string
-		Failed_list []chain.FileHash
+		Failed_list chain.FileHash
 	}{Block_hash: txHash, Failed_list: failList})
 }

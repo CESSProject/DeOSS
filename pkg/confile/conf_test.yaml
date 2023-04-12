@@ -8,5 +8,7 @@ Mnemonic: "swear theme bounce soccer hungry gesture hurdle asset typical call ba
 Workspace: /
 # Service running address
 Address: "127.0.0.1"
+# P2P communication port
+P2P_Port: 8088
 # Service listening port
-Port: 15000
+HTTP_Port: 15000

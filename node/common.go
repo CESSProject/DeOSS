@@ -16,7 +16,7 @@ import (
 )
 
 // VerifyToken is used to parse and verify token
-func (n *Node) VerifyToken(c *gin.Context, respmsg *RespMsg) string {
+func (n *Node) VerifyToken(c *gin.Context, respmsg *RespMsg) (string, []byte, error) {
 	var (
 		ok       bool
 		err      error
@@ -24,25 +24,25 @@ func (n *Node) VerifyToken(c *gin.Context, respmsg *RespMsg) string {
 		claims   *CustomClaims
 		token    *jwt.Token
 		account  string
-		signKey  []byte
 	)
 	if respmsg.Err != nil {
-		return account
+		return account, nil, err
 	}
+
 	// get token from head
 	tokenstr = c.Request.Header.Get(Header_Auth)
 	if tokenstr == "" {
 		respmsg.Code = http.StatusBadRequest
 		respmsg.Err = errors.New(ERR_MissToken)
-		return account
+		return account, nil, err
 	}
 
 	// parse token
-	signKey, err = utils.CalcMD5(n.Confile.GetMnemonic())
+	signKey, err := utils.CalcMD5(n.Confile.GetMnemonic())
 	if err != nil {
 		respmsg.Code = http.StatusInternalServerError
 		respmsg.Err = errors.New(ERR_EmptySeed)
-		return account
+		return account, nil, err
 	}
 
 	token, err = jwt.ParseWithClaims(
@@ -57,11 +57,18 @@ func (n *Node) VerifyToken(c *gin.Context, respmsg *RespMsg) string {
 	} else {
 		respmsg.Code = http.StatusInternalServerError
 		respmsg.Err = errors.New(ERR_NoPermission)
-		return account
+		return account, nil, err
 	}
+	pkey, err := utils.DecodePublicKeyOfCessAccount(account)
+	if err != nil {
+		respmsg.Code = http.StatusBadRequest
+		respmsg.Err = errors.New(ERR_InvalidToken)
+		return account, nil, err
+	}
+
 	respmsg.Code = http.StatusOK
 	respmsg.Err = nil
-	return account
+	return account, pkey, nil
 }
 
 // SaveFormFile is used to save form files
@@ -73,7 +80,7 @@ func (n *Node) SaveFormFile(c *gin.Context, account, name string) (string, int, 
 		hashpath string
 		formfile *multipart.FileHeader
 	)
-	savedir = filepath.Join(n.FileDir, account)
+	savedir = n.FileDir
 	// Create file storage directory
 	_, err = os.Stat(savedir)
 	if err != nil {

@@ -19,24 +19,29 @@ import (
 )
 
 const (
-	ProfileDefault  = "conf.toml"
-	ProfileTemplete = `# The rpc address of the chain node
-RpcAddr     = ""
-# The IP address of the machine's public network used by the scheduler program
-ServiceAddr = ""
-# Port number monitored by the scheduler program
-ServicePort = ""
-# Data storage directory
-DataDir     = ""
-# Phrase or seed of wallet account
-AccountSeed = ""`
+	ProfileDefault  = "conf.yaml"
+	ProfileTemplete = `# The rpc endpoint of the chain node
+Rpc:
+	- "wss://testnet-rpc0.cess.cloud/ws/"
+	- "wss://testnet-rpc1.cess.cloud/ws/"
+# Account mnemonic
+Mnemonic: ""
+# Service workspace
+Workspace: /
+# Service running address
+Address: "127.0.0.1"
+# P2P communication port
+P2P_Port: 15008
+# Service listening port
+HTTP_Port: 8080`
 )
 
 type Confiler interface {
 	Parse(fpath string, ip string, port int) error
 	GetRpcAddr() []string
 	GetServiceAddr() string
-	GetServicePort() int
+	GetHttpPort() int
+	GetP2pPort() int
 	GetWorkspace() string
 	GetMnemonic() string
 	GetPublickey() ([]byte, error)
@@ -47,7 +52,8 @@ type confile struct {
 	Mnemonic  string   `name:"Mnemonic" toml:"Mnemonic" yaml:"Mnemonic"`
 	Workspace string   `name:"Workspace" toml:"Workspace" yaml:"Workspace"`
 	Address   string   `name:"Address" toml:"Address" yaml:"Address"`
-	Port      int      `name:"Port" toml:"Port" yaml:"Port"`
+	P2P_Port  int      `name:"P2P_Port" toml:"P2P_Port" yaml:"P2P_Port"`
+	HTTP_Port int      `name:"HTTP_Port" toml:"HTTP_Port" yaml:"HTTP_Port"`
 }
 
 func NewConfigfile() *confile {
@@ -93,12 +99,12 @@ func (c *confile) Parse(fpath string, ip string, port int) error {
 	}
 
 	if port != 0 {
-		c.Port = port
+		c.HTTP_Port = port
 	}
-	if c.Port < 1024 {
-		return errors.Errorf("Prohibit the use of system reserved port: %v", c.Port)
+	if c.HTTP_Port < 1024 {
+		return errors.Errorf("Prohibit the use of system reserved port: %v", c.HTTP_Port)
 	}
-	if c.Port > 65535 {
+	if c.HTTP_Port > 65535 {
 		return errors.New("The port number cannot exceed 65535")
 	}
 
@@ -126,14 +132,25 @@ func (c *confile) SetServiceAddr(address string) error {
 	return nil
 }
 
-func (c *confile) SetServicePort(port int) error {
-	if c.Port < 1024 {
-		return errors.Errorf("Prohibit the use of system reserved port: %v", c.Port)
+func (c *confile) SetHttpPort(port int) error {
+	if port < 1024 {
+		return errors.Errorf("Prohibit the use of system reserved port: %v", port)
 	}
-	if c.Port > 65535 {
+	if port > 65535 {
 		return errors.New("The port number cannot exceed 65535")
 	}
-	c.Port = port
+	c.HTTP_Port = port
+	return nil
+}
+
+func (c *confile) SetP2pPort(port int) error {
+	if port < 1024 {
+		return errors.Errorf("Prohibit the use of system reserved port: %v", port)
+	}
+	if port > 65535 {
+		return errors.New("The port number cannot exceed 65535")
+	}
+	c.P2P_Port = port
 	return nil
 }
 
@@ -169,8 +186,12 @@ func (c *confile) GetServiceAddr() string {
 	return c.Address
 }
 
-func (c *confile) GetServicePort() int {
-	return c.Port
+func (c *confile) GetHttpPort() int {
+	return c.HTTP_Port
+}
+
+func (c *confile) GetP2pPort() int {
+	return c.P2P_Port
 }
 
 func (c *confile) GetWorkspace() string {

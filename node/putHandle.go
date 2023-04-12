@@ -15,7 +15,6 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/CESSProject/DeOSS/pkg/utils"
 	"github.com/CESSProject/sdk-go/core/client"
 	"github.com/gin-gonic/gin"
 )
@@ -44,13 +43,10 @@ func (n *Node) putHandle(c *gin.Context) {
 	n.Logs.Upfile("info", fmt.Sprintf("[%v] %v", clientIp, INFO_PutRequest))
 
 	// verify token
-	account = n.VerifyToken(c, respMsg)
-
-	// get owner's public key
-	pkey, err := utils.DecodePublicKeyOfCessAccount(account)
+	account, pkey, err := n.VerifyToken(c, respMsg)
 	if err != nil {
 		n.Logs.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, err))
-		c.JSON(http.StatusBadRequest, ERR_InvalidToken)
+		c.JSON(respMsg.Code, respMsg.Err)
 		return
 	}
 
@@ -106,11 +102,26 @@ func (n *Node) putHandle(c *gin.Context) {
 			return
 		}
 	}
+	defer os.Remove(fpath)
 
 	segmentInfo, roothash, err := n.Cli.ProcessingData(fpath)
 	if err != nil {
 		n.Logs.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, err))
-		c.JSON(http.StatusInternalServerError, err)
+		c.JSON(http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	roothashpath := filepath.Join(n.FileDir, roothash)
+	_, err = os.Stat(roothashpath)
+	if err == nil {
+		c.JSON(http.StatusOK, roothash)
+		return
+	}
+
+	err = os.Rename(fpath, roothashpath)
+	if err != nil {
+		n.Logs.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, err))
+		c.JSON(http.StatusInternalServerError, err.Error())
 		return
 	}
 
@@ -150,18 +161,21 @@ func (n *Node) putHandle(c *gin.Context) {
 
 func (n *Node) TrackFile() {
 	var (
+		ok         bool
 		count      uint8
 		roothash   string
 		recordFile RecordInfo
 		//linuxFileAttr *syscall.Stat_t
 	)
 	for {
-		time.Sleep(time.Second * 10)
 		count++
-
 		files, _ := filepath.Glob(filepath.Join(n.TrackDir, "*"))
 		for i := 0; i < len(files); i++ {
 			roothash = filepath.Base(files[i])
+			ok, _ = n.Cache.Has([]byte("transfer:" + roothash))
+			if ok {
+				continue
+			}
 			b, err := os.ReadFile(files[i])
 			if err != nil {
 				n.Logs.Upfile("info", fmt.Sprintf("[%s] File backup failed: %v", roothash, err))
@@ -182,11 +196,25 @@ func (n *Node) TrackFile() {
 				continue
 			}
 
+			// fmt.Println("roothash:", roothash)
+			// fmt.Println("Buckname:", recordFile.Buckname)
+			// fmt.Println("Filename:", recordFile.Filename)
+			// fmt.Println(utils.EncodePublicKeyAsCessAccount(recordFile.Owner))
+			// for j := 0; j < len(recordFile.SegmentInfo); j++ {
+			// 	fmt.Printf("SegmentInfo[%d]: %s\n", j, recordFile.SegmentInfo[0].SegmentHash)
+			// 	for k := 0; k < len(recordFile.SegmentInfo[j].FragmentHash); k++ {
+			// 		fmt.Printf("FragmentHash[%d]: %s\n", k, recordFile.SegmentInfo[j].FragmentHash[k])
+
+			// 	}
+			// }
+
 			roothash, err = n.Cli.PutFile(recordFile.Owner, recordFile.SegmentInfo, roothash, recordFile.Filename, recordFile.Buckname)
 			if err != nil {
 				n.Logs.Upfile("err", fmt.Sprintf("[%v] %v", roothash, err))
 				continue
 			}
+			n.Cache.Put([]byte("transfer:"+roothash), nil)
+			time.Sleep(time.Second * 10)
 		}
 
 		// if count > 60 {

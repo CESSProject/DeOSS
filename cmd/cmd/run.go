@@ -11,6 +11,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/CESSProject/DeOSS/configs"
 	"github.com/CESSProject/DeOSS/node"
@@ -42,9 +43,11 @@ func Command_Run_Runfunc(cmd *cobra.Command, args []string) {
 	n.Cli, err = sdkgo.New(
 		configs.Name,
 		sdkgo.ConnectRpcAddrs(n.Confile.GetRpcAddr()),
-		sdkgo.ListenPort(n.Confile.GetServicePort()),
+		sdkgo.ListenPort(n.Confile.GetP2pPort()),
 		sdkgo.Workspace(n.Confile.GetWorkspace()),
+		sdkgo.ListenAddrStrings(n.Confile.GetServiceAddr()),
 		sdkgo.Mnemonic(n.Confile.GetMnemonic()),
+		sdkgo.TransactionTimeout(time.Duration(12*time.Second)),
 	)
 	if err != nil {
 		log.Println(err)
@@ -111,9 +114,16 @@ func buildConfigFile(cmd *cobra.Command, ip4 string, port int) (confile.Confiler
 	if err != nil {
 		return cfg, err
 	}
-	port, err = cmd.Flags().GetInt("port")
+	http_port, err := cmd.Flags().GetInt("http_port")
 	if err != nil {
-		port, err = cmd.Flags().GetInt("p")
+		http_port, err = cmd.Flags().GetInt("hp")
+		if err != nil {
+			return cfg, err
+		}
+	}
+	p2p_port, err := cmd.Flags().GetInt("p2p_port")
+	if err != nil {
+		p2p_port, err = cmd.Flags().GetInt("pp")
 		if err != nil {
 			return cfg, err
 		}
@@ -127,7 +137,11 @@ func buildConfigFile(cmd *cobra.Command, ip4 string, port int) (confile.Confiler
 	if err != nil {
 		return cfg, err
 	}
-	err = cfg.SetServicePort(port)
+	err = cfg.SetHttpPort(http_port)
+	if err != nil {
+		return cfg, err
+	}
+	err = cfg.SetP2pPort(p2p_port)
 	if err != nil {
 		return cfg, err
 	}

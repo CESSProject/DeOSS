@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"time"
 
 	"github.com/CESSProject/DeOSS/configs"
 	"github.com/CESSProject/DeOSS/node"
@@ -34,8 +35,11 @@ func Command_State_Runfunc(cmd *cobra.Command, args []string) {
 	n.Cli, err = sdkgo.New(
 		configs.Name,
 		sdkgo.ConnectRpcAddrs(n.Confile.GetRpcAddr()),
-		sdkgo.ListenPort(n.Confile.GetServicePort()),
+		sdkgo.ListenPort(n.Confile.GetP2pPort()),
 		sdkgo.Workspace(n.Confile.GetWorkspace()),
+		sdkgo.ListenAddrStrings(n.Confile.GetServiceAddr()),
+		sdkgo.Mnemonic(n.Confile.GetMnemonic()),
+		sdkgo.TransactionTimeout(time.Duration(12*time.Second)),
 	)
 	if err != nil {
 		log.Println(err)
