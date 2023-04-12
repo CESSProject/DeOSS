@@ -73,7 +73,7 @@ func (n *Node) SaveFormFile(c *gin.Context, account, name string) (string, int, 
 		hashpath string
 		formfile *multipart.FileHeader
 	)
-	savedir = filepath.Join(n.FileDir, account)
+	savedir = n.FileDir
 	// Create file storage directory
 	_, err = os.Stat(savedir)
 	if err != nil {
