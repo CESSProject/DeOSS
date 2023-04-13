@@ -13,8 +13,11 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"syscall"
 	"time"
 
+	"github.com/CESSProject/DeOSS/configs"
+	"github.com/CESSProject/sdk-go/core/chain"
 	"github.com/CESSProject/sdk-go/core/client"
 	"github.com/gin-gonic/gin"
 )
@@ -25,6 +28,8 @@ type RecordInfo struct {
 	Roothash    string               `json:"roothash"`
 	Filename    string               `json:"filename"`
 	Buckname    string               `json:"buckname"`
+	Putflag     bool                 `json:"putflag"`
+	Count       uint8                `json:"count"`
 }
 
 // It is used to authorize users
@@ -131,6 +136,7 @@ func (n *Node) putHandle(c *gin.Context) {
 		Roothash:    roothash,
 		Filename:    putName,
 		Buckname:    bucketName,
+		Putflag:     false,
 	}
 
 	f, err := os.Create(filepath.Join(n.TrackDir, roothash))
@@ -161,22 +167,48 @@ func (n *Node) putHandle(c *gin.Context) {
 
 func (n *Node) TrackFile() {
 	var (
-		ok         bool
-		count      uint8
-		roothash   string
-		recordFile RecordInfo
-		//linuxFileAttr *syscall.Stat_t
+		count         uint8
+		txhash        string
+		roothash      string
+		recordFile    RecordInfo
+		storageorder  chain.StorageOrder
+		linuxFileAttr *syscall.Stat_t
 	)
 	for {
-		count++
-		files, _ := filepath.Glob(filepath.Join(n.TrackDir, "*"))
+		files, _ := filepath.Glob(filepath.Join(n.Cli.Workspace(), configs.Track, "/*"))
 		for i := 0; i < len(files); i++ {
 			roothash = filepath.Base(files[i])
-			ok, _ = n.Cache.Has([]byte("transfer:" + roothash))
-			if ok {
-				continue
+			b, err := n.Cache.Get([]byte("transfer:" + roothash))
+			if err == nil {
+				storageorder, err = n.Cli.QueryStorageOrder(roothash)
+				if err != nil {
+					if err.Error() != chain.ERR_Empty {
+						n.Logs.Upfile("err", err.Error())
+						continue
+					}
+
+					meta, err := n.Cli.QueryFile(roothash)
+					if err != nil {
+						if err.Error() != chain.ERR_Empty {
+							n.Logs.Upfile("err", err.Error())
+							continue
+						}
+					} else {
+						if meta.State == Active {
+							os.Remove(files[i])
+							for _, segment := range meta.SegmentList {
+								os.Remove(filepath.Join(n.Cli.Workspace(), configs.File, string(segment.Hash[:])))
+								for _, fragment := range segment.FragmentList {
+									os.Remove(filepath.Join(n.Cli.Workspace(), configs.File, string(fragment.Hash[:])))
+								}
+							}
+						}
+					}
+					continue
+				}
 			}
-			b, err := os.ReadFile(files[i])
+
+			b, err = os.ReadFile(files[i])
 			if err != nil {
 				n.Logs.Upfile("info", fmt.Sprintf("[%s] File backup failed: %v", roothash, err))
 				os.Remove(files[i])
@@ -196,41 +228,64 @@ func (n *Node) TrackFile() {
 				continue
 			}
 
-			// fmt.Println("roothash:", roothash)
-			// fmt.Println("Buckname:", recordFile.Buckname)
-			// fmt.Println("Filename:", recordFile.Filename)
-			// fmt.Println(utils.EncodePublicKeyAsCessAccount(recordFile.Owner))
-			// for j := 0; j < len(recordFile.SegmentInfo); j++ {
-			// 	fmt.Printf("SegmentInfo[%d]: %s\n", j, recordFile.SegmentInfo[0].SegmentHash)
-			// 	for k := 0; k < len(recordFile.SegmentInfo[j].FragmentHash); k++ {
-			// 		fmt.Printf("FragmentHash[%d]: %s\n", k, recordFile.SegmentInfo[j].FragmentHash[k])
+			if recordFile.Putflag {
+				if storageorder.AssignedMiner != nil {
+					if uint8(storageorder.Count) == recordFile.Count {
+						continue
+					}
+				}
+			}
 
-			// 	}
-			// }
-
-			roothash, err = n.Cli.PutFile(recordFile.Owner, recordFile.SegmentInfo, roothash, recordFile.Filename, recordFile.Buckname)
+			count, err = n.Cli.PutFile(recordFile.Owner, recordFile.SegmentInfo, roothash, recordFile.Filename, recordFile.Buckname)
 			if err != nil {
 				n.Logs.Upfile("err", fmt.Sprintf("[%v] %v", roothash, err))
 				continue
 			}
-			n.Cache.Put([]byte("transfer:"+roothash), nil)
-			time.Sleep(time.Second * 10)
+
+			n.Logs.Upfile("info", fmt.Sprintf("[%s] File [%s] backup suc", txhash, roothash))
+
+			recordFile.Putflag = true
+			recordFile.Count = count
+			b, err = json.Marshal(&recordFile)
+			if err != nil {
+				n.Logs.Upfile("err", fmt.Sprintf("[%v] %v", roothash, err))
+				continue
+			}
+
+			f, err := os.OpenFile(filepath.Join(n.TrackDir, roothash), os.O_CREATE|os.O_TRUNC|os.O_WRONLY, os.ModePerm)
+			if err != nil {
+				n.Logs.Upfile("err", fmt.Sprintf("[%v] %v", roothash, err))
+				continue
+			}
+			_, err = f.Write(b)
+			if err != nil {
+				f.Close()
+				n.Logs.Upfile("err", fmt.Sprintf("[%v] %v", roothash, err))
+				continue
+			}
+
+			err = f.Sync()
+			if err != nil {
+				f.Close()
+				n.Logs.Upfile("err", fmt.Sprintf("[%v] %v", roothash, err))
+				continue
+			}
+			f.Close()
+			n.Cache.Put([]byte("transfer:"+roothash), []byte(fmt.Sprintf("%v", count)))
 		}
 
-		// if count > 60 {
-		// 	count = 0
-		// 	files, _ = filepath.Glob(filepath.Join(n.FileDir, "*"))
-		// 	if len(files) > 0 {
-		// 		for _, v := range files {
-		// 			fs, err := os.Stat(filepath.Join(n.FileDir, v))
-		// 			if err == nil {
-		// 				linuxFileAttr = fs.Sys().(*syscall.Stat_t)
-		// 				if time.Since(time.Unix(linuxFileAttr.Atim.Sec, 0)).Hours() > configs.FileCacheExpirationTime {
-		// 					os.Remove(filepath.Join(n.FileDir, v))
-		// 				}
-		// 			}
-		// 		}
-		// 	}
-		// }
+		// Delete files that have not been accessed for more than 30 days
+		files, _ = filepath.Glob(filepath.Join(n.Cli.Workspace(), configs.File, "/*"))
+		for _, v := range files {
+			fs, err := os.Stat(v)
+			if err == nil {
+				linuxFileAttr = fs.Sys().(*syscall.Stat_t)
+				if time.Since(time.Unix(linuxFileAttr.Atim.Sec, 0)).Hours() > configs.FileCacheExpirationTime {
+					os.Remove(v)
+				}
+			}
+		}
+
+		time.Sleep(configs.BlockInterval)
 	}
 }
