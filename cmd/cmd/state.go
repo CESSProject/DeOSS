@@ -16,13 +16,14 @@ import (
 	"github.com/CESSProject/DeOSS/configs"
 	"github.com/CESSProject/DeOSS/node"
 	sdkgo "github.com/CESSProject/sdk-go"
+	"github.com/CESSProject/sdk-go/core/client"
 	"github.com/spf13/cobra"
 )
 
 // Command_ State_ Runfunc is used to view basic OSS service information
 func Command_State_Runfunc(cmd *cobra.Command, args []string) {
-
 	// config file
+	var ok bool
 	var err error
 	var n = node.New()
 	// Building profile
@@ -32,7 +33,7 @@ func Command_State_Runfunc(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
-	n.Cli, err = sdkgo.New(
+	cli, err := sdkgo.New(
 		configs.Name,
 		sdkgo.ConnectRpcAddrs(n.Confile.GetRpcAddr()),
 		sdkgo.ListenPort(n.Confile.GetP2pPort()),
@@ -46,13 +47,19 @@ func Command_State_Runfunc(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
+	n.Cli, ok = cli.(*client.Cli)
+	if !ok {
+		log.Println("Invalid client type")
+		os.Exit(1)
+	}
+
 	pubkey, err := n.Confile.GetPublickey()
 	if err != nil {
 		log.Println(err)
 		os.Exit(1)
 	}
-	ossState, err := n.Cli.QueryDeoss(pubkey)
-	if err != nil || ossState == "" {
+	ossState, err := n.Cli.Chain.QueryDeoss(pubkey)
+	if err != nil || ossState == nil {
 		log.Printf("[err] %v\n", err)
 		os.Exit(1)
 	}

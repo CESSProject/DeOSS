@@ -89,7 +89,7 @@ func (n *Node) GetHandle(c *gin.Context) {
 		// Query bucket
 		if utils.CheckBucketName(getName) {
 			n.Logs.Query("info", fmt.Sprintf("[%s] Query bucket [%s] info", clientIp, getName))
-			bucketInfo, err := n.Cli.QueryBucket(pkey, getName)
+			bucketInfo, err := n.Cli.Chain.QueryBucketInfo(pkey, getName)
 			if err != nil {
 				if err.Error() == chain.ERR_Empty {
 					n.Logs.Query("err", fmt.Sprintf("[%s] Query bucket [%s] info: NotFount", clientIp, getName))
@@ -101,9 +101,9 @@ func (n *Node) GetHandle(c *gin.Context) {
 				return
 			}
 
-			filesHash := make([]string, len(bucketInfo.Objects_list))
-			for i := 0; i < len(bucketInfo.Objects_list); i++ {
-				filesHash[i] = string(bucketInfo.Objects_list[i][:])
+			filesHash := make([]string, len(bucketInfo.ObjectsList))
+			for i := 0; i < len(bucketInfo.ObjectsList); i++ {
+				filesHash[i] = string(bucketInfo.ObjectsList[i][:])
 			}
 
 			owners := make([]string, len(bucketInfo.Authority))
@@ -116,7 +116,7 @@ func (n *Node) GetHandle(c *gin.Context) {
 				Owners []string
 				Files  []string
 			}{
-				Num:    len(bucketInfo.Objects_list),
+				Num:    len(bucketInfo.ObjectsList),
 				Owners: owners,
 				Files:  filesHash,
 			}
@@ -126,7 +126,7 @@ func (n *Node) GetHandle(c *gin.Context) {
 		}
 		// Query bucket list
 		if getName == "*" {
-			bucketList, err := n.Cli.QueryBuckets(pkey)
+			bucketList, err := n.Cli.Chain.QueryBucketList(pkey)
 			if err != nil {
 				if err.Error() == chain.ERR_Empty {
 					n.Logs.Query("err", fmt.Sprintf("[%s] Query [%s] bucket list: NotFount", clientIp, account))
@@ -152,7 +152,7 @@ func (n *Node) GetHandle(c *gin.Context) {
 	// view file
 	if operation == "view" {
 		n.Logs.Query("info", fmt.Sprintf("[%s] Query file [%s] info", clientIp, getName))
-		fmeta, err := n.Cli.QueryFile(getName)
+		fmeta, err := n.Cli.Chain.QueryFileMetadata(getName)
 		if err != nil {
 			if err.Error() == chain.ERR_Empty {
 				_, err = n.Cli.QueryStorageOrder(getName)
@@ -192,8 +192,8 @@ func (n *Node) GetHandle(c *gin.Context) {
 		}
 		fileMetadata.Owner = make([]RtnUserBrief, len(fmeta.Owner))
 		for i := 0; i < len(fmeta.Owner); i++ {
-			fileMetadata.Owner[i].BucketName = string(fmeta.Owner[i].Bucket_name)
-			fileMetadata.Owner[i].FileName = string(fmeta.Owner[i].File_name)
+			fileMetadata.Owner[i].BucketName = string(fmeta.Owner[i].BucketName)
+			fileMetadata.Owner[i].FileName = string(fmeta.Owner[i].FileName)
 			fileMetadata.Owner[i].User, _ = utils.EncodePublicKeyAsCessAccount(fmeta.Owner[i].User[:])
 		}
 		fileMetadata.SegmentList = make([]SegmentInfo, len(fmeta.SegmentList))

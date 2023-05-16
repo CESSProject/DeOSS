@@ -19,6 +19,7 @@ import (
 	"github.com/CESSProject/DeOSS/pkg/utils"
 	sdkgo "github.com/CESSProject/sdk-go"
 	"github.com/CESSProject/sdk-go/core/chain"
+	"github.com/CESSProject/sdk-go/core/client"
 	"github.com/spf13/cobra"
 )
 
@@ -50,8 +51,8 @@ func Command_Update_Runfunc(cmd *cobra.Command, args []string) {
 			os.Exit(1)
 		}
 
-		fmt.Println("os.Args[2]: ", os.Args[2])
-		n.Cli, err = sdkgo.New(
+		var ok bool
+		cli, err := sdkgo.New(
 			configs.Name,
 			sdkgo.ConnectRpcAddrs(n.Confile.GetRpcAddr()),
 			sdkgo.ListenPort(n.Confile.GetP2pPort()),
@@ -65,7 +66,13 @@ func Command_Update_Runfunc(cmd *cobra.Command, args []string) {
 			os.Exit(1)
 		}
 
-		txhash, err := n.Cli.Update(configs.Name)
+		n.Cli, ok = cli.(*client.Cli)
+		if !ok {
+			log.Println("Invalid client type")
+			os.Exit(1)
+		}
+
+		txhash, err := n.Cli.Chain.UpdateAddress(configs.Name, n.Cli.Multiaddr())
 		// txhash, err := c.Update(os.Args[2], os.Args[3])
 		if err != nil {
 			if err.Error() == chain.ERR_RPC_EMPTY_VALUE.Error() {

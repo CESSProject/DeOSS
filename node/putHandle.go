@@ -187,7 +187,7 @@ func (n *Node) TrackFile() {
 						continue
 					}
 
-					meta, err := n.Cli.QueryFile(roothash)
+					meta, err := n.Cli.Chain.QueryFileMetadata(roothash)
 					if err != nil {
 						if err.Error() != chain.ERR_Empty {
 							n.Logs.Upfile("err", err.Error())
@@ -230,9 +230,9 @@ func (n *Node) TrackFile() {
 
 			if recordFile.Putflag {
 				if storageorder.AssignedMiner != nil {
-					if uint8(storageorder.Count) == recordFile.Count {
-						continue
-					}
+					// if uint8(storageorder.Count) == recordFile.Count {
+					// 	continue
+					// }
 				}
 			}
 
