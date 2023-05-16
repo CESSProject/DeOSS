@@ -20,12 +20,14 @@ import (
 	"github.com/CESSProject/DeOSS/pkg/logger"
 	"github.com/CESSProject/DeOSS/pkg/utils"
 	sdkgo "github.com/CESSProject/sdk-go"
+	"github.com/CESSProject/sdk-go/core/client"
 	"github.com/spf13/cobra"
 )
 
 // Start service
 func Command_Run_Runfunc(cmd *cobra.Command, args []string) {
 	var (
+		ok     bool
 		err    error
 		logDir string
 		dbDir  string
@@ -40,12 +42,12 @@ func Command_Run_Runfunc(cmd *cobra.Command, args []string) {
 	}
 
 	//Build client
-	n.Cli, err = sdkgo.New(
+	cli, err := sdkgo.New(
 		configs.Name,
 		sdkgo.ConnectRpcAddrs(n.Confile.GetRpcAddr()),
 		sdkgo.ListenPort(n.Confile.GetP2pPort()),
 		sdkgo.Workspace(n.Confile.GetWorkspace()),
-		sdkgo.ListenAddrStrings(n.Confile.GetServiceAddr()),
+		//sdkgo.ListenAddrStrings(n.Confile.GetServiceAddr()),
 		sdkgo.Mnemonic(n.Confile.GetMnemonic()),
 		sdkgo.TransactionTimeout(time.Duration(12*time.Second)),
 	)
@@ -54,7 +56,13 @@ func Command_Run_Runfunc(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
-	_, err = n.Cli.Register(configs.Name, "", 0)
+	n.Cli, ok = cli.(*client.Cli)
+	if !ok {
+		log.Println("Invalid client type")
+		os.Exit(1)
+	}
+
+	_, err = n.Cli.RegisterRole(configs.Name, "", 0)
 	if err != nil {
 		log.Println("Register err: ", err)
 		os.Exit(1)

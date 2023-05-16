@@ -28,4 +28,4 @@ oss*
 *.a
 
 ## config file
-conf.toml
+conf.*

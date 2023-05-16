@@ -26,7 +26,7 @@ type Oss interface {
 
 type Node struct {
 	Confile  confile.Confiler
-	Cli      client.Client
+	Cli      *client.Cli
 	Logs     logger.Logger
 	Cache    db.Cacher
 	Handle   *gin.Engine
