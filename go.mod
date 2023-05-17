@@ -4,7 +4,7 @@ go 1.19
 
 require (
 	github.com/CESSProject/go-keyring v0.0.0-20220614131247-ee3a8da30fde
-	github.com/CESSProject/sdk-go v0.0.47
+	github.com/CESSProject/sdk-go v0.0.53
 	github.com/btcsuite/btcutil v1.0.3-0.20201208143702-a53e38424cce
 	github.com/bwmarrin/snowflake v0.3.0
 	github.com/cbergoon/merkletree v0.2.0
@@ -23,7 +23,7 @@ require (
 )
 
 require (
-	github.com/CESSProject/p2p-go v0.0.22 // indirect
+	github.com/CESSProject/p2p-go v0.0.23 // indirect
 	github.com/ChainSafe/go-schnorrkel v1.0.0 // indirect
 	github.com/benbjohnson/clock v1.3.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
