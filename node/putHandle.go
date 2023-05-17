@@ -230,9 +230,9 @@ func (n *Node) TrackFile() {
 
 			if recordFile.Putflag {
 				if storageorder.AssignedMiner != nil {
-					// if uint8(storageorder.Count) == recordFile.Count {
-					// 	continue
-					// }
+					if uint8(storageorder.Count) == recordFile.Count {
+						continue
+					}
 				}
 			}
 
