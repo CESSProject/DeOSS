@@ -2,22 +2,18 @@
 
 DeOSS is a service that using REST API specification for accessing CESS.
 
-
 ## Reporting a Vulnerability
 If you find out any system bugs or you have a better suggestions, Please send an email to frode@cess.one,
 we are happy to communicate with you.
 
-
 ## System Requirements
 - Linux-amd64
-
 
 ## Build from source
 
 ### Step 1: Install common libraries
 
 Take the ubuntu distribution as an example:
-
 ```shell
 sudo apt update && sudo upgrade
 sudo apt install make gcc git curl wget vim util-linux -y
@@ -25,11 +21,7 @@ sudo apt install make gcc git curl wget vim util-linux -y
 
 ### Step 2: Go installation
 
-DeOSS requires [Go1.19](https://golang.org/dl/) or higher.
-
-Please refer to the  [official installation guide](https://go.dev/doc/install).
-
-Finally, enter the `go version` in the console to view the go version number.
+DeOSS requires [Go1.19](https://golang.org/dl/) or higher, please refer to the  [official installation guide](https://go.dev/doc/install).
 
 ### Step 3: Build a DeOSS
 Clone deoss source code:
