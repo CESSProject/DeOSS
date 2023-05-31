@@ -13,7 +13,7 @@ import (
 
 	"github.com/CESSProject/DeOSS/configs"
 	"github.com/CESSProject/DeOSS/pkg/utils"
-	"github.com/CESSProject/sdk-go/core/chain"
+	"github.com/CESSProject/sdk-go/core/pattern"
 	jwt "github.com/dgrijalva/jwt-go"
 	"github.com/gin-gonic/gin"
 )
@@ -65,7 +65,7 @@ func (n *Node) delHandle(c *gin.Context) {
 
 	bucketName := c.Request.Header.Get(configs.Header_BucketName)
 	if bucketName != "" {
-		txHash, err = n.Cli.DeleteBucket(pkey, bucketName)
+		txHash, err = n.DeleteBucket(pkey, bucketName)
 		if err != nil {
 			c.JSON(400, err.Error())
 			return
@@ -81,7 +81,7 @@ func (n *Node) delHandle(c *gin.Context) {
 	}
 
 	fmt.Println(deleteName)
-	txHash, failList, err := n.Cli.DeleteFile(pkey, deleteName)
+	txHash, failList, err := n.DeleteFile(pkey, deleteName)
 	if err != nil {
 		c.JSON(400, err.Error())
 		return
@@ -89,6 +89,6 @@ func (n *Node) delHandle(c *gin.Context) {
 
 	c.JSON(http.StatusOK, struct {
 		Block_hash  string
-		Failed_list []chain.FileHash
+		Failed_list []pattern.FileHash
 	}{Block_hash: txHash, Failed_list: failList})
 }

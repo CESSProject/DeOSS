@@ -37,7 +37,6 @@ func init() {
 		Command_Profile(),
 		Command_Version(),
 		Command_Run(),
-		Command_Update(),
 		Command_State(),
 	)
 	rootCmd.PersistentFlags().StringP("config", "c", "conf.yaml", "Custom profile")
@@ -76,16 +75,6 @@ func Command_Run() *cobra.Command {
 		Use:                   "run",
 		Short:                 "Running services",
 		Run:                   Command_Run_Runfunc,
-		DisableFlagsInUseLine: true,
-	}
-	return cc
-}
-
-func Command_Update() *cobra.Command {
-	cc := &cobra.Command{
-		Use:                   "update <ip> <port>",
-		Short:                 "Update information",
-		Run:                   Command_Update_Runfunc,
 		DisableFlagsInUseLine: true,
 	}
 	return cc

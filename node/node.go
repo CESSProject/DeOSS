@@ -15,7 +15,8 @@ import (
 	"github.com/CESSProject/DeOSS/pkg/confile"
 	"github.com/CESSProject/DeOSS/pkg/db"
 	"github.com/CESSProject/DeOSS/pkg/logger"
-	"github.com/CESSProject/sdk-go/core/client"
+	"github.com/CESSProject/p2p-go/core"
+	"github.com/CESSProject/sdk-go/core/sdk"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 )
@@ -25,12 +26,12 @@ type Oss interface {
 }
 
 type Node struct {
-	Confile  confile.Confiler
-	Cli      *client.Cli
-	Logs     logger.Logger
-	Cache    db.Cacher
+	confile.Confile
+	logger.Logger
+	db.Cache
+	sdk.SDK
+	core.P2P
 	Handle   *gin.Engine
-	FileDir  string
 	TrackDir string
 }
 
@@ -57,9 +58,9 @@ func (n *Node) Run() {
 	n.addRoute()
 	// Track file
 	go n.TrackFile()
-	log.Println("Listening on port:", n.Confile.GetHttpPort())
+	log.Println("Listening on port:", n.GetHttpPort())
 	// Run
-	err := n.Handle.Run(fmt.Sprintf(":%d", n.Confile.GetHttpPort()))
+	err := n.Handle.Run(fmt.Sprintf(":%d", n.GetHttpPort()))
 	if err != nil {
 		log.Fatalf("err: %v", err)
 	}

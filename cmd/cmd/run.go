@@ -8,6 +8,8 @@
 package cmd
 
 import (
+	"context"
+	"fmt"
 	"log"
 	"os"
 	"path/filepath"
@@ -19,19 +21,19 @@ import (
 	"github.com/CESSProject/DeOSS/pkg/db"
 	"github.com/CESSProject/DeOSS/pkg/logger"
 	"github.com/CESSProject/DeOSS/pkg/utils"
+	p2pgo "github.com/CESSProject/p2p-go"
 	sdkgo "github.com/CESSProject/sdk-go"
-	"github.com/CESSProject/sdk-go/core/client"
 	"github.com/spf13/cobra"
 )
 
 // Start service
 func Command_Run_Runfunc(cmd *cobra.Command, args []string) {
 	var (
-		ok     bool
-		err    error
-		logDir string
-		dbDir  string
-		n      = node.New()
+		err       error
+		logDir    string
+		dbDir     string
+		bootstrap []string
+		n         = node.New()
 	)
 
 	// Building Profile Instances
@@ -42,13 +44,10 @@ func Command_Run_Runfunc(cmd *cobra.Command, args []string) {
 	}
 
 	//Build client
-	cli, err := sdkgo.New(
+	n.SDK, err = sdkgo.New(
 		configs.Name,
-		sdkgo.ConnectRpcAddrs(n.Confile.GetRpcAddr()),
-		sdkgo.ListenPort(n.Confile.GetP2pPort()),
-		sdkgo.Workspace(n.Confile.GetWorkspace()),
-		//sdkgo.ListenAddrStrings(n.Confile.GetServiceAddr()),
-		sdkgo.Mnemonic(n.Confile.GetMnemonic()),
+		sdkgo.ConnectRpcAddrs(n.GetRpcAddr()),
+		sdkgo.Mnemonic(n.GetMnemonic()),
 		sdkgo.TransactionTimeout(time.Duration(12*time.Second)),
 	)
 	if err != nil {
@@ -56,19 +55,49 @@ func Command_Run_Runfunc(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
-	n.Cli, ok = cli.(*client.Cli)
-	if !ok {
-		log.Println("Invalid client type")
+	for {
+		syncSt, err := n.SyncState()
+		if err != nil {
+			log.Println(err.Error())
+			os.Exit(1)
+		}
+		if syncSt.CurrentBlock == syncSt.HighestBlock {
+			log.Println(fmt.Sprintf("Synchronization main chain completed: %d", syncSt.CurrentBlock))
+			break
+		}
+		log.Println(fmt.Sprintf("In the synchronization main chain: %d ...", syncSt.CurrentBlock))
+		time.Sleep(time.Second * time.Duration(utils.Ternary(int64(syncSt.HighestBlock-syncSt.CurrentBlock)*6, 30)))
+	}
+
+	boot, _ := cmd.Flags().GetString("boot")
+	if boot == "" {
+		log.Println("Empty boot node")
+	} else {
+		bootstrap, _ = utils.ParseMultiaddrs(boot)
+		if len(bootstrap) > 0 {
+			log.Println(fmt.Sprintf("Bootstrap node: %v", bootstrap))
+		}
+	}
+
+	n.P2P, err = p2pgo.New(
+		context.Background(),
+		"",
+		p2pgo.ListenPort(n.GetP2pPort()),
+		p2pgo.Workspace(filepath.Join(n.GetWorkspace(), n.GetSignatureAcc(), configs.Name)),
+		p2pgo.BootPeers(bootstrap),
+	)
+	if err != nil {
+		log.Println(err)
 		os.Exit(1)
 	}
 
-	_, err = n.Cli.RegisterRole(configs.Name, "", 0)
+	_, _, err = n.Register(configs.Name, n.GetPeerPublickey(), "", 0)
 	if err != nil {
 		log.Println("Register err: ", err)
 		os.Exit(1)
 	}
 
-	logDir, dbDir, n.FileDir, n.TrackDir, err = buildDir(n.Cli.Workspace())
+	logDir, dbDir, n.TrackDir, err = buildDir(n.P2P.Workspace())
 	if err != nil {
 		log.Println("buildDir err: ", err)
 		os.Exit(1)
@@ -82,7 +111,7 @@ func Command_Run_Runfunc(cmd *cobra.Command, args []string) {
 	}
 
 	//Build Log
-	n.Logs, err = buildLogs(logDir)
+	n.Logger, err = buildLogs(logDir)
 	if err != nil {
 		log.Println(err)
 		os.Exit(1)
@@ -92,7 +121,7 @@ func Command_Run_Runfunc(cmd *cobra.Command, args []string) {
 	n.Run()
 }
 
-func buildConfigFile(cmd *cobra.Command, ip4 string, port int) (confile.Confiler, error) {
+func buildConfigFile(cmd *cobra.Command, ip4 string, port int) (confile.Confile, error) {
 	var conFilePath string
 	configpath1, _ := cmd.Flags().GetString("config")
 	configpath2, _ := cmd.Flags().GetString("c")
@@ -164,31 +193,26 @@ func buildConfigFile(cmd *cobra.Command, ip4 string, port int) (confile.Confiler
 	return cfg, nil
 }
 
-func buildDir(workspace string) (string, string, string, string, error) {
+func buildDir(workspace string) (string, string, string, error) {
 	logDir := filepath.Join(workspace, configs.Log)
 	if err := os.MkdirAll(logDir, configs.DirPermission); err != nil {
-		return "", "", "", "", err
+		return "", "", "", err
 	}
 
 	cacheDir := filepath.Join(workspace, configs.Db)
 	if err := os.MkdirAll(cacheDir, configs.DirPermission); err != nil {
-		return "", "", "", "", err
-	}
-
-	fileDir := filepath.Join(workspace, configs.File)
-	if err := os.MkdirAll(fileDir, configs.DirPermission); err != nil {
-		return "", "", "", "", err
+		return "", "", "", err
 	}
 
 	trackDir := filepath.Join(workspace, configs.Track)
 	if err := os.MkdirAll(trackDir, configs.DirPermission); err != nil {
-		return "", "", "", "", err
+		return "", "", "", err
 	}
 
-	return logDir, cacheDir, fileDir, trackDir, nil
+	return logDir, cacheDir, trackDir, nil
 }
 
-func buildCache(cacheDir string) (db.Cacher, error) {
+func buildCache(cacheDir string) (db.Cache, error) {
 	cache, err := db.NewCache(cacheDir, 0, 0, configs.NameSpace)
 	if err != nil {
 		return nil, err

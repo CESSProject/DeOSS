@@ -80,7 +80,7 @@ func (n *Node) SaveFormFile(c *gin.Context, account, name string) (string, int, 
 		hashpath string
 		formfile *multipart.FileHeader
 	)
-	savedir = n.FileDir
+	savedir = n.GetDirs().FileDir
 	// Create file storage directory
 	_, err = os.Stat(savedir)
 	if err != nil {
@@ -141,7 +141,7 @@ func (n *Node) SaveBody(c *gin.Context, account, name string) (string, int, erro
 		fpath    string
 		hashpath string
 	)
-	savedir = filepath.Join(n.FileDir, account)
+	savedir = filepath.Join(n.GetDirs().FileDir, account)
 	// Create file storage directory
 	_, err = os.Stat(savedir)
 	if err != nil {
