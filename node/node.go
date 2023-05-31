@@ -31,7 +31,7 @@ type Node struct {
 	db.Cache
 	sdk.SDK
 	core.P2P
-	Handle   *gin.Engine
+	*gin.Engine
 	TrackDir string
 }
 
@@ -42,8 +42,8 @@ func New() *Node {
 
 func (n *Node) Run() {
 	gin.SetMode(gin.ReleaseMode)
-	n.Handle = gin.Default()
-	n.Handle.MaxMultipartMemory = configs.SIZE_1GiB * 16
+	n.Engine = gin.Default()
+	n.Engine.MaxMultipartMemory = configs.SIZE_1GiB * 16
 	config := cors.DefaultConfig()
 	config.AllowAllOrigins = true
 	config.AllowMethods = []string{"HEAD", "GET", "POST", "PUT", "DELETE", "OPTIONS"}
@@ -53,14 +53,14 @@ func (n *Node) Run() {
 		configs.Header_BucketName,
 		"*",
 	)
-	n.Handle.Use(cors.New(config))
+	n.Engine.Use(cors.New(config))
 	// Add route
 	n.addRoute()
 	// Track file
 	go n.TrackFile()
 	log.Println("Listening on port:", n.GetHttpPort())
 	// Run
-	err := n.Handle.Run(fmt.Sprintf(":%d", n.GetHttpPort()))
+	err := n.Engine.Run(fmt.Sprintf(":%d", n.GetHttpPort()))
 	if err != nil {
 		log.Fatalf("err: %v", err)
 	}
