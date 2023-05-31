@@ -17,19 +17,19 @@ import (
 	"time"
 
 	"github.com/CESSProject/DeOSS/configs"
-	"github.com/CESSProject/sdk-go/core/chain"
-	"github.com/CESSProject/sdk-go/core/client"
+	"github.com/CESSProject/sdk-go/core/pattern"
+	sutils "github.com/CESSProject/sdk-go/core/utils"
 	"github.com/gin-gonic/gin"
 )
 
 type RecordInfo struct {
-	SegmentInfo []client.SegmentInfo `json:"segmentInfo"`
-	Owner       []byte               `json:"owner"`
-	Roothash    string               `json:"roothash"`
-	Filename    string               `json:"filename"`
-	Buckname    string               `json:"buckname"`
-	Putflag     bool                 `json:"putflag"`
-	Count       uint8                `json:"count"`
+	SegmentInfo []pattern.SegmentDataInfo `json:"segmentInfo"`
+	Owner       []byte                    `json:"owner"`
+	Roothash    string                    `json:"roothash"`
+	Filename    string                    `json:"filename"`
+	Buckname    string                    `json:"buckname"`
+	Putflag     bool                      `json:"putflag"`
+	Count       uint8                     `json:"count"`
 }
 
 // It is used to authorize users
@@ -45,12 +45,12 @@ func (n *Node) putHandle(c *gin.Context) {
 	)
 
 	clientIp = c.ClientIP()
-	n.Logs.Upfile("info", fmt.Sprintf("[%v] %v", clientIp, INFO_PutRequest))
+	n.Upfile("info", fmt.Sprintf("[%v] %v", clientIp, INFO_PutRequest))
 
 	// verify token
 	account, pkey, err := n.VerifyToken(c, respMsg)
 	if err != nil {
-		n.Logs.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, err))
+		n.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, err))
 		c.JSON(respMsg.Code, respMsg.Err)
 		return
 	}
@@ -58,7 +58,7 @@ func (n *Node) putHandle(c *gin.Context) {
 	// get parameter name
 	putName := c.Param(PUT_ParameterName)
 	if putName == "" {
-		n.Logs.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, ERR_InvalidName))
+		n.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, ERR_InvalidName))
 		c.JSON(http.StatusBadRequest, ERR_InvalidName)
 		return
 	}
@@ -68,13 +68,13 @@ func (n *Node) putHandle(c *gin.Context) {
 
 	if bucketName == "" {
 		if c.Request.ContentLength > 0 {
-			n.Logs.Upfile("err", fmt.Sprintf("[%v] %s", c.ClientIP(), ERR_EmptyBucketName))
+			n.Upfile("err", fmt.Sprintf("[%v] %s", c.ClientIP(), ERR_EmptyBucketName))
 			c.JSON(http.StatusBadRequest, ERR_EmptyBucketName)
 			return
 		}
-		txHash, err := n.Cli.CreateBucket(pkey, putName)
+		txHash, err := n.CreateBucket(pkey, putName)
 		if err != nil {
-			n.Logs.Upfile("err", fmt.Sprintf("[%v] %v", c.ClientIP(), err))
+			n.Upfile("err", fmt.Sprintf("[%v] %v", c.ClientIP(), err))
 			c.JSON(http.StatusBadRequest, err.Error())
 			return
 		}
@@ -84,39 +84,39 @@ func (n *Node) putHandle(c *gin.Context) {
 
 	// upload file operation
 	// verify bucket name
-	if !n.Cli.CheckBucketName(bucketName) {
-		n.Logs.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, ERR_InvalidBucketName))
+	if !sutils.CheckBucketName(bucketName) {
+		n.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, ERR_InvalidBucketName))
 		c.JSON(http.StatusBadRequest, ERR_InvalidBucketName)
 		return
 	}
 
 	content_length := c.Request.ContentLength
 	if content_length <= 0 {
-		n.Logs.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, ERR_EmptyFile))
+		n.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, ERR_EmptyFile))
 		c.JSON(400, "InvalidParameter.EmptyFile")
 		return
 	}
 
 	fpath, httpCode, err = n.SaveFormFile(c, account, putName)
 	if err != nil {
-		n.Logs.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, err))
+		n.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, err))
 		fpath, httpCode, err = n.SaveBody(c, account, putName)
 		if err != nil {
-			n.Logs.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, err))
+			n.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, err))
 			c.JSON(httpCode, err)
 			return
 		}
 	}
 	defer os.Remove(fpath)
 
-	segmentInfo, roothash, err := n.Cli.ProcessingData(fpath)
+	segmentInfo, roothash, err := n.ProcessingData(fpath)
 	if err != nil {
-		n.Logs.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, err))
+		n.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, err))
 		c.JSON(http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	roothashpath := filepath.Join(n.FileDir, roothash)
+	roothashpath := filepath.Join(n.GetDirs().FileDir, roothash)
 	_, err = os.Stat(roothashpath)
 	if err == nil {
 		c.JSON(http.StatusOK, roothash)
@@ -125,7 +125,7 @@ func (n *Node) putHandle(c *gin.Context) {
 
 	err = os.Rename(fpath, roothashpath)
 	if err != nil {
-		n.Logs.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, err))
+		n.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, err))
 		c.JSON(http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -141,7 +141,7 @@ func (n *Node) putHandle(c *gin.Context) {
 
 	f, err := os.Create(filepath.Join(n.TrackDir, roothash))
 	if err != nil {
-		n.Logs.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, err))
+		n.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, err))
 		c.JSON(http.StatusInternalServerError, err)
 		return
 	}
@@ -149,14 +149,14 @@ func (n *Node) putHandle(c *gin.Context) {
 
 	b, err := json.Marshal(recordInfo)
 	if err != nil {
-		n.Logs.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, err))
+		n.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, err))
 		c.JSON(http.StatusInternalServerError, err)
 		return
 	}
 	f.Write(b)
 	err = f.Sync()
 	if err != nil {
-		n.Logs.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, err))
+		n.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, err))
 		c.JSON(http.StatusInternalServerError, err)
 		return
 	}
@@ -171,35 +171,35 @@ func (n *Node) TrackFile() {
 		txhash        string
 		roothash      string
 		recordFile    RecordInfo
-		storageorder  chain.StorageOrder
+		storageorder  pattern.StorageOrder
 		linuxFileAttr *syscall.Stat_t
 	)
 	for {
-		files, _ := filepath.Glob(filepath.Join(n.Cli.Workspace(), configs.Track, "/*"))
+		files, _ := filepath.Glob(filepath.Join(n.Workspace(), configs.Track, "/*"))
 		for i := 0; i < len(files); i++ {
 			roothash = filepath.Base(files[i])
 			b, err := n.Cache.Get([]byte("transfer:" + roothash))
 			if err == nil {
-				storageorder, err = n.Cli.QueryStorageOrder(roothash)
+				storageorder, err = n.QueryStorageOrder(roothash)
 				if err != nil {
-					if err.Error() != chain.ERR_Empty {
-						n.Logs.Upfile("err", err.Error())
+					if err.Error() != pattern.ERR_Empty {
+						n.Upfile("err", err.Error())
 						continue
 					}
 
-					meta, err := n.Cli.Chain.QueryFileMetadata(roothash)
+					meta, err := n.QueryFileMetadata(roothash)
 					if err != nil {
-						if err.Error() != chain.ERR_Empty {
-							n.Logs.Upfile("err", err.Error())
+						if err.Error() != pattern.ERR_Empty {
+							n.Upfile("err", err.Error())
 							continue
 						}
 					} else {
 						if meta.State == Active {
 							os.Remove(files[i])
 							for _, segment := range meta.SegmentList {
-								os.Remove(filepath.Join(n.Cli.Workspace(), configs.File, string(segment.Hash[:])))
+								os.Remove(filepath.Join(n.Workspace(), configs.File, string(segment.Hash[:])))
 								for _, fragment := range segment.FragmentList {
-									os.Remove(filepath.Join(n.Cli.Workspace(), configs.File, string(fragment.Hash[:])))
+									os.Remove(filepath.Join(n.Workspace(), configs.File, string(fragment.Hash[:])))
 								}
 							}
 						}
@@ -210,20 +210,20 @@ func (n *Node) TrackFile() {
 
 			b, err = os.ReadFile(files[i])
 			if err != nil {
-				n.Logs.Upfile("info", fmt.Sprintf("[%s] File backup failed: %v", roothash, err))
+				n.Upfile("info", fmt.Sprintf("[%s] File backup failed: %v", roothash, err))
 				os.Remove(files[i])
 				continue
 			}
 
 			err = json.Unmarshal(b, &recordFile)
 			if err != nil {
-				n.Logs.Upfile("info", fmt.Sprintf("[%s] File backup failed: %v", roothash, err))
+				n.Upfile("info", fmt.Sprintf("[%s] File backup failed: %v", roothash, err))
 				os.Remove(files[i])
 				continue
 			}
 
 			if roothash != recordFile.Roothash {
-				n.Logs.Upfile("info", fmt.Sprintf("[%s] File backup failed: fid is not equal", roothash))
+				n.Upfile("info", fmt.Sprintf("[%s] File backup failed: fid is not equal", roothash))
 				os.Remove(files[i])
 				continue
 			}
@@ -236,38 +236,38 @@ func (n *Node) TrackFile() {
 				}
 			}
 
-			count, err = n.Cli.PutFile(recordFile.Owner, recordFile.SegmentInfo, roothash, recordFile.Filename, recordFile.Buckname)
+			count, err = n.PutFile(recordFile.Owner, recordFile.SegmentInfo, roothash, recordFile.Filename, recordFile.Buckname)
 			if err != nil {
-				n.Logs.Upfile("err", fmt.Sprintf("[%v] %v", roothash, err))
+				n.Upfile("err", fmt.Sprintf("[%v] %v", roothash, err))
 				continue
 			}
 
-			n.Logs.Upfile("info", fmt.Sprintf("[%s] File [%s] backup suc", txhash, roothash))
+			n.Upfile("info", fmt.Sprintf("[%s] File [%s] backup suc", txhash, roothash))
 
 			recordFile.Putflag = true
 			recordFile.Count = count
 			b, err = json.Marshal(&recordFile)
 			if err != nil {
-				n.Logs.Upfile("err", fmt.Sprintf("[%v] %v", roothash, err))
+				n.Upfile("err", fmt.Sprintf("[%v] %v", roothash, err))
 				continue
 			}
 
 			f, err := os.OpenFile(filepath.Join(n.TrackDir, roothash), os.O_CREATE|os.O_TRUNC|os.O_WRONLY, os.ModePerm)
 			if err != nil {
-				n.Logs.Upfile("err", fmt.Sprintf("[%v] %v", roothash, err))
+				n.Upfile("err", fmt.Sprintf("[%v] %v", roothash, err))
 				continue
 			}
 			_, err = f.Write(b)
 			if err != nil {
 				f.Close()
-				n.Logs.Upfile("err", fmt.Sprintf("[%v] %v", roothash, err))
+				n.Upfile("err", fmt.Sprintf("[%v] %v", roothash, err))
 				continue
 			}
 
 			err = f.Sync()
 			if err != nil {
 				f.Close()
-				n.Logs.Upfile("err", fmt.Sprintf("[%v] %v", roothash, err))
+				n.Upfile("err", fmt.Sprintf("[%v] %v", roothash, err))
 				continue
 			}
 			f.Close()
@@ -275,7 +275,7 @@ func (n *Node) TrackFile() {
 		}
 
 		// Delete files that have not been accessed for more than 30 days
-		files, _ = filepath.Glob(filepath.Join(n.Cli.Workspace(), configs.File, "/*"))
+		files, _ = filepath.Glob(filepath.Join(n.Workspace(), configs.File, "/*"))
 		for _, v := range files {
 			fs, err := os.Stat(v)
 			if err == nil {

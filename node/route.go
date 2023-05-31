@@ -8,11 +8,11 @@
 package node
 
 func (n *Node) addRoute() {
-	n.Handle.POST("/auth", n.authHandle)
+	n.Engine.POST("/auth", n.authHandle)
 
-	n.Handle.PUT("/:name", n.putHandle)
+	n.Engine.PUT("/:name", n.putHandle)
 
-	n.Handle.DELETE("/:name", n.delHandle)
+	n.Engine.DELETE("/:name", n.delHandle)
 
-	n.Handle.GET("/:name", n.GetHandle)
+	n.Engine.GET("/:name", n.GetHandle)
 }

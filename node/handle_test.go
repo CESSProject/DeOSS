@@ -28,9 +28,9 @@ func TestGetHandle(t *testing.T) {
 		{"bad case", ""},
 	}
 	node := New()
-	node.Handle = gin.Default()
+	node.Engine = gin.Default()
 	node.addRoute()
-	r := node.Handle
+	r := node.Engine
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// mock a http request

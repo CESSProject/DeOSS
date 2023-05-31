@@ -14,7 +14,7 @@ import (
 	"path/filepath"
 
 	"github.com/CESSProject/DeOSS/configs"
-	"github.com/CESSProject/sdk-go/core/chain"
+	"github.com/CESSProject/sdk-go/core/pattern"
 	"github.com/CESSProject/sdk-go/core/utils"
 	"github.com/gin-gonic/gin"
 )
@@ -66,37 +66,37 @@ func (n *Node) GetHandle(c *gin.Context) {
 		respMsg  = &RespMsg{}
 	)
 	clientIp = c.ClientIP()
-	n.Logs.Query("info", fmt.Sprintf("[%s] %s", clientIp, INFO_PutRequest))
+	n.Query("info", fmt.Sprintf("[%s] %s", clientIp, INFO_PutRequest))
 
 	// verify token
 	account, pkey, err := n.VerifyToken(c, respMsg)
 	if err != nil {
-		n.Logs.Query("err", fmt.Sprintf("[%s] %v", clientIp, err))
+		n.Query("err", fmt.Sprintf("[%s] %v", clientIp, err))
 		c.JSON(respMsg.Code, respMsg.Err)
 		return
 	}
 
-	n.Logs.Query("info", fmt.Sprintf("[%s] [%s]", clientIp, account))
+	n.Query("info", fmt.Sprintf("[%s] [%s]", clientIp, account))
 
 	getName := c.Param("name")
 	if getName == "version" {
-		n.Logs.Query("info", fmt.Sprintf("[%s] Query version", clientIp))
+		n.Query("info", fmt.Sprintf("[%s] Query version", clientIp))
 		c.JSON(http.StatusOK, configs.Version)
 		return
 	}
 
-	if len(getName) != len(chain.FileHash{}) {
+	if len(getName) != len(pattern.FileHash{}) {
 		// Query bucket
 		if utils.CheckBucketName(getName) {
-			n.Logs.Query("info", fmt.Sprintf("[%s] Query bucket [%s] info", clientIp, getName))
-			bucketInfo, err := n.Cli.Chain.QueryBucketInfo(pkey, getName)
+			n.Query("info", fmt.Sprintf("[%s] Query bucket [%s] info", clientIp, getName))
+			bucketInfo, err := n.QueryBucketInfo(pkey, getName)
 			if err != nil {
-				if err.Error() == chain.ERR_Empty {
-					n.Logs.Query("err", fmt.Sprintf("[%s] Query bucket [%s] info: NotFount", clientIp, getName))
+				if err.Error() == pattern.ERR_Empty {
+					n.Query("err", fmt.Sprintf("[%s] Query bucket [%s] info: NotFount", clientIp, getName))
 					c.JSON(http.StatusNotFound, "NotFound")
 					return
 				}
-				n.Logs.Query("err", fmt.Sprintf("[%s] Query bucket [%s] info: %v", clientIp, getName, err))
+				n.Query("err", fmt.Sprintf("[%s] Query bucket [%s] info: %v", clientIp, getName, err))
 				c.JSON(http.StatusInternalServerError, "InternalError")
 				return
 			}
@@ -120,29 +120,29 @@ func (n *Node) GetHandle(c *gin.Context) {
 				Owners: owners,
 				Files:  filesHash,
 			}
-			n.Logs.Query("info", fmt.Sprintf("[%s] Query bucket [%s] info suc", clientIp, getName))
+			n.Query("info", fmt.Sprintf("[%s] Query bucket [%s] info suc", clientIp, getName))
 			c.JSON(http.StatusOK, data)
 			return
 		}
 		// Query bucket list
 		if getName == "*" {
-			bucketList, err := n.Cli.Chain.QueryBucketList(pkey)
+			bucketList, err := n.QueryBucketList(pkey)
 			if err != nil {
-				if err.Error() == chain.ERR_Empty {
-					n.Logs.Query("err", fmt.Sprintf("[%s] Query [%s] bucket list: NotFount", clientIp, account))
+				if err.Error() == pattern.ERR_Empty {
+					n.Query("err", fmt.Sprintf("[%s] Query [%s] bucket list: NotFount", clientIp, account))
 					c.JSON(http.StatusNotFound, "NotFound")
 					return
 				}
-				n.Logs.Query("err", fmt.Sprintf("[%s] Query [%s] bucket list: %v", clientIp, account, err))
+				n.Query("err", fmt.Sprintf("[%s] Query [%s] bucket list: %v", clientIp, account, err))
 				c.JSON(http.StatusInternalServerError, "InternalError")
 				return
 			}
-			n.Logs.Query("info", fmt.Sprintf("[%s] Query [%s] bucket list suc", clientIp, account))
+			n.Query("info", fmt.Sprintf("[%s] Query [%s] bucket list suc", clientIp, account))
 			c.JSON(http.StatusOK, bucketList)
 			return
 		}
 
-		n.Logs.Query("err", fmt.Sprintf("[%s] Invalid query para: %s", clientIp, getName))
+		n.Query("err", fmt.Sprintf("[%s] Invalid query para: %s", clientIp, getName))
 		c.JSON(http.StatusBadRequest, "InvalidParameter.Name")
 		return
 	}
@@ -151,27 +151,27 @@ func (n *Node) GetHandle(c *gin.Context) {
 
 	// view file
 	if operation == "view" {
-		n.Logs.Query("info", fmt.Sprintf("[%s] Query file [%s] info", clientIp, getName))
-		fmeta, err := n.Cli.Chain.QueryFileMetadata(getName)
+		n.Query("info", fmt.Sprintf("[%s] Query file [%s] info", clientIp, getName))
+		fmeta, err := n.QueryFileMetadata(getName)
 		if err != nil {
-			if err.Error() == chain.ERR_Empty {
-				_, err = n.Cli.QueryStorageOrder(getName)
+			if err.Error() == pattern.ERR_Empty {
+				_, err = n.QueryStorageOrder(getName)
 				if err != nil {
-					if err.Error() == chain.ERR_Empty {
-						n.Logs.Query("err", fmt.Sprintf("[%s] Query file [%s] info: NotFount", clientIp, getName))
+					if err.Error() == pattern.ERR_Empty {
+						n.Query("err", fmt.Sprintf("[%s] Query file [%s] info: NotFount", clientIp, getName))
 						c.JSON(http.StatusNotFound, "NotFound")
 						return
 					}
 				} else {
-					n.Logs.Query("info", fmt.Sprintf("[%s] Query file [%s] info: Data is being stored", clientIp, getName))
+					n.Query("info", fmt.Sprintf("[%s] Query file [%s] info: Data is being stored", clientIp, getName))
 					c.JSON(http.StatusOK, "Data is being stored")
 					return
 				}
-				n.Logs.Query("err", fmt.Sprintf("[%s] Query file [%s] info: %v", clientIp, getName, err))
+				n.Query("err", fmt.Sprintf("[%s] Query file [%s] info: %v", clientIp, getName, err))
 				c.JSON(http.StatusInternalServerError, "InternalError")
 				return
 			}
-			n.Logs.Query("err", fmt.Sprintf("[%s] Query file [%s] info: %v", clientIp, getName, err))
+			n.Query("err", fmt.Sprintf("[%s] Query file [%s] info: %v", clientIp, getName, err))
 			c.JSON(http.StatusInternalServerError, "InternalError")
 			return
 		}
@@ -206,19 +206,19 @@ func (n *Node) GetHandle(c *gin.Context) {
 				fileMetadata.SegmentList[i].FragmentList[j].Miner, _ = utils.EncodePublicKeyAsCessAccount(fmeta.SegmentList[i].FragmentList[j].Miner[:])
 			}
 		}
-		n.Logs.Query("info", fmt.Sprintf("[%s] Query file [%s] info suc", clientIp, getName))
+		n.Query("info", fmt.Sprintf("[%s] Query file [%s] info suc", clientIp, getName))
 		c.JSON(http.StatusOK, fileMetadata)
 		return
 	}
 
 	// download file
 	if operation == "download" {
-		dir := filepath.Join(n.Cli.Workspace(), configs.File)
-		n.Logs.Query("info", fmt.Sprintf("[%s] Download file [%s]", clientIp, getName))
+		dir := n.GetDirs().FileDir
+		n.Query("info", fmt.Sprintf("[%s] Download file [%s]", clientIp, getName))
 		fpath := filepath.Join(dir, getName)
 		_, err := os.Stat(fpath)
 		if err == nil {
-			n.Logs.Query("info", fmt.Sprintf("[%s] Download file [%s] from cache", clientIp, getName))
+			n.Query("info", fmt.Sprintf("[%s] Download file [%s] from cache", clientIp, getName))
 			c.File(fpath)
 			select {
 			case <-c.Request.Context().Done():
@@ -239,20 +239,20 @@ func (n *Node) GetHandle(c *gin.Context) {
 		// }
 
 		//Download from miner
-		fpath, err = n.Cli.GetFile(getName, dir)
+		fpath, err = n.GetFile(getName, dir)
 		if err != nil {
-			n.Logs.Query("err", fmt.Sprintf("[%s] Download file [%s] : %v", clientIp, getName, err))
+			n.Query("err", fmt.Sprintf("[%s] Download file [%s] : %v", clientIp, getName, err))
 			c.JSON(http.StatusInternalServerError, "InternalError")
 			return
 		}
-		n.Logs.Query("info", fmt.Sprintf("[%s] Download file [%s] suc", clientIp, getName))
+		n.Query("info", fmt.Sprintf("[%s] Download file [%s] suc", clientIp, getName))
 		c.File(fpath)
 		select {
 		case <-c.Request.Context().Done():
 			return
 		}
 	}
-	n.Logs.Query("err", fmt.Sprintf("[%s] [%s] InvalidHeader.Operation", clientIp, getName))
+	n.Query("err", fmt.Sprintf("[%s] [%s] InvalidHeader.Operation", clientIp, getName))
 	c.JSON(http.StatusBadRequest, "InvalidHeader.Operation")
 	return
 }

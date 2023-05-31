@@ -36,7 +36,7 @@ P2P_Port: 15008
 HTTP_Port: 8080`
 )
 
-type Confiler interface {
+type Confile interface {
 	Parse(fpath string, ip string, port int) error
 	GetRpcAddr() []string
 	GetServiceAddr() string
