@@ -31,7 +31,9 @@ const (
 const (
 	ERR_ReportProblem = "Sorry, please report this problem to the service provider:"
 
-	INFO_PutRequest       = "PutRequest"
+	INFO_PutRequest = "PutRequest"
+	INFO_GetRequest = "GetRequest"
+
 	ERR_MissToken         = "InvalidHead.MissToken"
 	ERR_EmptySeed         = "InvalidProfile.EmptySeed"
 	ERR_NoPermission      = "InvalidToken.NoPermission"
