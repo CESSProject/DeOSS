@@ -31,7 +31,9 @@ const (
 const (
 	ERR_ReportProblem = "Sorry, please report this problem to the service provider:"
 
-	INFO_PutRequest       = "PutRequest"
+	INFO_PutRequest = "PutRequest"
+	INFO_GetRequest = "GetRequest"
+
 	ERR_MissToken         = "InvalidHead.MissToken"
 	ERR_EmptySeed         = "InvalidProfile.EmptySeed"
 	ERR_NoPermission      = "InvalidToken.NoPermission"
@@ -42,5 +44,6 @@ const (
 	ERR_UnauthorizedSpace = "UnauthorizedSpace"
 	ERR_EmptyFile         = "InvalidBody.EmptyFile"
 	ERR_DuplicateFileName = "InvalidParameter.DuplicateFileName"
+	ERR_ReadBody          = "InvalidBody.ReadErr"
 	ERR_InternalServer    = "InternalError"
 )

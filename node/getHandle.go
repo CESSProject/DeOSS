@@ -14,9 +14,12 @@ import (
 	"path/filepath"
 
 	"github.com/CESSProject/DeOSS/configs"
+	"github.com/CESSProject/sdk-go/core/erasure"
 	"github.com/CESSProject/sdk-go/core/pattern"
 	"github.com/CESSProject/sdk-go/core/utils"
 	"github.com/gin-gonic/gin"
+	"github.com/libp2p/go-libp2p/core/peer"
+	"github.com/mr-tron/base58"
 )
 
 type RtnFileType struct {
@@ -66,7 +69,7 @@ func (n *Node) GetHandle(c *gin.Context) {
 		respMsg  = &RespMsg{}
 	)
 	clientIp = c.ClientIP()
-	n.Query("info", fmt.Sprintf("[%s] %s", clientIp, INFO_PutRequest))
+	n.Query("info", fmt.Sprintf("[%s] %s", clientIp, INFO_GetRequest))
 
 	// verify token
 	account, pkey, err := n.VerifyToken(c, respMsg)
@@ -239,7 +242,7 @@ func (n *Node) GetHandle(c *gin.Context) {
 		// }
 
 		//Download from miner
-		fpath, err = n.GetFile(getName, dir)
+		fpath, err = n.fetchFiles(getName, dir)
 		if err != nil {
 			n.Query("err", fmt.Sprintf("[%s] Download file [%s] : %v", clientIp, getName, err))
 			c.JSON(http.StatusInternalServerError, "InternalError")
@@ -255,4 +258,87 @@ func (n *Node) GetHandle(c *gin.Context) {
 	n.Query("err", fmt.Sprintf("[%s] [%s] InvalidHeader.Operation", clientIp, getName))
 	c.JSON(http.StatusBadRequest, "InvalidHeader.Operation")
 	return
+}
+
+func (n *Node) fetchFiles(roothash, dir string) (string, error) {
+	var (
+		segmentspath = make([]string, 0)
+	)
+	userfile := filepath.Join(dir, roothash)
+	_, err := os.Stat(userfile)
+	if err == nil {
+		return userfile, nil
+	}
+	os.MkdirAll(dir, pattern.DirMode)
+	f, err := os.Create(userfile)
+	if err != nil {
+		return "", err
+	}
+	defer f.Close()
+
+	fmeta, err := n.QueryFileMetadata(roothash)
+	if err != nil {
+		return "", err
+	}
+
+	defer func(basedir string) {
+		for _, segment := range fmeta.SegmentList {
+			os.Remove(filepath.Join(basedir, string(segment.Hash[:])))
+			for _, fragment := range segment.FragmentList {
+				os.Remove(filepath.Join(basedir, string(fragment.Hash[:])))
+			}
+		}
+	}(dir)
+
+	for _, segment := range fmeta.SegmentList {
+		fragmentpaths := make([]string, 0)
+		for _, fragment := range segment.FragmentList {
+			miner, err := n.QueryStorageMiner(fragment.Miner[:])
+			if err != nil {
+				return "", err
+			}
+			peerid := base58.Encode([]byte(string(miner.PeerId[:])))
+			if !n.Has(peerid) {
+				continue
+			}
+			id, _ := peer.Decode(peerid)
+			fragmentpath := filepath.Join(dir, string(fragment.Hash[:]))
+			err = n.ReadFileAction(id, roothash, string(fragment.Hash[:]), fragmentpath, pattern.FragmentSize)
+			if err != nil {
+				continue
+			}
+			fragmentpaths = append(fragmentpaths, fragmentpath)
+			segmentpath := filepath.Join(dir, string(segment.Hash[:]))
+			if len(fragmentpaths) >= pattern.DataShards {
+				err = erasure.ReedSolomon_Restore(segmentpath, fragmentpaths)
+				if err != nil {
+					return "", err
+				}
+				segmentspath = append(segmentspath, segmentpath)
+				break
+			}
+		}
+	}
+
+	if len(segmentspath) != len(fmeta.SegmentList) {
+		return "", fmt.Errorf("Download failed")
+	}
+	var writecount = 0
+	for i := 0; i < len(fmeta.SegmentList); i++ {
+		for j := 0; j < len(segmentspath); j++ {
+			if string(fmeta.SegmentList[i].Hash[:]) == filepath.Base(segmentspath[j]) {
+				buf, err := os.ReadFile(segmentspath[j])
+				if err != nil {
+					return "", err
+				}
+				f.Write(buf)
+				writecount++
+				break
+			}
+		}
+	}
+	if writecount != len(fmeta.SegmentList) {
+		return "", fmt.Errorf("Write failed")
+	}
+	return userfile, nil
 }

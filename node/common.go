@@ -11,6 +11,7 @@ import (
 
 	"github.com/CESSProject/DeOSS/configs"
 	"github.com/CESSProject/DeOSS/pkg/utils"
+	"github.com/CESSProject/sdk-go/core/pattern"
 	jwt "github.com/dgrijalva/jwt-go"
 	"github.com/gin-gonic/gin"
 )
@@ -80,11 +81,11 @@ func (n *Node) SaveFormFile(c *gin.Context, account, name string) (string, int, 
 		hashpath string
 		formfile *multipart.FileHeader
 	)
-	savedir = n.GetDirs().FileDir
+	savedir = filepath.Join(n.GetDirs().FileDir, account)
 	// Create file storage directory
 	_, err = os.Stat(savedir)
 	if err != nil {
-		err = os.MkdirAll(savedir, configs.DirPermission)
+		err = os.MkdirAll(savedir, pattern.DirMode)
 		if err != nil {
 			return "", http.StatusInternalServerError, errors.New(ERR_ReportProblem + err.Error())
 		}
@@ -96,6 +97,8 @@ func (n *Node) SaveFormFile(c *gin.Context, account, name string) (string, int, 
 	if err == nil {
 		return "", http.StatusBadRequest, errors.New(ERR_DuplicateFileName)
 	}
+
+	defer os.Remove(fpath)
 
 	// Get form file
 	formfile, err = c.FormFile(FormFileKey1)
@@ -114,8 +117,6 @@ func (n *Node) SaveFormFile(c *gin.Context, account, name string) (string, int, 
 	if err != nil {
 		return "", http.StatusInternalServerError, errors.New(ERR_ReportProblem + err.Error())
 	}
-
-	defer os.Remove(fpath)
 
 	// Calculate file hash
 	hash256, err := utils.CalcPathSHA256(fpath)
@@ -162,17 +163,30 @@ func (n *Node) SaveBody(c *gin.Context, account, name string) (string, int, erro
 	if err == nil {
 		return "", http.StatusInternalServerError, errors.New(ERR_ReportProblem + err.Error())
 	}
-	defer os.Remove(fpath)
+
+	defer func() {
+		os.Remove(fpath)
+		if f != nil {
+			f.Close()
+		}
+	}()
 
 	// save body content
 	buf, err := ioutil.ReadAll(c.Request.Body)
 	if err == nil {
-		return "", http.StatusBadRequest, errors.New(ERR_ReportProblem + err.Error())
+		return "", http.StatusBadRequest, errors.New(ERR_ReadBody)
 	}
 
-	f.Write(buf)
-	f.Sync()
+	_, err = f.Write(buf)
+	if err == nil {
+		return "", http.StatusInternalServerError, errors.New(ERR_ReportProblem + err.Error())
+	}
+	err = f.Sync()
+	if err == nil {
+		return "", http.StatusInternalServerError, errors.New(ERR_ReportProblem + err.Error())
+	}
 	f.Close()
+	f = nil
 
 	// Calculate file hash
 	hash256, err := utils.CalcPathSHA256(fpath)

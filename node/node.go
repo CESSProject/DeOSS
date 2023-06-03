@@ -10,6 +10,7 @@ package node
 import (
 	"fmt"
 	"log"
+	"sync"
 
 	"github.com/CESSProject/DeOSS/configs"
 	"github.com/CESSProject/DeOSS/pkg/confile"
@@ -32,18 +33,23 @@ type Node struct {
 	sdk.SDK
 	core.P2P
 	*gin.Engine
+	Lock     *sync.RWMutex
+	Peers    map[string]struct{}
 	TrackDir string
 }
 
 // New is used to build a node instance
 func New() *Node {
-	return &Node{}
+	return &Node{
+		Lock:  new(sync.RWMutex),
+		Peers: make(map[string]struct{}, 10),
+	}
 }
 
 func (n *Node) Run() {
 	gin.SetMode(gin.ReleaseMode)
 	n.Engine = gin.Default()
-	n.Engine.MaxMultipartMemory = configs.SIZE_1GiB * 16
+	n.Engine.MaxMultipartMemory = 64 << 20
 	config := cors.DefaultConfig()
 	config.AllowAllOrigins = true
 	config.AllowMethods = []string{"HEAD", "GET", "POST", "PUT", "DELETE", "OPTIONS"}
@@ -56,12 +62,27 @@ func (n *Node) Run() {
 	n.Engine.Use(cors.New(config))
 	// Add route
 	n.addRoute()
-	// Track file
-	go n.TrackFile()
+	// Task management
+	go n.TaskMgt()
 	log.Println("Listening on port:", n.GetHttpPort())
 	// Run
 	err := n.Engine.Run(fmt.Sprintf(":%d", n.GetHttpPort()))
 	if err != nil {
 		log.Fatalf("err: %v", err)
 	}
+}
+
+func (n *Node) PutPeer(peerid string) {
+	n.Lock.Lock()
+	if _, ok := n.Peers[peerid]; !ok {
+		n.Peers[peerid] = struct{}{}
+	}
+	n.Lock.Unlock()
+}
+
+func (n *Node) Has(peerid string) bool {
+	n.Lock.RLock()
+	_, ok := n.Peers[peerid]
+	n.Lock.RUnlock()
+	return ok
 }
