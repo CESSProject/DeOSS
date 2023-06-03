@@ -42,5 +42,6 @@ const (
 	ERR_UnauthorizedSpace = "UnauthorizedSpace"
 	ERR_EmptyFile         = "InvalidBody.EmptyFile"
 	ERR_DuplicateFileName = "InvalidParameter.DuplicateFileName"
+	ERR_ReadBody          = "InvalidBody.ReadErr"
 	ERR_InternalServer    = "InternalError"
 )

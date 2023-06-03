@@ -20,6 +20,8 @@ import (
 	"github.com/CESSProject/sdk-go/core/pattern"
 	sutils "github.com/CESSProject/sdk-go/core/utils"
 	"github.com/gin-gonic/gin"
+	"github.com/libp2p/go-libp2p/core/peer"
+	"github.com/mr-tron/base58"
 )
 
 type RecordInfo struct {
@@ -72,6 +74,11 @@ func (n *Node) putHandle(c *gin.Context) {
 			c.JSON(http.StatusBadRequest, ERR_EmptyBucketName)
 			return
 		}
+		if !sutils.CheckBucketName(putName) {
+			n.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, ERR_InvalidBucketName))
+			c.JSON(http.StatusBadRequest, ERR_InvalidBucketName)
+			return
+		}
 		txHash, err := n.CreateBucket(pkey, putName)
 		if err != nil {
 			n.Upfile("err", fmt.Sprintf("[%v] %v", c.ClientIP(), err))
@@ -93,7 +100,7 @@ func (n *Node) putHandle(c *gin.Context) {
 	content_length := c.Request.ContentLength
 	if content_length <= 0 {
 		n.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, ERR_EmptyFile))
-		c.JSON(400, "InvalidParameter.EmptyFile")
+		c.JSON(http.StatusBadRequest, ERR_EmptyFile)
 		return
 	}
 
@@ -119,8 +126,11 @@ func (n *Node) putHandle(c *gin.Context) {
 	roothashpath := filepath.Join(n.GetDirs().FileDir, roothash)
 	_, err = os.Stat(roothashpath)
 	if err == nil {
-		c.JSON(http.StatusOK, roothash)
-		return
+		_, err = os.Stat(filepath.Join(n.TrackDir, roothash))
+		if err == nil {
+			c.JSON(http.StatusOK, roothash)
+			return
+		}
 	}
 
 	err = os.Rename(fpath, roothashpath)
@@ -175,7 +185,7 @@ func (n *Node) TrackFile() {
 		linuxFileAttr *syscall.Stat_t
 	)
 	for {
-		files, _ := filepath.Glob(filepath.Join(n.Workspace(), configs.Track, "/*"))
+		files, _ := filepath.Glob(fmt.Sprintf("%s/*", n.TrackDir))
 		for i := 0; i < len(files); i++ {
 			roothash = filepath.Base(files[i])
 			b, err := n.Cache.Get([]byte("transfer:" + roothash))
@@ -236,7 +246,7 @@ func (n *Node) TrackFile() {
 				}
 			}
 
-			count, err = n.PutFile(recordFile.Owner, recordFile.SegmentInfo, roothash, recordFile.Filename, recordFile.Buckname)
+			count, err = n.backupFiles(recordFile.Owner, recordFile.SegmentInfo, roothash, recordFile.Filename, recordFile.Buckname)
 			if err != nil {
 				n.Upfile("err", fmt.Sprintf("[%v] %v", roothash, err))
 				continue
@@ -288,4 +298,79 @@ func (n *Node) TrackFile() {
 
 		time.Sleep(configs.BlockInterval)
 	}
+}
+
+func (n *Node) backupFiles(owner []byte, segmentInfo []pattern.SegmentDataInfo, roothash, filename, bucketname string) (uint8, error) {
+	var err error
+	var storageOrder pattern.StorageOrder
+
+	_, err = n.QueryFileMetadata(roothash)
+	if err == nil {
+		return 0, nil
+	}
+
+	for i := 0; i < 3; i++ {
+		storageOrder, err = n.QueryStorageOrder(roothash)
+		if err != nil {
+			if err.Error() == pattern.ERR_Empty {
+				err = n.GenerateStorageOrder(roothash, segmentInfo, owner, filename, bucketname)
+				if err != nil {
+					return 0, err
+				}
+			}
+			time.Sleep(pattern.BlockInterval)
+			continue
+		}
+		break
+	}
+	if err != nil {
+		return 0, err
+	}
+
+	// store fragment to storage
+	err = n.storageData(roothash, segmentInfo, storageOrder.AssignedMiner)
+	if err != nil {
+		return 0, err
+	}
+	return uint8(storageOrder.Count), nil
+}
+
+func (n *Node) storageData(roothash string, segment []pattern.SegmentDataInfo, minerTaskList []pattern.MinerTaskList) error {
+	var err error
+
+	// query all assigned miner multiaddr
+	peerids, err := n.QueryAssignedMiner(minerTaskList)
+	if err != nil {
+		return err
+	}
+
+	basedir := filepath.Dir(segment[0].FragmentHash[0])
+	for i := 0; i < len(peerids); i++ {
+
+		if !n.Has(peerids[i]) {
+			continue
+		}
+
+		id, _ := peer.Decode(peerids[i])
+		for j := 0; j < len(minerTaskList[i].Hash); j++ {
+			err = n.WriteFileAction(id, roothash, filepath.Join(basedir, string(minerTaskList[i].Hash[j][:])))
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+func (n *Node) QueryAssignedMiner(minerTaskList []pattern.MinerTaskList) ([]string, error) {
+	var peerids = make([]string, len(minerTaskList))
+	for i := 0; i < len(minerTaskList); i++ {
+		minerInfo, err := n.QueryStorageMiner(minerTaskList[i].Account[:])
+		if err != nil {
+			return peerids, err
+		}
+		peerids[i] = base58.Encode([]byte(string(minerInfo.PeerId[:])))
+	}
+	return peerids, nil
 }

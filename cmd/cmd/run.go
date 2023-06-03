@@ -23,6 +23,8 @@ import (
 	"github.com/CESSProject/DeOSS/pkg/utils"
 	p2pgo "github.com/CESSProject/p2p-go"
 	sdkgo "github.com/CESSProject/sdk-go"
+	"github.com/libp2p/go-libp2p/core/peer"
+	ma "github.com/multiformats/go-multiaddr"
 	"github.com/spf13/cobra"
 )
 
@@ -55,27 +57,22 @@ func Command_Run_Runfunc(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
-	for {
-		syncSt, err := n.SyncState()
-		if err != nil {
-			log.Println(err.Error())
-			os.Exit(1)
-		}
-		if syncSt.CurrentBlock == syncSt.HighestBlock {
-			log.Println(fmt.Sprintf("Synchronization main chain completed: %d", syncSt.CurrentBlock))
-			break
-		}
-		log.Println(fmt.Sprintf("In the synchronization main chain: %d ...", syncSt.CurrentBlock))
-		time.Sleep(time.Second * time.Duration(utils.Ternary(int64(syncSt.HighestBlock-syncSt.CurrentBlock)*6, 30)))
-	}
-
 	boot, _ := cmd.Flags().GetString("boot")
 	if boot == "" {
-		log.Println("Empty boot node")
+		log.Printf("Empty boot node")
 	} else {
 		bootstrap, _ = utils.ParseMultiaddrs(boot)
-		if len(bootstrap) > 0 {
-			log.Println(fmt.Sprintf("Bootstrap node: %v", bootstrap))
+		for _, v := range bootstrap {
+			log.Printf(fmt.Sprintf("bootstrap node: %v", v))
+			addr, err := ma.NewMultiaddr(v)
+			if err != nil {
+				continue
+			}
+			addrInfo, err := peer.AddrInfoFromP2pAddr(addr)
+			if err != nil {
+				continue
+			}
+			n.PutPeer(addrInfo.ID.Pretty())
 		}
 	}
 
@@ -89,6 +86,20 @@ func Command_Run_Runfunc(cmd *cobra.Command, args []string) {
 	if err != nil {
 		log.Println(err)
 		os.Exit(1)
+	}
+
+	for {
+		syncSt, err := n.SyncState()
+		if err != nil {
+			log.Println(err.Error())
+			os.Exit(1)
+		}
+		if syncSt.CurrentBlock == syncSt.HighestBlock {
+			log.Println(fmt.Sprintf("Synchronization main chain completed: %d", syncSt.CurrentBlock))
+			break
+		}
+		log.Println(fmt.Sprintf("In the synchronization main chain: %d ...", syncSt.CurrentBlock))
+		time.Sleep(time.Second * time.Duration(utils.Ternary(int64(syncSt.HighestBlock-syncSt.CurrentBlock)*6, 30)))
 	}
 
 	_, _, err = n.Register(configs.Name, n.GetPeerPublickey(), "", 0)
@@ -116,6 +127,17 @@ func Command_Run_Runfunc(cmd *cobra.Command, args []string) {
 		log.Println(err)
 		os.Exit(1)
 	}
+
+	for _, v := range n.Addrs() {
+		log.Println(fmt.Sprintf("Local multiaddr: %s/p2p/%s", v.String(), n.ID().Pretty()))
+	}
+
+	if n.GetDiscoverSt() {
+		log.Println("Start node discovery service")
+	}
+
+	log.Println("p2p protocol version: " + n.GetProtocolVersion())
+	log.Println("dht protocol version: " + n.GetDhtProtocolVersion())
 
 	// run
 	n.Run()
