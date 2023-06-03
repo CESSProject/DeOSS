@@ -62,8 +62,8 @@ func (n *Node) Run() {
 	n.Engine.Use(cors.New(config))
 	// Add route
 	n.addRoute()
-	// Track file
-	go n.TrackFile()
+	// Task management
+	go n.TaskMgt()
 	log.Println("Listening on port:", n.GetHttpPort())
 	// Run
 	err := n.Engine.Run(fmt.Sprintf(":%d", n.GetHttpPort()))
