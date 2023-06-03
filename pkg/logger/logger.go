@@ -23,7 +23,7 @@ import (
 
 type Logger interface {
 	Log(string, string)
-	Pnc(string, error)
+	Pnc(msg string)
 	//Common(string, error)
 	Upfile(string, string)
 	Downfile(string, string)
@@ -77,14 +77,11 @@ func (l *logs) Log(level string, msg string) {
 	}
 }
 
-func (l *logs) Pnc(level string, err error) {
+func (l *logs) Pnc(msg string) {
 	_, file, line, _ := runtime.Caller(1)
 	v, ok := l.log["panic"]
 	if ok {
-		switch level {
-		case "error", "err":
-			v.Sugar().Errorf("[%v:%d] %v", filepath.Base(file), line, err)
-		}
+		v.Sugar().Errorf("[%s:%d] %s", filepath.Base(file), line, msg)
 	}
 }
 

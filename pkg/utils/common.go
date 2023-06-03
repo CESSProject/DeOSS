@@ -10,7 +10,6 @@ package utils
 import (
 	"bytes"
 	"encoding/binary"
-	"errors"
 	"fmt"
 	"math/rand"
 	"net"
@@ -21,14 +20,14 @@ import (
 )
 
 // RecoverError is used to record the stack information of panic
-func RecoverError(err interface{}) error {
+func RecoverError(err interface{}) string {
 	buf := new(bytes.Buffer)
 	fmt.Fprintf(buf, "%v\n", "[panic]")
 	fmt.Fprintf(buf, "%v\n", err)
 	if debug.Stack() != nil {
 		fmt.Fprintf(buf, "%v\n", string(debug.Stack()))
 	}
-	return errors.New(buf.String())
+	return buf.String()
 }
 
 // RandSlice is used to disrupt the order of elements in the slice

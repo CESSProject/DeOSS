@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/CESSProject/DeOSS/configs"
+	"github.com/CESSProject/DeOSS/pkg/utils"
 	"github.com/CESSProject/sdk-go/core/pattern"
 	sutils "github.com/CESSProject/sdk-go/core/utils"
 	"github.com/gin-gonic/gin"
@@ -175,7 +176,14 @@ func (n *Node) putHandle(c *gin.Context) {
 	return
 }
 
-func (n *Node) TrackFile() {
+func (n *Node) trackFile(ch chan<- bool) {
+	defer func() {
+		ch <- true
+		if err := recover(); err != nil {
+			n.Pnc(utils.RecoverError(err))
+		}
+	}()
+
 	var (
 		count         uint8
 		txhash        string

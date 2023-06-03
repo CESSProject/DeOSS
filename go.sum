@@ -59,8 +59,14 @@ github.com/CESSProject/p2p-go v0.0.26 h1:Zmn5OEdjZAn+34s5+tn3GHH/az4XcFx9kG1D1xk
 github.com/CESSProject/p2p-go v0.0.26/go.mod h1:k0mygEH4biVB7SJLf/RWpHqmyC45YBF4iW4b3n2S2fo=
 github.com/CESSProject/p2p-go v0.0.29 h1:FN+zDXrcQofVpC69Ui6Iz1+T8xvSpUgz82b7PGV/OlM=
 github.com/CESSProject/p2p-go v0.0.29/go.mod h1:k0mygEH4biVB7SJLf/RWpHqmyC45YBF4iW4b3n2S2fo=
+github.com/CESSProject/p2p-go v0.0.30 h1:e6CtRFUHATlsK3fgCRJnP4wj/LSoZ9zn4WnLfSbOCl0=
+github.com/CESSProject/p2p-go v0.0.30/go.mod h1:k0mygEH4biVB7SJLf/RWpHqmyC45YBF4iW4b3n2S2fo=
 github.com/CESSProject/sdk-go v0.0.60 h1:J/J6tiWWLtPdKwWf+2uBTXdgGaMw3kzvrCjVaORQCmM=
 github.com/CESSProject/sdk-go v0.0.60/go.mod h1:7kMCr/G0/ZVwcTuhShR9mRZaO3OCknuXyVzjgIWpLZc=
+github.com/CESSProject/sdk-go v0.0.61 h1:EFcykFz0WlksQfxY3c+mVat1Ndjp5n55jMJHLSuiumY=
+github.com/CESSProject/sdk-go v0.0.61/go.mod h1:7kMCr/G0/ZVwcTuhShR9mRZaO3OCknuXyVzjgIWpLZc=
+github.com/CESSProject/sdk-go v0.0.62 h1:Xu2ygD1q7xNFjYCi6e0gJ+ZYZnjcK3quHcfwGDmci7I=
+github.com/CESSProject/sdk-go v0.0.62/go.mod h1:7kMCr/G0/ZVwcTuhShR9mRZaO3OCknuXyVzjgIWpLZc=
 github.com/ChainSafe/go-schnorrkel v1.0.0 h1:3aDA67lAykLaG1y3AOjs88dMxC88PgUuHRrLeDnvGIM=
 github.com/ChainSafe/go-schnorrkel v1.0.0/go.mod h1:dpzHYVxLZcp8pjlV+O+UR8K0Hp/z7vcchBSbMBEhCw4=
 github.com/DATA-DOG/go-sqlmock v1.3.3/go.mod h1:f/Ixk793poVmq4qj/V1dPUg2JEAKC73Q5eFN3EC/SaM=
