@@ -11,7 +11,6 @@ import (
 	"os"
 	"sync"
 
-	"github.com/CESSProject/sdk-go/core/pattern"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/errors"
 	"github.com/syndtr/goleveldb/leveldb/filter"
@@ -42,7 +41,7 @@ var (
 func NewCache(fpath string, memory int, handles int, namespace string) (Cache, error) {
 	_, err := os.Stat(fpath)
 	if err != nil {
-		err = os.MkdirAll(fpath, pattern.DirMode)
+		err = os.MkdirAll(fpath, 0744)
 		if err != nil {
 			return nil, err
 		}
