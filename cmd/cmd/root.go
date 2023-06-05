@@ -45,6 +45,7 @@ func init() {
 	rootCmd.PersistentFlags().StringP("ip", "", "0.0.0.0", "listening ip address")
 	rootCmd.PersistentFlags().IntP("http_port", "P", 8080, "service listening port")
 	rootCmd.PersistentFlags().IntP("p2p_port", "p", 15008, "p2p port")
+	rootCmd.PersistentFlags().StringP("boot", "", "", "bootstap node")
 }
 
 func Command_Version() *cobra.Command {

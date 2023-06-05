@@ -13,9 +13,11 @@ import (
 	"os"
 	"time"
 
-	"github.com/CESSProject/DeOSS/configs"
 	"github.com/CESSProject/DeOSS/node"
 	sdkgo "github.com/CESSProject/sdk-go"
+	sconfig "github.com/CESSProject/sdk-go/config"
+	"github.com/btcsuite/btcutil/base58"
+	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/spf13/cobra"
 )
 
@@ -32,7 +34,7 @@ func Command_State_Runfunc(cmd *cobra.Command, args []string) {
 	}
 
 	n.SDK, err = sdkgo.New(
-		configs.Name,
+		sconfig.CharacterName_Deoss,
 		sdkgo.ConnectRpcAddrs(n.Confile.GetRpcAddr()),
 		sdkgo.Mnemonic(n.Confile.GetMnemonic()),
 		sdkgo.TransactionTimeout(time.Duration(12*time.Second)),
@@ -52,6 +54,13 @@ func Command_State_Runfunc(cmd *cobra.Command, args []string) {
 		log.Printf("[err] %v\n", err)
 		os.Exit(1)
 	}
-	fmt.Println(ossState)
+	var tableRows = []table.Row{
+		{"character name", n.GetCharacterName()},
+		{"peer id", base58.Encode(ossState)},
+		{"signature account", n.GetSignatureAcc()},
+	}
+	tw := table.NewWriter()
+	tw.AppendRows(tableRows)
+	fmt.Println(tw.Render())
 	os.Exit(0)
 }

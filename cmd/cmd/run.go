@@ -23,6 +23,7 @@ import (
 	"github.com/CESSProject/DeOSS/pkg/utils"
 	p2pgo "github.com/CESSProject/p2p-go"
 	sdkgo "github.com/CESSProject/sdk-go"
+	sconfig "github.com/CESSProject/sdk-go/config"
 	"github.com/libp2p/go-libp2p/core/peer"
 	ma "github.com/multiformats/go-multiaddr"
 	"github.com/spf13/cobra"
@@ -47,7 +48,7 @@ func Command_Run_Runfunc(cmd *cobra.Command, args []string) {
 
 	//Build client
 	n.SDK, err = sdkgo.New(
-		configs.Name,
+		sconfig.CharacterName_Deoss,
 		sdkgo.ConnectRpcAddrs(n.GetRpcAddr()),
 		sdkgo.Mnemonic(n.GetMnemonic()),
 		sdkgo.TransactionTimeout(time.Duration(12*time.Second)),
