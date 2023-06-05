@@ -22,24 +22,25 @@ const (
 	ProfileDefault  = "conf.yaml"
 	ProfileTemplete = `# The rpc endpoint of the chain node
 Rpc:
-	- "wss://testnet-rpc0.cess.cloud/ws/"
-	- "wss://testnet-rpc1.cess.cloud/ws/"
+  - "wss://testnet-rpc0.cess.cloud/ws/"
+  - "wss://testnet-rpc1.cess.cloud/ws/"
+# Bootstrap Nodes
+Boot:
+  - "_dnsaddr.bootstrap-kldr.cess.cloud"  
 # Account mnemonic
 Mnemonic: ""
 # Service workspace
 Workspace: /
-# Service running address
-Address: "127.0.0.1"
 # P2P communication port
-P2P_Port: 15008
+P2P_Port: 4001
 # Service listening port
 HTTP_Port: 8080`
 )
 
 type Confile interface {
-	Parse(fpath string, ip string, port int) error
+	Parse(fpath string) error
 	GetRpcAddr() []string
-	GetServiceAddr() string
+	GetBootNodes() []string
 	GetHttpPort() int
 	GetP2pPort() int
 	GetWorkspace() string
@@ -49,18 +50,20 @@ type Confile interface {
 
 type confile struct {
 	Rpc       []string `name:"Rpc" toml:"Rpc" yaml:"Rpc"`
+	Boot      []string `name:"Boot" toml:"Boot" yaml:"Boot"`
 	Mnemonic  string   `name:"Mnemonic" toml:"Mnemonic" yaml:"Mnemonic"`
 	Workspace string   `name:"Workspace" toml:"Workspace" yaml:"Workspace"`
-	Address   string   `name:"Address" toml:"Address" yaml:"Address"`
 	P2P_Port  int      `name:"P2P_Port" toml:"P2P_Port" yaml:"P2P_Port"`
 	HTTP_Port int      `name:"HTTP_Port" toml:"HTTP_Port" yaml:"HTTP_Port"`
 }
+
+var _ Confile = (*confile)(nil)
 
 func NewConfigfile() *confile {
 	return &confile{}
 }
 
-func (c *confile) Parse(fpath string, ip string, port int) error {
+func (c *confile) Parse(fpath string) error {
 	var confilePath = fpath
 	if confilePath == "" {
 		confilePath = ProfileDefault
@@ -90,21 +93,15 @@ func (c *confile) Parse(fpath string, ip string, port int) error {
 		return errors.Errorf("Secret: %v", err)
 	}
 
-	if ip != "" {
-		c.Address = ip
-	}
 	if len(c.Rpc) == 0 ||
-		c.Address == "" {
+		len(c.Boot) == 0 {
 		return errors.New("The configuration file cannot have empty entries")
 	}
 
-	if port != 0 {
-		c.HTTP_Port = port
+	if c.HTTP_Port < 1024 || c.P2P_Port < 1024 {
+		return errors.Errorf("Prohibit the use of system reserved port")
 	}
-	if c.HTTP_Port < 1024 {
-		return errors.Errorf("Prohibit the use of system reserved port: %v", c.HTTP_Port)
-	}
-	if c.HTTP_Port > 65535 {
+	if c.HTTP_Port > 65535 || c.P2P_Port > 65535 {
 		return errors.New("The port number cannot exceed 65535")
 	}
 
@@ -127,9 +124,8 @@ func (c *confile) SetRpcAddr(rpc []string) {
 	c.Rpc = rpc
 }
 
-func (c *confile) SetServiceAddr(address string) error {
-	c.Address = address
-	return nil
+func (c *confile) SetBootNodes(boot []string) {
+	c.Boot = boot
 }
 
 func (c *confile) SetHttpPort(port int) error {
@@ -182,10 +178,6 @@ func (c *confile) GetRpcAddr() []string {
 	return c.Rpc
 }
 
-func (c *confile) GetServiceAddr() string {
-	return c.Address
-}
-
 func (c *confile) GetHttpPort() int {
 	return c.HTTP_Port
 }
@@ -200,6 +192,10 @@ func (c *confile) GetWorkspace() string {
 
 func (c *confile) GetMnemonic() string {
 	return c.Mnemonic
+}
+
+func (c *confile) GetBootNodes() []string {
+	return c.Boot
 }
 
 func (c *confile) GetPublickey() ([]byte, error) {

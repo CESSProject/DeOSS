@@ -53,7 +53,7 @@ const (
 	// Time out waiting for transaction completion
 	TimeOut_WaitBlock = time.Duration(time.Second * 15)
 	//
-	DirPermission = 0755
+	DirPermission = 0644
 	//
 	TotalFile = "TotalFile"
 	//

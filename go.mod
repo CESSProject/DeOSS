@@ -4,7 +4,7 @@ go 1.19
 
 require (
 	github.com/CESSProject/go-keyring v0.0.0-20220614131247-ee3a8da30fde
-	github.com/CESSProject/p2p-go v0.0.30
+	github.com/CESSProject/p2p-go v0.0.31
 	github.com/CESSProject/sdk-go v0.0.63
 	github.com/btcsuite/btcutil v1.0.3-0.20201208143702-a53e38424cce
 	github.com/bwmarrin/snowflake v0.3.0
@@ -13,6 +13,7 @@ require (
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/gin-contrib/cors v1.4.0
 	github.com/gin-gonic/gin v1.9.0
+	github.com/howeyc/gopass v0.0.0-20210920133722-c8aef6fb66ef
 	github.com/jedib0t/go-pretty/v6 v6.4.6
 	github.com/libp2p/go-libp2p v0.26.3
 	github.com/mr-tron/base58 v1.2.0
