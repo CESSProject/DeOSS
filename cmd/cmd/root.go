@@ -63,8 +63,8 @@ func Command_Version() *cobra.Command {
 
 func Command_Profile() *cobra.Command {
 	cc := &cobra.Command{
-		Use:                   "profile",
-		Short:                 "Generate profile template",
+		Use:                   "config",
+		Short:                 "Generate configuration file",
 		Run:                   Command_Profile_Runfunc,
 		DisableFlagsInUseLine: true,
 	}
@@ -83,8 +83,8 @@ func Command_Run() *cobra.Command {
 
 func Command_State() *cobra.Command {
 	cc := &cobra.Command{
-		Use:                   "state",
-		Short:                 "View status",
+		Use:                   "stat",
+		Short:                 "Query deoss information",
 		Run:                   Command_State_Runfunc,
 		DisableFlagsInUseLine: true,
 	}
