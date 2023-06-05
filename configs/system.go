@@ -7,36 +7,23 @@
 
 package configs
 
-import (
-	"time"
-)
-
 // system
 const (
 	// name
-	Name = "DeOSS"
+	Name = "deoss"
 	// Name space
 	NameSpace = Name
 	// version
-	Version = Name + " " + "v0.1.2"
+	Version = Name + " " + "v0.2.0 dev"
 	// description
 	Description = "Implementation of object storage service based on cess platform"
 )
 
 const (
-	// base dir
-	BaseDir = Name
 	// log file dir
 	Log = "log"
 	// database dir
 	Db = "db"
-	// file dir
-	File = "file"
 	// tracked files
 	Track = "track"
-)
-
-const (
-	// BlockInterval is the time interval for generating blocks, in seconds
-	BlockInterval = time.Second * time.Duration(6)
 )

@@ -18,13 +18,6 @@ const (
 	MinimumBalance = 2 * CESSTokenPrecision
 )
 
-// byte size
-const (
-	SIZE_1KiB = 1024
-	SIZE_1MiB = 1024 * SIZE_1KiB
-	SIZE_1GiB = 1024 * SIZE_1MiB
-)
-
 // http
 const (
 	Header_Auth       = "Authorization"
@@ -53,21 +46,7 @@ const (
 	// Time out waiting for transaction completion
 	TimeOut_WaitBlock = time.Duration(time.Second * 15)
 	//
-	DirPermission = 0755
-	//
-	TotalFile = "TotalFile"
-	//
-	TotalFailedFile = "TotalFailedFile"
-	//
-	DefaultConfig = "./conf.yaml"
-)
-
-const (
-	PublicOssDomainName = "https://deoss-pub-gateway.cess.cloud"
-	SelfBucketName      = "bucket1"
-	SelfAccount         = "cXhRuajzmiNvJWyagvNDyE9sWsCZoEXrrSWhEbiPvn9LQxWLx"
-	UploadCountPerDay   = 20
-	MaxFileSize         = SIZE_1MiB * 100
+	DefaultConfig = "conf.yaml"
 )
 
 // explanation

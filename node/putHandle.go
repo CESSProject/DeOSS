@@ -186,13 +186,15 @@ func (n *Node) trackFile(ch chan<- bool) {
 
 	var (
 		count         uint8
-		txhash        string
 		roothash      string
+		ownerAcc      string
 		recordFile    RecordInfo
 		storageorder  pattern.StorageOrder
 		linuxFileAttr *syscall.Stat_t
 	)
+
 	for {
+		time.Sleep(pattern.BlockInterval)
 		files, _ := filepath.Glob(fmt.Sprintf("%s/*", n.TrackDir))
 		for i := 0; i < len(files); i++ {
 			roothash = filepath.Base(files[i])
@@ -213,27 +215,26 @@ func (n *Node) trackFile(ch chan<- bool) {
 						}
 					} else {
 						if meta.State == Active {
-							os.Remove(files[i])
-							for _, segment := range meta.SegmentList {
-								os.Remove(filepath.Join(n.Workspace(), configs.File, string(segment.Hash[:])))
-								for _, fragment := range segment.FragmentList {
-									os.Remove(filepath.Join(n.Workspace(), configs.File, string(fragment.Hash[:])))
+							recordFile, err = parseRecordInfoFromFile(files[i])
+							if err == nil {
+								ownerAcc, err = utils.EncodePublicKeyAsCessAccount(recordFile.Owner)
+								if err == nil {
+									for _, segment := range meta.SegmentList {
+										os.Remove(filepath.Join(n.GetDirs().FileDir, ownerAcc, string(segment.Hash[:])))
+										for _, fragment := range segment.FragmentList {
+											os.Remove(filepath.Join(n.GetDirs().FileDir, ownerAcc, string(fragment.Hash[:])))
+										}
+									}
 								}
 							}
+							os.Remove(files[i])
 						}
 					}
 					continue
 				}
 			}
 
-			b, err = os.ReadFile(files[i])
-			if err != nil {
-				n.Upfile("info", fmt.Sprintf("[%s] File backup failed: %v", roothash, err))
-				os.Remove(files[i])
-				continue
-			}
-
-			err = json.Unmarshal(b, &recordFile)
+			recordFile, err = parseRecordInfoFromFile(files[i])
 			if err != nil {
 				n.Upfile("info", fmt.Sprintf("[%s] File backup failed: %v", roothash, err))
 				os.Remove(files[i])
@@ -260,7 +261,7 @@ func (n *Node) trackFile(ch chan<- bool) {
 				continue
 			}
 
-			n.Upfile("info", fmt.Sprintf("[%s] File [%s] backup suc", txhash, roothash))
+			n.Upfile("info", fmt.Sprintf("File [%s] backup suc", roothash))
 
 			recordFile.Putflag = true
 			recordFile.Count = count
@@ -293,7 +294,7 @@ func (n *Node) trackFile(ch chan<- bool) {
 		}
 
 		// Delete files that have not been accessed for more than 30 days
-		files, _ = filepath.Glob(filepath.Join(n.Workspace(), configs.File, "/*"))
+		files, _ = filepath.Glob(filepath.Join(n.GetDirs().FileDir, "/*"))
 		for _, v := range files {
 			fs, err := os.Stat(v)
 			if err == nil {
@@ -303,8 +304,6 @@ func (n *Node) trackFile(ch chan<- bool) {
 				}
 			}
 		}
-
-		time.Sleep(configs.BlockInterval)
 	}
 }
 
@@ -321,7 +320,7 @@ func (n *Node) backupFiles(owner []byte, segmentInfo []pattern.SegmentDataInfo, 
 		storageOrder, err = n.QueryStorageOrder(roothash)
 		if err != nil {
 			if err.Error() == pattern.ERR_Empty {
-				err = n.GenerateStorageOrder(roothash, segmentInfo, owner, filename, bucketname)
+				_, err = n.GenerateStorageOrder(roothash, segmentInfo, owner, filename, bucketname)
 				if err != nil {
 					return 0, err
 				}
@@ -354,9 +353,8 @@ func (n *Node) storageData(roothash string, segment []pattern.SegmentDataInfo, m
 
 	basedir := filepath.Dir(segment[0].FragmentHash[0])
 	for i := 0; i < len(peerids); i++ {
-
 		if !n.Has(peerids[i]) {
-			continue
+			return fmt.Errorf("No allocated storage node found: %s", peerids[i])
 		}
 
 		id, _ := peer.Decode(peerids[i])
@@ -381,4 +379,14 @@ func (n *Node) QueryAssignedMiner(minerTaskList []pattern.MinerTaskList) ([]stri
 		peerids[i] = base58.Encode([]byte(string(minerInfo.PeerId[:])))
 	}
 	return peerids, nil
+}
+
+func parseRecordInfoFromFile(file string) (RecordInfo, error) {
+	var result RecordInfo
+	b, err := os.ReadFile(file)
+	if err != nil {
+		return result, err
+	}
+	err = json.Unmarshal(b, &result)
+	return result, err
 }

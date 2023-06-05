@@ -2,13 +2,14 @@
 Rpc:
   - "wss://testnet-rpc0.cess.cloud/ws/"
   - "wss://testnet-rpc1.cess.cloud/ws/"
+# Bootstrap Nodes
+Boot:
+  - "_dnsaddr.bootstrap-kldr.cess.cloud"
 # Account mnemonic
 Mnemonic: "swear theme bounce soccer hungry gesture hurdle asset typical call balcony wrist"
 # Service workspace
 Workspace: /
-# Service running address
-Address: "127.0.0.1"
 # P2P communication port
-P2P_Port: 8088
+P2P_Port: 4001
 # Service listening port
-HTTP_Port: 15000
+HTTP_Port: 8080

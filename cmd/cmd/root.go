@@ -39,12 +39,12 @@ func init() {
 		Command_Run(),
 		Command_State(),
 	)
-	rootCmd.PersistentFlags().StringP("config", "c", "conf.yaml", "Custom profile")
+	rootCmd.PersistentFlags().StringP("config", "c", "conf.yaml", "custom profile")
 	rootCmd.PersistentFlags().StringP("rpc", "", "wss://testnet-rpc0.cess.cloud/ws/", "rpc endpoint")
 	rootCmd.PersistentFlags().StringP("ws", "", "/", "workspace")
-	rootCmd.PersistentFlags().StringP("ip", "", "0.0.0.0", "listening ip address")
 	rootCmd.PersistentFlags().IntP("http_port", "P", 8080, "service listening port")
-	rootCmd.PersistentFlags().IntP("p2p_port", "p", 15008, "p2p port")
+	rootCmd.PersistentFlags().IntP("p2p_port", "p", 4001, "p2p port")
+	rootCmd.PersistentFlags().StringP("boot", "", "_dnsaddr.bootstrap-kldr.cess.cloud", "bootstap nodes")
 }
 
 func Command_Version() *cobra.Command {
@@ -62,8 +62,8 @@ func Command_Version() *cobra.Command {
 
 func Command_Profile() *cobra.Command {
 	cc := &cobra.Command{
-		Use:                   "profile",
-		Short:                 "Generate profile template",
+		Use:                   "config",
+		Short:                 "Generate configuration file",
 		Run:                   Command_Profile_Runfunc,
 		DisableFlagsInUseLine: true,
 	}
@@ -82,8 +82,8 @@ func Command_Run() *cobra.Command {
 
 func Command_State() *cobra.Command {
 	cc := &cobra.Command{
-		Use:                   "state",
-		Short:                 "View status",
+		Use:                   "stat",
+		Short:                 "Query deoss information",
 		Run:                   Command_State_Runfunc,
 		DisableFlagsInUseLine: true,
 	}

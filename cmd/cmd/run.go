@@ -23,6 +23,9 @@ import (
 	"github.com/CESSProject/DeOSS/pkg/utils"
 	p2pgo "github.com/CESSProject/p2p-go"
 	sdkgo "github.com/CESSProject/sdk-go"
+	sconfig "github.com/CESSProject/sdk-go/config"
+	"github.com/CESSProject/sdk-go/core/pattern"
+	"github.com/howeyc/gopass"
 	"github.com/libp2p/go-libp2p/core/peer"
 	ma "github.com/multiformats/go-multiaddr"
 	"github.com/spf13/cobra"
@@ -39,7 +42,7 @@ func Command_Run_Runfunc(cmd *cobra.Command, args []string) {
 	)
 
 	// Building Profile Instances
-	n.Confile, err = buildConfigFile(cmd, "", 0)
+	n.Confile, err = buildConfigFile(cmd)
 	if err != nil {
 		log.Println(err)
 		os.Exit(1)
@@ -47,10 +50,10 @@ func Command_Run_Runfunc(cmd *cobra.Command, args []string) {
 
 	//Build client
 	n.SDK, err = sdkgo.New(
-		configs.Name,
+		sconfig.CharacterName_Deoss,
 		sdkgo.ConnectRpcAddrs(n.GetRpcAddr()),
 		sdkgo.Mnemonic(n.GetMnemonic()),
-		sdkgo.TransactionTimeout(time.Duration(12*time.Second)),
+		sdkgo.TransactionTimeout(configs.TimeOut_WaitBlock),
 	)
 	if err != nil {
 		log.Println(err)
@@ -143,7 +146,7 @@ func Command_Run_Runfunc(cmd *cobra.Command, args []string) {
 	n.Run()
 }
 
-func buildConfigFile(cmd *cobra.Command, ip4 string, port int) (confile.Confile, error) {
+func buildConfigFile(cmd *cobra.Command) (confile.Confile, error) {
 	var conFilePath string
 	configpath1, _ := cmd.Flags().GetString("config")
 	configpath2, _ := cmd.Flags().GetString("c")
@@ -156,20 +159,21 @@ func buildConfigFile(cmd *cobra.Command, ip4 string, port int) (confile.Confile,
 	}
 
 	cfg := confile.NewConfigfile()
-	err := cfg.Parse(conFilePath, ip4, port)
+	err := cfg.Parse(conFilePath)
 	if err == nil {
 		return cfg, err
 	}
 
-	rpc, err := cmd.Flags().GetString("rpc")
+	rpc, err := cmd.Flags().GetStringSlice("rpc")
 	if err != nil {
 		return cfg, err
 	}
+	boot, err := cmd.Flags().GetStringSlice("boot")
+	if err != nil {
+		return cfg, err
+	}
+	cfg.SetBootNodes(boot)
 	workspace, err := cmd.Flags().GetString("ws")
-	if err != nil {
-		return cfg, err
-	}
-	ip, err := cmd.Flags().GetString("ip")
 	if err != nil {
 		return cfg, err
 	}
@@ -187,12 +191,8 @@ func buildConfigFile(cmd *cobra.Command, ip4 string, port int) (confile.Confile,
 			return cfg, err
 		}
 	}
-	cfg.SetRpcAddr([]string{rpc})
+	cfg.SetRpcAddr(rpc)
 	err = cfg.SetWorkspace(workspace)
-	if err != nil {
-		return cfg, err
-	}
-	err = cfg.SetServiceAddr(ip)
 	if err != nil {
 		return cfg, err
 	}
@@ -204,30 +204,91 @@ func buildConfigFile(cmd *cobra.Command, ip4 string, port int) (confile.Confile,
 	if err != nil {
 		return cfg, err
 	}
-	mnemonic, err := utils.PasswdWithMask("Please enter your mnemonic and press Enter to end:", "", "")
+	log.Println("Please enter the mnemonic of the staking account:")
+	for {
+		pwd, err := gopass.GetPasswdMasked()
+		if err != nil {
+			if err.Error() == "interrupted" || err.Error() == "interrupt" || err.Error() == "killed" {
+				os.Exit(0)
+			}
+			log.Println("Invalid mnemonic, please check and re-enter:")
+			continue
+		}
+		if len(pwd) == 0 {
+			log.Println("The mnemonic you entered is empty, please re-enter:")
+			continue
+		}
+		err = cfg.SetMnemonic(string(pwd))
+		if err != nil {
+			log.Println("Invalid mnemonic, please check and re-enter:")
+			continue
+		}
+		break
+	}
+	return cfg, nil
+}
+
+func buildAuthenticationConfig(cmd *cobra.Command) (confile.Confile, error) {
+	var conFilePath string
+	configpath1, _ := cmd.Flags().GetString("config")
+	configpath2, _ := cmd.Flags().GetString("c")
+	if configpath1 != "" {
+		conFilePath = configpath1
+	} else if configpath2 != "" {
+		conFilePath = configpath2
+	} else {
+		conFilePath = configs.DefaultConfig
+	}
+
+	cfg := confile.NewConfigfile()
+	err := cfg.Parse(conFilePath)
+	if err == nil {
+		return cfg, err
+	}
+
+	rpc, err := cmd.Flags().GetStringSlice("rpc")
 	if err != nil {
 		return cfg, err
 	}
-	err = cfg.SetMnemonic(mnemonic)
-	if err != nil {
-		return cfg, err
+	cfg.SetRpcAddr(rpc)
+
+	log.Println("Please enter the mnemonic of the staking account:")
+	for {
+		pwd, err := gopass.GetPasswdMasked()
+		if err != nil {
+			if err.Error() == "interrupted" || err.Error() == "interrupt" || err.Error() == "killed" {
+				os.Exit(0)
+			}
+			log.Println("Invalid mnemonic, please check and re-enter:")
+			continue
+		}
+		if len(pwd) == 0 {
+			log.Println("The mnemonic you entered is empty, please re-enter:")
+			continue
+		}
+		err = cfg.SetMnemonic(string(pwd))
+		if err != nil {
+			log.Println("Invalid mnemonic, please check and re-enter:")
+			continue
+		}
+		break
 	}
 	return cfg, nil
 }
 
 func buildDir(workspace string) (string, string, string, error) {
 	logDir := filepath.Join(workspace, configs.Log)
-	if err := os.MkdirAll(logDir, configs.DirPermission); err != nil {
+	if err := os.MkdirAll(logDir, pattern.DirMode); err != nil {
 		return "", "", "", err
 	}
 
 	cacheDir := filepath.Join(workspace, configs.Db)
-	if err := os.MkdirAll(cacheDir, configs.DirPermission); err != nil {
+	if err := os.MkdirAll(cacheDir, pattern.DirMode); err != nil {
 		return "", "", "", err
 	}
 
 	trackDir := filepath.Join(workspace, configs.Track)
-	if err := os.MkdirAll(trackDir, configs.DirPermission); err != nil {
+	if err := os.MkdirAll(trackDir, pattern.DirMode); err != nil {
 		return "", "", "", err
 	}
 
