@@ -24,6 +24,7 @@ import (
 	p2pgo "github.com/CESSProject/p2p-go"
 	sdkgo "github.com/CESSProject/sdk-go"
 	sconfig "github.com/CESSProject/sdk-go/config"
+	"github.com/CESSProject/sdk-go/core/pattern"
 	"github.com/howeyc/gopass"
 	"github.com/libp2p/go-libp2p/core/peer"
 	ma "github.com/multiformats/go-multiaddr"
@@ -52,7 +53,7 @@ func Command_Run_Runfunc(cmd *cobra.Command, args []string) {
 		sconfig.CharacterName_Deoss,
 		sdkgo.ConnectRpcAddrs(n.GetRpcAddr()),
 		sdkgo.Mnemonic(n.GetMnemonic()),
-		sdkgo.TransactionTimeout(time.Duration(12*time.Second)),
+		sdkgo.TransactionTimeout(configs.TimeOut_WaitBlock),
 	)
 	if err != nil {
 		log.Println(err)
@@ -277,17 +278,17 @@ func buildAuthenticationConfig(cmd *cobra.Command) (confile.Confile, error) {
 
 func buildDir(workspace string) (string, string, string, error) {
 	logDir := filepath.Join(workspace, configs.Log)
-	if err := os.MkdirAll(logDir, configs.DirPermission); err != nil {
+	if err := os.MkdirAll(logDir, pattern.DirMode); err != nil {
 		return "", "", "", err
 	}
 
 	cacheDir := filepath.Join(workspace, configs.Db)
-	if err := os.MkdirAll(cacheDir, configs.DirPermission); err != nil {
+	if err := os.MkdirAll(cacheDir, pattern.DirMode); err != nil {
 		return "", "", "", err
 	}
 
 	trackDir := filepath.Join(workspace, configs.Track)
-	if err := os.MkdirAll(trackDir, configs.DirPermission); err != nil {
+	if err := os.MkdirAll(trackDir, pattern.DirMode); err != nil {
 		return "", "", "", err
 	}
 

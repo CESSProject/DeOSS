@@ -9,7 +9,6 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/CESSProject/DeOSS/configs"
 	"github.com/CESSProject/DeOSS/pkg/utils"
 	"github.com/CESSProject/sdk-go/core/pattern"
 	jwt "github.com/dgrijalva/jwt-go"
@@ -146,7 +145,7 @@ func (n *Node) SaveBody(c *gin.Context, account, name string) (string, int, erro
 	// Create file storage directory
 	_, err = os.Stat(savedir)
 	if err != nil {
-		err = os.MkdirAll(savedir, configs.DirPermission)
+		err = os.MkdirAll(savedir, pattern.DirMode)
 		if err != nil {
 			return "", http.StatusInternalServerError, errors.New(ERR_ReportProblem + err.Error())
 		}

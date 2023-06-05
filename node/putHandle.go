@@ -194,7 +194,7 @@ func (n *Node) trackFile(ch chan<- bool) {
 	)
 
 	for {
-		time.Sleep(configs.BlockInterval)
+		time.Sleep(pattern.BlockInterval)
 		files, _ := filepath.Glob(fmt.Sprintf("%s/*", n.TrackDir))
 		for i := 0; i < len(files); i++ {
 			roothash = filepath.Base(files[i])

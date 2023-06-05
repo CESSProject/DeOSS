@@ -11,8 +11,8 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"time"
 
+	"github.com/CESSProject/DeOSS/configs"
 	"github.com/CESSProject/DeOSS/node"
 	sdkgo "github.com/CESSProject/sdk-go"
 	sconfig "github.com/CESSProject/sdk-go/config"
@@ -37,7 +37,7 @@ func Command_State_Runfunc(cmd *cobra.Command, args []string) {
 		sconfig.CharacterName_Deoss,
 		sdkgo.ConnectRpcAddrs(n.Confile.GetRpcAddr()),
 		sdkgo.Mnemonic(n.Confile.GetMnemonic()),
-		sdkgo.TransactionTimeout(time.Duration(12*time.Second)),
+		sdkgo.TransactionTimeout(configs.TimeOut_WaitBlock),
 	)
 	if err != nil {
 		log.Println(err)
