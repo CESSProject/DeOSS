@@ -26,10 +26,10 @@ func (n *Node) discoverMgt(ch chan<- bool) {
 		}
 	}()
 	var ok bool
-	var loopback bool
 	var err error
 	var peerid string
 	var addr string
+	var multiaddr string
 	tick := time.NewTicker(time.Second * 30)
 	for {
 		select {
@@ -41,7 +41,7 @@ func (n *Node) discoverMgt(ch chan<- bool) {
 			}
 		case discoverPeer := <-n.DiscoveredPeer():
 			peerid = discoverPeer.ID.Pretty()
-			log.Println(fmt.Sprintf("Found a peer: %s addrs: %v", peerid, discoverPeer.Addrs))
+			log.Println(fmt.Sprintf("Found a peer: %s", peerid))
 			err := n.Connect(n.GetRootCtx(), discoverPeer)
 			if err != nil {
 				//configs.Err(fmt.Sprintf("Connectto %s failed: %v", peerid, err))
@@ -51,28 +51,17 @@ func (n *Node) discoverMgt(ch chan<- bool) {
 			}
 			n.PutPeer(peerid)
 			for _, v := range discoverPeer.Addrs {
-				loopback = false
 				addr = v.String()
 				temp := strings.Split(addr, "/")
 				for _, vv := range temp {
 					if sutils.IsIPv4(vv) {
 						if vv[len(vv)-1] == byte(49) && vv[len(vv)-3] == byte(48) {
-							loopback = true
-							break
+							continue
 						}
+						multiaddr = fmt.Sprintf("%s/p2p/%s", addr, peerid)
+						_, err = n.AddMultiaddrToPeerstore(multiaddr, time.Hour)
 					}
 				}
-
-				if loopback {
-					continue
-				}
-
-				_, _ = n.AddMultiaddrToPearstore(fmt.Sprintf("%s/p2p/%s", addr, peerid), time.Hour)
-				// if err != nil {
-				// 	configs.Err(fmt.Sprintf("Add %s to pearstore failed: %v", multiaddr, err))
-				// } else {
-				// 	configs.Tip(fmt.Sprintf("Add %s to pearstore", multiaddr))
-				// }
 			}
 		}
 	}

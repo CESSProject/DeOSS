@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"syscall"
 	"time"
 
@@ -116,6 +117,47 @@ func (n *Node) putHandle(c *gin.Context) {
 		}
 	}
 	defer os.Remove(fpath)
+
+	fstat, err := os.Stat(fpath)
+	if err != nil {
+		n.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, err))
+		c.JSON(http.StatusInternalServerError, ERR_InternalServer)
+		return
+	}
+
+	userInfo, err := n.QueryUserSpaceSt(pkey)
+	if err != nil {
+		n.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, err))
+		c.JSON(http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	blockheight, err := n.QueryBlockHeight("")
+	if err != nil {
+		n.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, err))
+		c.JSON(http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	if userInfo.Deadline <= blockheight {
+		n.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, ERR_SpaceExpired))
+		c.JSON(http.StatusForbidden, ERR_SpaceExpired)
+		return
+	}
+
+	usedSpace := fstat.Size() * 15 / 10
+	remainingSpace, err := strconv.ParseUint(userInfo.RemainingSpace, 10, 64)
+	if err != nil {
+		n.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, err))
+		c.JSON(http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	if usedSpace > int64(remainingSpace) {
+		n.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, ERR_NotEnoughSpace))
+		c.JSON(http.StatusForbidden, ERR_NotEnoughSpace)
+		return
+	}
 
 	segmentInfo, roothash, err := n.ProcessingData(fpath)
 	if err != nil {

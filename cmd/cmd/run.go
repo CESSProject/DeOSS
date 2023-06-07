@@ -81,7 +81,6 @@ func Command_Run_Runfunc(cmd *cobra.Command, args []string) {
 
 	n.P2P, err = p2pgo.New(
 		context.Background(),
-		"",
 		p2pgo.ListenPort(n.GetP2pPort()),
 		p2pgo.Workspace(filepath.Join(n.GetWorkspace(), n.GetSignatureAcc(), configs.Name)),
 		p2pgo.BootPeers(bootstrap),

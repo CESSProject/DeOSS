@@ -65,25 +65,27 @@ If you are using the test network, Please join the [CESS discord](https://discor
 Use `deoss` to generate configuration file templates directly in the current directory:
 ```shell
 sudo chmod +x deoss
-./deoss profile
+./deoss config
 ```
 The content of the configuration file template is as follows. You need to fill in your own information into the file. By default, the `deoss` uses conf.toml in the current directory as the runtime configuration file. You can use `-c` or `--config` to specify the configuration file Location.
 
-```toml
-# The rpc address of the chain node
-RpcAddr     = ""
-# The IP address of the machine's public network used by the scheduler program
-ServiceAddr = ""
-# Port number monitored by the scheduler program
-ServicePort = ""
-# Data storage directory
-DataDir     = ""
-# Phrase or seed of wallet account
-AccountSeed = ""
+```yaml
+# The rpc endpoint of the chain node
+Rpc:
+  - "wss://testnet-rpc0.cess.cloud/ws/"
+  - "wss://testnet-rpc1.cess.cloud/ws/"
+# Bootstrap Nodes
+Boot:
+  - "_dnsaddr.bootstrap-kldr.cess.cloud"
+# Account mnemonic
+Mnemonic: "xxx xxx ... xxx"
+# Service workspace
+Workspace: /
+# P2P communication port
+P2P_Port: 4001
+# Service listening port
+HTTP_Port: 8080
 ```
-*Our testnet rpc address is as follows:*<br>
-`wss://testnet-rpc0.cess.cloud/ws/`<br>
-`wss://testnet-rpc1.cess.cloud/ws/`
 
 ### Step 4: Start the DeOSS service
 
@@ -92,14 +94,10 @@ sudo nohup ./deoss run 2>&1 &
 ```
 
 ## Other usage guidelines for DeOSS
-### Update the DeOSS address
-```
-./deoss update <ip> <port>
-```
 
 ### View the DeOSS address
 ```
-./deoss state
+./deoss stat
 ```
 
 

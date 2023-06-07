@@ -55,7 +55,7 @@ func Command_State_Runfunc(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 	var tableRows = []table.Row{
-		{"character name", n.GetCharacterName()},
+		{"role", n.GetRoleName()},
 		{"peer id", base58.Encode(ossState)},
 		{"signature account", n.GetSignatureAcc()},
 	}
