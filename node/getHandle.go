@@ -130,7 +130,7 @@ func (n *Node) GetHandle(c *gin.Context) {
 		}
 		// Query bucket list
 		if getName == "*" {
-			bucketList, err := n.QueryBucketList(pkey)
+			bucketList, err := n.QueryAllBucketName(pkey)
 			if err != nil {
 				if err.Error() == pattern.ERR_Empty {
 					n.Query("err", fmt.Sprintf("[%s] Query [%s] bucket list: NotFount", clientIp, account))
