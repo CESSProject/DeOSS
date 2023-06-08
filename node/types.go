@@ -46,7 +46,6 @@ const (
 	ERR_EmptyBucketName   = "Invalid.EmptyBucketName"
 	ERR_UnauthorizedSpace = "UnauthorizedSpace"
 	ERR_EmptyFile         = "InvalidBody.EmptyFile"
-	ERR_DuplicateFileName = "InvalidParameter.DuplicateFileName"
 	ERR_ReadBody          = "InvalidBody.ReadErr"
 	ERR_SpaceExpired      = "space expired"
 	ERR_NotEnoughSpace    = "not enough space"

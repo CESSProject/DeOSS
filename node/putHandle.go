@@ -15,6 +15,7 @@ import (
 	"path/filepath"
 	"strconv"
 
+	"github.com/CESSProject/DeOSS/pkg/utils"
 	"github.com/CESSProject/sdk-go/core/pattern"
 	sutils "github.com/CESSProject/sdk-go/core/utils"
 	"github.com/gin-gonic/gin"
@@ -161,8 +162,29 @@ func (n *Node) putHandle(c *gin.Context) {
 		return
 	}
 
-	roothashpath := filepath.Join(n.GetDirs().FileDir, roothash)
-	_, err = os.Stat(roothashpath)
+	_, err = os.Stat(filepath.Join(n.TrackDir, roothash))
+	if err == nil {
+		n.Upfile("info", fmt.Sprintf("[%v] [%s] uploaded successfully", clientIp, roothash))
+		c.JSON(http.StatusOK, roothash)
+		return
+	}
+
+	_, err = os.Stat(filepath.Join(n.GetDirs().FileDir, roothash))
+	if err == nil {
+		n.Upfile("info", fmt.Sprintf("[%v] [%s] uploaded successfully", clientIp, roothash))
+		c.JSON(http.StatusOK, roothash)
+		return
+	}
+
+	_, err = n.QueryFileMetadata(roothash)
+	if err == nil {
+		n.Upfile("info", fmt.Sprintf("[%v] [%s] uploaded successfully", clientIp, roothash))
+		c.JSON(http.StatusOK, roothash)
+		return
+	}
+
+	roothashDir := filepath.Join(n.GetDirs().FileDir, account, roothash)
+	_, err = os.Stat(roothashDir)
 	if err == nil {
 		_, err = os.Stat(filepath.Join(n.TrackDir, roothash))
 		if err == nil {
@@ -171,12 +193,33 @@ func (n *Node) putHandle(c *gin.Context) {
 		}
 	}
 
-	err = os.Rename(fpath, roothashpath)
+	err = os.MkdirAll(roothashDir, pattern.DirMode)
 	if err != nil {
 		n.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, err))
 		c.JSON(http.StatusInternalServerError, err.Error())
 		return
 	}
+
+	err = os.Rename(filepath.Join(roothashDir, filepath.Base(fpath)), filepath.Join(roothashDir, roothash))
+	if err != nil {
+		n.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, err))
+		c.JSON(http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	err = utils.RenameDir(filepath.Dir(fpath), roothashDir)
+	if err != nil {
+		n.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, err))
+		c.JSON(http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	// err = os.Rename(fpath, roothashpath)
+	// if err != nil {
+	// 	n.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, err))
+	// 	c.JSON(http.StatusInternalServerError, err.Error())
+	// 	return
+	// }
 
 	var recordInfo = &RecordInfo{
 		SegmentInfo: segmentInfo,
@@ -185,6 +228,7 @@ func (n *Node) putHandle(c *gin.Context) {
 		Filename:    putName,
 		Buckname:    bucketName,
 		Putflag:     false,
+		Count:       0,
 	}
 
 	f, err := os.Create(filepath.Join(n.TrackDir, roothash))
@@ -201,7 +245,12 @@ func (n *Node) putHandle(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, err)
 		return
 	}
-	f.Write(b)
+	_, err = f.Write(b)
+	if err != nil {
+		n.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, err))
+		c.JSON(http.StatusInternalServerError, err)
+		return
+	}
 	err = f.Sync()
 	if err != nil {
 		n.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, err))

@@ -1,18 +1,20 @@
 package node
 
 import (
-	"errors"
+	"fmt"
 	"io/ioutil"
 	"mime/multipart"
 	"net/http"
-	"net/url"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/CESSProject/DeOSS/pkg/utils"
 	"github.com/CESSProject/sdk-go/core/pattern"
 	jwt "github.com/dgrijalva/jwt-go"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
+	"github.com/pkg/errors"
 )
 
 // VerifyToken is used to parse and verify token
@@ -80,23 +82,22 @@ func (n *Node) SaveFormFile(c *gin.Context, account, name string) (string, int, 
 		hashpath string
 		formfile *multipart.FileHeader
 	)
-	savedir = filepath.Join(n.GetDirs().FileDir, account)
-	// Create file storage directory
-	_, err = os.Stat(savedir)
-	if err != nil {
-		err = os.MkdirAll(savedir, pattern.DirMode)
+
+	for {
+		savedir = filepath.Join(n.GetDirs().FileDir, account, fmt.Sprintf("%s-%s", uuid.New().String(), uuid.New().String()))
+		// Create file storage directory
+		_, err = os.Stat(savedir)
 		if err != nil {
-			return "", http.StatusInternalServerError, errors.New(ERR_ReportProblem + err.Error())
+			err = os.MkdirAll(savedir, pattern.DirMode)
+			if err != nil {
+				return "", http.StatusInternalServerError, errors.Wrapf(err, fmt.Sprintf("[MkdirAll: %s]", savedir))
+			}
+			break
 		}
 	}
 
 	// Calculate the full path of the file
-	fpath = filepath.Join(savedir, url.QueryEscape(name))
-	_, err = os.Stat(fpath)
-	if err == nil {
-		return "", http.StatusBadRequest, errors.New(ERR_DuplicateFileName)
-	}
-
+	fpath = filepath.Join(savedir, fmt.Sprintf("%v", time.Now().Unix()))
 	defer os.Remove(fpath)
 
 	// Get form file
@@ -141,22 +142,21 @@ func (n *Node) SaveBody(c *gin.Context, account, name string) (string, int, erro
 		fpath    string
 		hashpath string
 	)
-	savedir = filepath.Join(n.GetDirs().FileDir, account)
-	// Create file storage directory
-	_, err = os.Stat(savedir)
-	if err != nil {
-		err = os.MkdirAll(savedir, pattern.DirMode)
+	for {
+		savedir = filepath.Join(n.GetDirs().FileDir, account, fmt.Sprintf("%s-%s", uuid.New().String(), uuid.New().String()))
+		// Create file storage directory
+		_, err = os.Stat(savedir)
 		if err != nil {
-			return "", http.StatusInternalServerError, errors.New(ERR_ReportProblem + err.Error())
+			err = os.MkdirAll(savedir, pattern.DirMode)
+			if err != nil {
+				return "", http.StatusInternalServerError, errors.Wrapf(err, fmt.Sprintf("[MkdirAll: %s]", savedir))
+			}
+			break
 		}
 	}
 
 	// Calculate the full path of the file
-	fpath = filepath.Join(savedir, url.QueryEscape(name))
-	_, err = os.Stat(fpath)
-	if err == nil {
-		return "", http.StatusInternalServerError, errors.New(ERR_DuplicateFileName)
-	}
+	fpath = filepath.Join(savedir, fmt.Sprintf("%v", time.Now().Unix()))
 
 	f, err := os.Create(fpath)
 	if err == nil {
