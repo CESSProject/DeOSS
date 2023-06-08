@@ -10,19 +10,54 @@ we are happy to communicate with you.
 ## System Requirements
 - Linux-amd64
 
+## System configuration
+**Ddependencies**
+
+ubuntu:
+
+```shell
+sudo apt update && sudo apt upgrade
+sudo apt install make gcc git curl wget vim util-linux -y
+```
+centos:
+```
+sudo yum update && sudo yum upgrade
+sudo yum install make gcc git curl wget vim util-linux -y
+```
+**Firewall**
+
+If the firewall is turned on, you need to open the running port, the default port is 4001 and 8080.
+
+ubuntu:
+
+First check if the firewall is on with the following command:
+```
+sudo ufw status
+```
+If the prompt `Status: active` indicates that the firewall is enabled, use the following command to open the port:
+```shell
+sudo ufw allow 4001/tcp
+sudo ufw allow 8080/tcp
+```
+centos:
+
+First check if the firewall is on with the following command:
+```
+sudo firewall-cmd --state
+```
+If the prompt `running` indicates that the firewall is enabled, enter the following command to open the port:
+```
+sudo firewall-cmd --permanent --add-port=4001/tcp
+sudo firewall-cmd --permanent --add-port=8080/tcp
+```
+Restart firewall
+```
+sudo firewall-cmd --reload
+```
 
 ## Build from source
 
-### Step 1: Install common libraries
-
-Take the ubuntu distribution as an example:
-
-```shell
-sudo apt update && sudo upgrade
-sudo apt install make gcc git curl wget vim util-linux -y
-```
-
-### Step 2: Install go
+### Step 1: Install go
 
 DeOSS requires [Go 1.19](https://golang.org/dl/) or higher, See the [official Golang installation instructions](https://golang.org/doc/install).
 
@@ -36,7 +71,7 @@ Users in China can add go proxy to speed up the download:
 go env -w GOPROXY="https://goproxy.cn,direct"
 ```
 
-### Step 3: Clone code
+### Step 2: Clone code
 ```
 git clone https://github.com/CESSProject/DeOSS.git
 ```
@@ -47,12 +82,12 @@ cd DeOSS/
 go test -v ./...
 ```
 
-**Step 4:** Build a deoss
+###  Step 3: Build a deoss
 ```
 go build -o deoss cmd/main.go
 ```
 
-**Step 5:** Grant execute permission
+###  Step 4:  Grant execute permission
 
 ```shell
 chmod +x deoss
