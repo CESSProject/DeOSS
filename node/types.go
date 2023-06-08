@@ -36,6 +36,8 @@ const (
 
 	ERR_MissToken         = "InvalidHead.MissToken"
 	ERR_EmptySeed         = "InvalidProfile.EmptySeed"
+	ERR_MissAccount       = "InvalidHead.MissAccount"
+	ERR_InvalidAccount    = "InvalidHead.Account"
 	ERR_NoPermission      = "InvalidToken.NoPermission"
 	ERR_InvalidToken      = "InvalidHead.Token"
 	ERR_InvalidName       = "InvalidParameter.Name"

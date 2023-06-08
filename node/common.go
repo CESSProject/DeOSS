@@ -34,7 +34,7 @@ func (n *Node) VerifyToken(c *gin.Context, respmsg *RespMsg) (string, []byte, er
 	if tokenstr == "" {
 		respmsg.Code = http.StatusBadRequest
 		respmsg.Err = errors.New(ERR_MissToken)
-		return account, nil, err
+		return account, nil, errors.New(ERR_MissToken)
 	}
 
 	// parse token

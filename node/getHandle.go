@@ -66,20 +66,9 @@ type FileMetaData struct {
 func (n *Node) GetHandle(c *gin.Context) {
 	var (
 		clientIp string
-		respMsg  = &RespMsg{}
 	)
 	clientIp = c.ClientIP()
 	n.Query("info", fmt.Sprintf("[%s] %s", clientIp, INFO_GetRequest))
-
-	// verify token
-	account, pkey, err := n.VerifyToken(c, respMsg)
-	if err != nil {
-		n.Query("err", fmt.Sprintf("[%s] %v", clientIp, err))
-		c.JSON(respMsg.Code, respMsg.Err)
-		return
-	}
-
-	n.Query("info", fmt.Sprintf("[%s] [%s]", clientIp, account))
 
 	getName := c.Param("name")
 	if getName == "version" {
@@ -89,6 +78,18 @@ func (n *Node) GetHandle(c *gin.Context) {
 	}
 
 	if len(getName) != len(pattern.FileHash{}) {
+		account := c.Request.Header.Get(Header_Account)
+		if account == "" {
+			n.Query("err", fmt.Sprintf("[%s] %s", clientIp, ERR_MissAccount))
+			c.JSON(http.StatusBadRequest, ERR_MissAccount)
+			return
+		}
+		pkey, err := utils.ParsingPublickey(account)
+		if err != nil {
+			n.Query("err", fmt.Sprintf("[%s] %s", clientIp, ERR_InvalidAccount))
+			c.JSON(http.StatusBadRequest, ERR_InvalidAccount)
+			return
+		}
 		// Query bucket
 		if utils.CheckBucketName(getName) {
 			n.Query("info", fmt.Sprintf("[%s] Query bucket [%s] info", clientIp, getName))
