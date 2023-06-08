@@ -10,11 +10,10 @@ package node
 import (
 	"fmt"
 	"net/http"
+	"unsafe"
 
-	"github.com/CESSProject/DeOSS/configs"
-	"github.com/CESSProject/DeOSS/pkg/utils"
 	"github.com/CESSProject/sdk-go/core/pattern"
-	jwt "github.com/dgrijalva/jwt-go"
+	sutils "github.com/CESSProject/sdk-go/core/utils"
 	"github.com/gin-gonic/gin"
 )
 
@@ -25,70 +24,56 @@ type DelList struct {
 // delHandle is used to delete buckets or files
 func (n *Node) delHandle(c *gin.Context) {
 	var (
-		err    error
-		acc    string
-		txHash string
+		err      error
+		txHash   string
+		clientIp string
+		pkey     []byte
+		respMsg  = &RespMsg{}
 	)
 
-	// token
-	tokenString := c.Request.Header.Get(configs.Header_Auth)
-	if tokenString == "" {
-		c.JSON(400, "InvalidHead.MissToken")
-		return
-	}
+	clientIp = c.ClientIP()
+	n.Upfile("info", fmt.Sprintf("[%v] %v", clientIp, INFO_DelRequest))
 
-	signKey, err := utils.CalcMD5(n.Confile.GetMnemonic())
+	// verify token
+	_, pkey, err = n.VerifyToken(c, respMsg)
 	if err != nil {
-		c.JSON(500, "InternalError")
+		n.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, err))
+		c.JSON(respMsg.Code, respMsg.Err)
 		return
 	}
 
-	token, err := jwt.ParseWithClaims(
-		tokenString,
-		&CustomClaims{},
-		func(token *jwt.Token) (interface{}, error) {
-			return signKey, nil
-		})
-
-	if claims, ok := token.Claims.(*CustomClaims); ok && token.Valid {
-		acc = claims.Account
-	} else {
-		c.JSON(403, "NoPermission")
-		return
-	}
-
-	pkey, err := utils.DecodePublicKeyOfCessAccount(acc)
-	if err != nil {
-		c.JSON(400, "InvalidHead.Token")
-		return
-	}
-
-	bucketName := c.Request.Header.Get(configs.Header_BucketName)
-	if bucketName != "" {
-		txHash, err = n.DeleteBucket(pkey, bucketName)
+	deleteName := c.Param(PUT_ParameterName)
+	if len(deleteName) == int(unsafe.Sizeof(pattern.FileHash{})) {
+		txHash, _, err = n.DeleteFile(pkey, []string{deleteName})
 		if err != nil {
 			c.JSON(400, err.Error())
 			return
 		}
-		c.JSON(http.StatusOK, map[string]string{"Block hash:": txHash})
+		c.JSON(200, txHash)
+	} else if sutils.CheckBucketName(deleteName) {
+		txHash, err = n.DeleteBucket(pkey, deleteName)
+		if err != nil {
+			c.JSON(400, err.Error())
+			return
+		}
+		c.JSON(200, txHash)
+	} else {
+		deleteNames := c.PostFormArray("delete_list")
+		if err != nil {
+			c.JSON(400, "InvalidBody.DeleteList")
+			return
+		}
+
+		txHash, failList, err := n.DeleteFile(pkey, deleteNames)
+		if err != nil {
+			c.JSON(400, err.Error())
+			return
+		}
+
+		c.JSON(http.StatusOK, struct {
+			Block_hash  string
+			Failed_list []pattern.FileHash
+		}{Block_hash: txHash, Failed_list: failList})
 		return
 	}
-
-	deleteName := c.PostFormArray("delete_list")
-	if err != nil {
-		c.JSON(400, "InvalidBody.DeleteList")
-		return
-	}
-
-	fmt.Println(deleteName)
-	txHash, failList, err := n.DeleteFile(pkey, deleteName)
-	if err != nil {
-		c.JSON(400, err.Error())
-		return
-	}
-
-	c.JSON(http.StatusOK, struct {
-		Block_hash  string
-		Failed_list []pattern.FileHash
-	}{Block_hash: txHash, Failed_list: failList})
 }

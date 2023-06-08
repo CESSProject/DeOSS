@@ -11,8 +11,10 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"io"
 	"math/rand"
 	"net"
+	"os"
 	"reflect"
 	"runtime/debug"
 	"strings"
@@ -83,4 +85,23 @@ func Int64ToBytes(i int64) []byte {
 
 func BytesToInt64(buf []byte) int64 {
 	return int64(binary.BigEndian.Uint64(buf))
+}
+
+func CopyFile(dst, src string) error {
+	dstFile, err := os.Create(dst)
+	if err != nil {
+		return err
+	}
+	defer dstFile.Close()
+	srcFile, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer srcFile.Close()
+
+	_, err = io.Copy(dstFile, srcFile)
+	if err != nil {
+		return err
+	}
+	return nil
 }

@@ -33,6 +33,7 @@ const (
 
 	INFO_PutRequest = "PutRequest"
 	INFO_GetRequest = "GetRequest"
+	INFO_DelRequest = "DelRequest"
 
 	ERR_MissToken         = "InvalidHead.MissToken"
 	ERR_EmptySeed         = "InvalidProfile.EmptySeed"
