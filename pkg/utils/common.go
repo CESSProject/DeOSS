@@ -11,12 +11,17 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"io"
 	"math/rand"
 	"net"
+	"os"
+	"path/filepath"
 	"reflect"
 	"runtime/debug"
 	"strings"
 	"time"
+
+	"github.com/CESSProject/sdk-go/core/pattern"
 )
 
 // RecoverError is used to record the stack information of panic
@@ -83,4 +88,75 @@ func Int64ToBytes(i int64) []byte {
 
 func BytesToInt64(buf []byte) int64 {
 	return int64(binary.BigEndian.Uint64(buf))
+}
+
+func CopyFile(dst, src string) error {
+	dstFile, err := os.Create(dst)
+	if err != nil {
+		return err
+	}
+	defer dstFile.Close()
+	srcFile, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer srcFile.Close()
+
+	_, err = io.Copy(dstFile, srcFile)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// Get the total size of all files in a directory and subdirectories
+func DirFiles(path string, count uint32) ([]string, error) {
+	var files = make([]string, 0)
+	result, err := filepath.Glob(path + "/*")
+	if err != nil {
+		return nil, err
+	}
+	for _, v := range result {
+		f, err := os.Stat(v)
+		if err != nil {
+			continue
+		}
+		if !f.IsDir() {
+			files = append(files, v)
+		}
+		if count > 0 {
+			if len(files) >= int(count) {
+				break
+			}
+		}
+	}
+	return files, nil
+}
+
+func RenameDir(oldDir, newDir string) error {
+	files, err := DirFiles(oldDir, 0)
+	if err != nil {
+		return err
+	}
+	fstat, err := os.Stat(newDir)
+	if err != nil {
+		err = os.MkdirAll(newDir, pattern.DirMode)
+		if err != nil {
+			return err
+		}
+	} else {
+		if !fstat.IsDir() {
+			return fmt.Errorf("%s not a dir", newDir)
+		}
+	}
+
+	for _, v := range files {
+		name := filepath.Base(v)
+		err = os.Rename(filepath.Join(oldDir, name), filepath.Join(newDir, name))
+		if err != nil {
+			return err
+		}
+	}
+
+	return os.RemoveAll(oldDir)
 }

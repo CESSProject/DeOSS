@@ -1,7 +1,6 @@
-# <h1 align="center">DeOSS &middot; [![GitHub license](https://img.shields.io/badge/license-Apache2-blue)](#LICENSE) <a href=""><img src="https://img.shields.io/badge/golang-%3E%3D1.19-blue.svg"/></a> [![Go Reference](https://pkg.go.dev/badge/github.com/CESSProject/DeOSS.svg)](https://pkg.go.dev/github.com/CESSProject/DeOSS)  [![build](https://github.com/CESSProject/DeOSS/actions/workflows/build.yml/badge.svg)](https://github.com/CESSProject/DeOSS/actions/workflows/build.yml) [![Go Report Card](https://goreportcard.com/badge/github.com/CESSProject/cess-oss)](https://goreportcard.com/report/github.com/CESSProject/cess-oss)</h1>
+# <h1 align="center">DeOSS </br> [![GitHub license](https://img.shields.io/badge/license-Apache2-blue)](#LICENSE) <a href=""><img src="https://img.shields.io/badge/golang-%3E%3D1.19-blue.svg"/></a> [![Go Reference](https://pkg.go.dev/badge/github.com/CESSProject/DeOSS.svg)](https://pkg.go.dev/github.com/CESSProject/DeOSS)  [![build](https://github.com/CESSProject/DeOSS/actions/workflows/build.yml/badge.svg)](https://github.com/CESSProject/DeOSS/actions/workflows/build.yml) [![Go Report Card](https://goreportcard.com/badge/github.com/CESSProject/cess-oss)](https://goreportcard.com/report/github.com/CESSProject/cess-oss)</h1>
 
-DeOSS is a service that using REST API specification for accessing CESS.
-
+DeOSS ( Decentralized Object Storage Service ) is a decentralized object-based mass storage service that provides low-cost, secure and scalable distributed data storage services for the web3 domain.
 
 ## Reporting a Vulnerability
 If you find out any system bugs or you have a better suggestions, Please send an email to frode@cess.one,
@@ -23,51 +22,60 @@ sudo apt update && sudo upgrade
 sudo apt install make gcc git curl wget vim util-linux -y
 ```
 
-### Step 2: Go installation
+### Step 2: Install go
 
-DeOSS requires [Go1.19](https://golang.org/dl/) or higher.
+DeOSS requires [Go 1.19](https://golang.org/dl/) or higher, See the [official Golang installation instructions](https://golang.org/doc/install).
 
-Please refer to the  [official installation guide](https://go.dev/doc/install).
+Open go mod mode:
+```
+go env -w GO111MODULE="on"
+```
 
-Finally, enter the `go version` in the console to view the go version number.
+Users in China can add go proxy to speed up the download:
+```
+go env -w GOPROXY="https://goproxy.cn,direct"
+```
 
-### Step 3: Build a DeOSS
-Clone deoss source code:
+### Step 3: Clone code
 ```
 git clone https://github.com/CESSProject/DeOSS.git
 ```
+
 Run unit test:
 ```
 cd DeOSS/
 go test -v ./...
 ```
 
-Build a deoss:
+**Step 4:** Build a deoss
 ```
 go build -o deoss cmd/main.go
 ```
 
-If all goes well, you will get a program called `deoss`.
+**Step 5:** Grant execute permission
 
+```shell
+chmod +x deoss
+```
 
-## Get started with DeOSS
+## Configure Wallet
 
-### Step 1: Register a polka wallet
+### Step 1: create a wallet account
+The wallet is your unique identity in the cess network, it allows you to do transactions with the cess chain, provided that you have some balance in your wallet.
 
-Browser access: [App](https://testnet-rpc.cess.cloud/explorer) implemented by [CESS Explorer](https://github.com/CESSProject/cess-explorer), and [add an account](https://github.com/CESSProject/W3F-illustration/blob/main/gateway/createAccount.PNG).
+Please refer to [Create-CESS-Wallet](https://github.com/CESSProject/cess/wiki/Create-a-CESS-Wallet) to create your cess wallet.
 
-### Step 2: Recharge your polka wallet
+### Step 2: Recharge your wallet
 
 If you are using the test network, Please join the [CESS discord](https://discord.gg/mYHTMfBwNS) to get it for free. If you are using the official network, please buy CESS tokens.
 
-### Step 3: Prepare configuration file
+## Configuration file
 
 Use `deoss` to generate configuration file templates directly in the current directory:
 ```shell
-sudo chmod +x deoss
 ./deoss config
 ```
-The content of the configuration file template is as follows. You need to fill in your own information into the file. By default, the `deoss` uses conf.toml in the current directory as the runtime configuration file. You can use `-c` or `--config` to specify the configuration file Location.
+The contents of the configuration file template are as follows. The contents inside are the defaults and you will need to modify them as appropriate. By default, `deoss` uses `conf.yaml` in the current directory as the runtime configuration file. You can use `-c` or `-config` to specify the location of the configuration file.
 
 ```yaml
 # The rpc endpoint of the chain node
@@ -87,34 +95,28 @@ P2P_Port: 4001
 HTTP_Port: 8080
 ```
 
-### Step 4: Start the DeOSS service
-
+## Start deoss service
+Backend operation mode:
 ```shell
-sudo nohup ./deoss run 2>&1 &
+nohup ./deoss run 2>&1 &
 ```
 
-## Other usage guidelines for DeOSS
-
-### View the DeOSS address
+## View deoss status
 ```
 ./deoss stat
 ```
-
 
 # Usage for DeOSS API
 
 The public API endpoint URL of DeOSS is the server you deploy, All endpoints described in this document should be made relative to this root URL,The following example uses URL instead.
 
-
-
 **Before using DeOSS, you must authorize it as follows:** 
 
-1. First register your wallet account: [Create an account](https://github.com/CESSProject/W3F-illustration/blob/main/gateway/createAccount.PNG).
+1. Create a wallet account and fund it, refer to [Configure Wallet](https://github.com/CESSProject/DeOSS#configure-wWallet)
 
 2. Purchase cess storage space:[BuySpace](https://github.com/CESSProject/W3F-illustration/blob/b712b330772912e8e4a84c03afac1d3a224b9488/gateway/buySpace.jpg)
 
 3. Authorize the use right of the space to DeOSS:[Authorize](https://github.com/CESSProject/W3F-illustration/blob/b712b330772912e8e4a84c03afac1d3a224b9488/gateway/authorize.jpg)
-
 
 
 ## Authentication
@@ -245,7 +247,6 @@ Response schema: `application/json`
 | 400       | InvalidHead.MissingBucketName | bucketname is empty       |
 | 400       | InvalidHead.BucketName        | wrong bucket name         |
 | 400       | InvalidHead.Token             | token error               |
-| 400       | Invalid.DuplicateFileName     | Duplicate file name       |
 | 400       | Unauthorized                  | DeOSS is not authorized   |
 | 400       | InvalidParameter.EmptyFile    | file is empty             |
 | 400       | InvalidParameter.FormFile     | form File                 |
@@ -261,8 +262,6 @@ Response schema: `application/json`
 # curl -X PUT URL/test.log -F 'file=@test.log;type=application/octet-stream' -H "Authorization: eyJhbGciOiJIUzI...Iyn5I8ML1g" -H "BucketName: bucket1"
 ```
 
-
-
 ## Download a file
 
 | **GET**  /{fid} |
@@ -275,8 +274,6 @@ The get file interface downloads the file in the CESS storage system according t
 | key       | value    |
 | --------- | -------- |
 | Operation | download |
-
-
 
 - Responses
 
@@ -296,8 +293,6 @@ The response schema for the exception return status is: `application/json`, The 
 ```shell
 # curl -X GET -o <savefilename> URL/fid -H "Operation: download"
 ```
-
-
 
 ## Delete a file
 
@@ -331,8 +326,6 @@ Response schema: `application/json`
 # curl -X DELETE URL/fid -H "Authorization: eyJhbGciOiJIUzI1Ni......g-hX4bXlIyn5I8ML1g"
 ```
 
-
-
 ## Delete a bucket
 
 The delete bucket interface is used for delete a bucket, all files in the bucket will also be deleted together.
@@ -365,8 +358,6 @@ Response schema: `application/json`
 # curl -X DELETE URL/BucketName -H "Authorization: eyJhbGciOiJIUzI1Ni......g-hX4bXlIyn5I8ML1g"
 ```
 
-
-
 ## View bucket info
 
 | **GET**  /{BucketName} |
@@ -379,8 +370,6 @@ This interface is used to view bucket information, including the number of store
 | key     | description     |
 | ------- | --------------- |
 | Account | account address |
-
-
 
 - Responses
 
@@ -401,8 +390,6 @@ Response schema: `application/json`
 # curl -X GET URL/BucketName -H "Account: cXgfFbnV9H......PMQLoKbjfR"
 ```
 
-
-
 ## View bucket list
 
 | **GET**  /* |
@@ -415,8 +402,6 @@ This interface is used to view all buckets.
 | key     | description     |
 | ------- | --------------- |
 | Account | account address |
-
-
 
 - Responses
 
@@ -437,8 +422,6 @@ Response schema: `application/json`
 # curl -X GET URL/* -H "Account: cXgfFbnV9H......PMQLoKbjfR"
 ```
 
-
-
 ## View file info
 
 | **GET**  /{fid} |
@@ -451,8 +434,6 @@ This interface is used to view the basic information of a file.
 | key       | value |
 | --------- | ----- |
 | Operation | view  |
-
-
 
 - Responses
 
@@ -470,8 +451,6 @@ Response schema: `application/json`
 ```shell
 # curl -X GET URL/fid -H "Operation: view"
 ```
-
-
 
 ## License
 
