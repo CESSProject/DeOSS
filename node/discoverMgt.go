@@ -15,6 +15,7 @@ import (
 
 	"github.com/CESSProject/DeOSS/pkg/utils"
 
+	"github.com/CESSProject/sdk-go/core/pattern"
 	sutils "github.com/CESSProject/sdk-go/core/utils"
 )
 
@@ -37,17 +38,18 @@ func (n *Node) discoverMgt(ch chan<- bool) {
 			ok, err = n.NetListening()
 			if !ok || err != nil {
 				n.SetChainState(false)
-				n.Reconnect()
+				err = n.Reconnect()
+				if err != nil {
+					log.Println(pattern.ERR_RPC_CONNECTION)
+				}
 			}
 		case discoverPeer := <-n.DiscoveredPeer():
 			peerid = discoverPeer.ID.Pretty()
-			log.Println(fmt.Sprintf("Found a peer: %s", peerid))
+			//log.Println(fmt.Sprintf("Found a peer: %s", peerid))
 			err := n.Connect(n.GetRootCtx(), discoverPeer)
 			if err != nil {
 				//configs.Err(fmt.Sprintf("Connectto %s failed: %v", peerid, err))
 				continue
-			} else {
-				log.Println(fmt.Sprintf("Connect to %s", peerid))
 			}
 			n.PutPeer(peerid)
 			for _, v := range discoverPeer.Addrs {
