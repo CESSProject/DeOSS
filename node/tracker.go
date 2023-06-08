@@ -31,9 +31,13 @@ func (n *Node) trackFile(ch chan<- bool) {
 	}()
 
 	var (
+		err           error
 		count         uint8
 		roothash      string
 		ownerAcc      string
+		files         []string
+		b             []byte
+		f             *os.File
 		recordFile    RecordInfo
 		storageorder  pattern.StorageOrder
 		linuxFileAttr *syscall.Stat_t
@@ -41,10 +45,10 @@ func (n *Node) trackFile(ch chan<- bool) {
 
 	for {
 		time.Sleep(pattern.BlockInterval)
-		files, _ := filepath.Glob(fmt.Sprintf("%s/*", n.TrackDir))
+		files, _ = filepath.Glob(fmt.Sprintf("%s/*", n.TrackDir))
 		for i := 0; i < len(files); i++ {
 			roothash = filepath.Base(files[i])
-			b, err := n.Cache.Get([]byte("transfer:" + roothash))
+			b, err = n.Cache.Get([]byte("transfer:" + roothash))
 			if err == nil {
 				storageorder, err = n.QueryStorageOrder(roothash)
 				if err != nil {
@@ -53,28 +57,34 @@ func (n *Node) trackFile(ch chan<- bool) {
 						continue
 					}
 
-					meta, err := n.QueryFileMetadata(roothash)
+					_, err = n.QueryFileMetadata(roothash)
 					if err != nil {
 						if err.Error() != pattern.ERR_Empty {
 							n.Upfile("err", err.Error())
 							continue
 						}
-					} else {
-						if meta.State == Active {
-							recordFile, err = parseRecordInfoFromFile(files[i])
-							if err == nil {
-								ownerAcc, err = utils.EncodePublicKeyAsCessAccount(recordFile.Owner)
-								if err == nil {
-									for _, segment := range meta.SegmentList {
-										os.Remove(filepath.Join(n.GetDirs().FileDir, ownerAcc, string(segment.Hash[:])))
-										for _, fragment := range segment.FragmentList {
-											os.Remove(filepath.Join(n.GetDirs().FileDir, ownerAcc, string(fragment.Hash[:])))
-										}
-									}
-								}
-							}
+						if err.Error() == pattern.ERR_Empty {
+							n.Upfile("info", "file has been deleted")
+							os.RemoveAll(filepath.Join(n.GetDirs().FileDir, ownerAcc, roothash))
 							os.Remove(files[i])
+							os.Remove(filepath.Join(n.GetDirs().FileDir, roothash))
+							continue
 						}
+					} else {
+						recordFile, err = parseRecordInfoFromFile(files[i])
+						if err == nil {
+							ownerAcc, err = utils.EncodePublicKeyAsCessAccount(recordFile.Owner)
+							if err == nil {
+								err = os.Rename(filepath.Join(n.GetDirs().FileDir, ownerAcc, roothash, roothash), filepath.Join(n.GetDirs().FileDir, roothash))
+								if err != nil {
+									n.Upfile("err", err.Error())
+									continue
+								}
+								os.RemoveAll(filepath.Join(n.GetDirs().FileDir, ownerAcc, roothash))
+								os.Remove(files[i])
+							}
+						}
+
 					}
 					continue
 				}
@@ -117,7 +127,7 @@ func (n *Node) trackFile(ch chan<- bool) {
 				continue
 			}
 
-			f, err := os.OpenFile(filepath.Join(n.TrackDir, roothash), os.O_CREATE|os.O_TRUNC|os.O_WRONLY, os.ModePerm)
+			f, err = os.OpenFile(filepath.Join(n.TrackDir, roothash), os.O_CREATE|os.O_TRUNC|os.O_WRONLY, os.ModePerm)
 			if err != nil {
 				n.Upfile("err", fmt.Sprintf("[%v] %v", roothash, err))
 				continue
@@ -200,7 +210,7 @@ func (n *Node) storageData(roothash string, segment []pattern.SegmentDataInfo, m
 	basedir := filepath.Dir(segment[0].FragmentHash[0])
 	for i := 0; i < len(peerids); i++ {
 		if !n.Has(peerids[i]) {
-			return fmt.Errorf("No allocated storage node found: %s", peerids[i])
+			return fmt.Errorf("Allocated storage node not found: %s", peerids[i])
 		}
 
 		id, _ := peer.Decode(peerids[i])
