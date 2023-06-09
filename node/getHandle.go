@@ -230,18 +230,6 @@ func (n *Node) GetHandle(c *gin.Context) {
 			}
 		}
 
-		// fmeta, err := n.Cli.QueryFile(getName)
-		// if err != nil {
-		// 	if err.Error() == chain.ERR_Empty {
-		// 		n.Logs.Query("err", fmt.Sprintf("[%s] Download file [%s] : NotFount", clientIp, getName))
-		// 		c.JSON(http.StatusNotFound, "NotFound")
-		// 		return
-		// 	}
-		// 	n.Logs.Query("err", fmt.Sprintf("[%s] Download file [%s] : %v", clientIp, getName, err))
-		// 	c.JSON(http.StatusInternalServerError, "InternalError")
-		// 	return
-		// }
-
 		//Download from miner
 		fpath, err = n.fetchFiles(getName, dir)
 		if err != nil {
@@ -263,6 +251,7 @@ func (n *Node) GetHandle(c *gin.Context) {
 
 func (n *Node) fetchFiles(roothash, dir string) (string, error) {
 	var (
+		acc          string
 		segmentspath = make([]string, 0)
 	)
 	userfile := filepath.Join(dir, roothash)
@@ -280,6 +269,17 @@ func (n *Node) fetchFiles(roothash, dir string) (string, error) {
 	fmeta, err := n.QueryFileMetadata(roothash)
 	if err != nil {
 		return "", err
+	}
+
+	for _, v := range fmeta.Owner {
+		acc, err = utils.EncodePublicKeyAsCessAccount(v.User[:])
+		if err != nil {
+			continue
+		}
+		_, err = os.Stat(filepath.Join(n.GetDirs().FileDir, acc, roothash, roothash))
+		if err == nil {
+			return filepath.Join(n.GetDirs().FileDir, acc, roothash, roothash), nil
+		}
 	}
 
 	defer func(basedir string) {
