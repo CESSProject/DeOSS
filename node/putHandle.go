@@ -19,6 +19,7 @@ import (
 	"github.com/CESSProject/sdk-go/core/pattern"
 	sutils "github.com/CESSProject/sdk-go/core/utils"
 	"github.com/gin-gonic/gin"
+	"github.com/pkg/errors"
 )
 
 type RecordInfo struct {
@@ -29,11 +30,13 @@ type RecordInfo struct {
 	Buckname    string                    `json:"buckname"`
 	Putflag     bool                      `json:"putflag"`
 	Count       uint8                     `json:"count"`
+	Duplicate   bool                      `json:"duplicate"`
 }
 
 // It is used to authorize users
 func (n *Node) putHandle(c *gin.Context) {
 	var (
+		ok       bool
 		err      error
 		clientIp string
 		account  string
@@ -83,6 +86,7 @@ func (n *Node) putHandle(c *gin.Context) {
 			c.JSON(http.StatusBadRequest, err.Error())
 			return
 		}
+		n.Upfile("info", fmt.Sprintf("[%v] [%s] create bucket successfully: %v", clientIp, putName, txHash))
 		c.JSON(http.StatusOK, map[string]string{"Block hash:": txHash})
 		return
 	}
@@ -162,22 +166,13 @@ func (n *Node) putHandle(c *gin.Context) {
 		return
 	}
 
-	_, err = os.Stat(filepath.Join(n.TrackDir, roothash))
-	if err == nil {
-		n.Upfile("info", fmt.Sprintf("[%v] [%s] uploaded successfully", clientIp, roothash))
-		c.JSON(http.StatusOK, roothash)
+	ok, err = n.deduplication(pkey, segmentInfo, roothash, putName, bucketName)
+	if err != nil {
+		n.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, err))
+		c.JSON(http.StatusBadRequest, err.Error())
 		return
 	}
-
-	_, err = os.Stat(filepath.Join(n.GetDirs().FileDir, roothash))
-	if err == nil {
-		n.Upfile("info", fmt.Sprintf("[%v] [%s] uploaded successfully", clientIp, roothash))
-		c.JSON(http.StatusOK, roothash)
-		return
-	}
-
-	_, err = n.QueryFileMetadata(roothash)
-	if err == nil {
+	if ok {
 		n.Upfile("info", fmt.Sprintf("[%v] [%s] uploaded successfully", clientIp, roothash))
 		c.JSON(http.StatusOK, roothash)
 		return
@@ -189,6 +184,7 @@ func (n *Node) putHandle(c *gin.Context) {
 		_, err = os.Stat(filepath.Join(n.TrackDir, roothash))
 		if err == nil {
 			c.JSON(http.StatusOK, roothash)
+			n.Upfile("info", fmt.Sprintf("[%v] [%s] uploaded successfully", clientIp, roothash))
 			return
 		}
 	}
@@ -214,13 +210,6 @@ func (n *Node) putHandle(c *gin.Context) {
 		return
 	}
 
-	// err = os.Rename(fpath, roothashpath)
-	// if err != nil {
-	// 	n.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, err))
-	// 	c.JSON(http.StatusInternalServerError, err.Error())
-	// 	return
-	// }
-
 	var recordInfo = &RecordInfo{
 		SegmentInfo: segmentInfo,
 		Owner:       pkey,
@@ -229,6 +218,7 @@ func (n *Node) putHandle(c *gin.Context) {
 		Buckname:    bucketName,
 		Putflag:     false,
 		Count:       0,
+		Duplicate:   false,
 	}
 
 	f, err := os.Create(filepath.Join(n.TrackDir, roothash))
@@ -258,6 +248,68 @@ func (n *Node) putHandle(c *gin.Context) {
 		return
 	}
 
+	n.Upfile("info", fmt.Sprintf("[%v] [%s] uploaded successfully", clientIp, roothash))
 	c.JSON(http.StatusOK, roothash)
 	return
+}
+
+func (n *Node) deduplication(pkey []byte, segmentInfo []pattern.SegmentDataInfo, roothash, filename, bucketname string) (bool, error) {
+	fmeta, err := n.QueryFileMetadata(roothash)
+	if err == nil {
+		for _, v := range fmeta.Owner {
+			if sutils.CompareSlice(v.User[:], pkey) {
+				return true, nil
+			}
+		}
+		_, err = n.GenerateStorageOrder(roothash, nil, pkey, filename, bucketname)
+		if err != nil {
+			return false, errors.Wrapf(err, "[GenerateStorageOrder]")
+		}
+
+		return true, nil
+	}
+
+	order, err := n.QueryStorageOrder(roothash)
+	if err == nil {
+		if sutils.CompareSlice(order.User.User[:], pkey) {
+			return true, nil
+		}
+
+		_, err = os.Stat(filepath.Join(n.TrackDir, roothash))
+		if err == nil {
+			return false, errors.New(ERR_DuplicateOrder)
+		}
+
+		var record RecordInfo
+		record.SegmentInfo = segmentInfo
+		record.Owner = pkey
+		record.Roothash = roothash
+		record.Filename = filename
+		record.Buckname = bucketname
+		record.Putflag = false
+		record.Count = 0
+		record.Duplicate = true
+
+		f, err := os.Create(filepath.Join(n.TrackDir, roothash))
+		if err != nil {
+			return false, errors.Wrapf(err, "[create file]")
+		}
+		defer f.Close()
+
+		b, err := json.Marshal(&record)
+		if err != nil {
+			return false, errors.Wrapf(err, "[marshal data]")
+		}
+		_, err = f.Write(b)
+		if err != nil {
+			return false, errors.Wrapf(err, "[write file]")
+		}
+		err = f.Sync()
+		if err != nil {
+			return false, errors.Wrapf(err, "[sync file]")
+		}
+		return true, nil
+	}
+
+	return false, nil
 }

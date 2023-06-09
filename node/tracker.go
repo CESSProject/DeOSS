@@ -84,7 +84,6 @@ func (n *Node) trackFile(ch chan<- bool) {
 								os.Remove(files[i])
 							}
 						}
-
 					}
 					continue
 				}
@@ -109,6 +108,60 @@ func (n *Node) trackFile(ch chan<- bool) {
 						continue
 					}
 				}
+			}
+
+			if recordFile.Duplicate {
+				_, err = n.QueryFileMetadata(recordFile.Roothash)
+				if err == nil {
+					_, err = n.GenerateStorageOrder(recordFile.Roothash, nil, recordFile.Owner, recordFile.Filename, recordFile.Buckname)
+					if err != nil {
+						n.Upfile("err", fmt.Sprintf("[%s] Duplicate file declaration failed: %v", roothash, err))
+						continue
+					}
+					ownerAcc, err = utils.EncodePublicKeyAsCessAccount(recordFile.Owner)
+					if err == nil {
+						os.Rename(filepath.Join(n.GetDirs().FileDir, ownerAcc, roothash, roothash), filepath.Join(n.GetDirs().FileDir, roothash))
+						os.RemoveAll(filepath.Join(n.GetDirs().FileDir, ownerAcc, roothash))
+					}
+					os.Remove(files[i])
+					n.Upfile("info", fmt.Sprintf("[%s] Duplicate file declaration suc", roothash))
+					continue
+				}
+				_, err = n.QueryStorageOrder(recordFile.Roothash)
+				if err != nil {
+					if err.Error() == pattern.ERR_Empty {
+						n.Upfile("info", fmt.Sprintf("[%s] Duplicate file become primary file", roothash))
+						recordFile.Duplicate = false
+						recordFile.Putflag = false
+						b, err = json.Marshal(&recordFile)
+						if err != nil {
+							n.Upfile("err", fmt.Sprintf("[%v] %v", roothash, err))
+							continue
+						}
+
+						f, err = os.OpenFile(filepath.Join(n.TrackDir, roothash), os.O_CREATE|os.O_TRUNC|os.O_WRONLY, os.ModePerm)
+						if err != nil {
+							n.Upfile("err", fmt.Sprintf("[%v] %v", roothash, err))
+							continue
+						}
+						_, err = f.Write(b)
+						if err != nil {
+							f.Close()
+							n.Upfile("err", fmt.Sprintf("[%v] %v", roothash, err))
+							continue
+						}
+
+						err = f.Sync()
+						if err != nil {
+							f.Close()
+							n.Upfile("err", fmt.Sprintf("[%v] %v", roothash, err))
+							continue
+						}
+						f.Close()
+					}
+					n.Upfile("err", fmt.Sprintf("[%s] QueryStorageOrder err: %v", roothash, err))
+				}
+				continue
 			}
 
 			count, err = n.backupFiles(recordFile.Owner, recordFile.SegmentInfo, roothash, recordFile.Filename, recordFile.Buckname)
