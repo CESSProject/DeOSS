@@ -35,6 +35,7 @@ const (
 	INFO_GetRequest = "GetRequest"
 	INFO_DelRequest = "DelRequest"
 
+	ERR_DuplicateOrder    = "duplicate order"
 	ERR_MissToken         = "InvalidHead.MissToken"
 	ERR_EmptySeed         = "InvalidProfile.EmptySeed"
 	ERR_MissAccount       = "InvalidHead.MissAccount"

@@ -29,6 +29,7 @@ type Logger interface {
 	Downfile(string, string)
 	Record(error)
 	Query(string, string)
+	Discover(string, string)
 }
 
 type logs struct {
@@ -122,6 +123,19 @@ func (l *logs) Record(err error) {
 func (l *logs) Query(level string, msg string) {
 	_, file, line, _ := runtime.Caller(1)
 	v, ok := l.log["query"]
+	if ok {
+		switch level {
+		case "info":
+			v.Sugar().Infof("[%v:%d] %v", filepath.Base(file), line, msg)
+		case "err":
+			v.Sugar().Errorf("[%v:%d] %v", filepath.Base(file), line, msg)
+		}
+	}
+}
+
+func (l *logs) Discover(level string, msg string) {
+	_, file, line, _ := runtime.Caller(1)
+	v, ok := l.log["discover"]
 	if ok {
 		switch level {
 		case "info":
