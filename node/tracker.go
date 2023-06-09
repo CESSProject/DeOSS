@@ -20,6 +20,7 @@ import (
 	"github.com/CESSProject/sdk-go/core/pattern"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/mr-tron/base58"
+	"github.com/pkg/errors"
 )
 
 func (n *Node) trackFile(ch chan<- bool) {
@@ -257,7 +258,7 @@ func (n *Node) storageData(roothash string, segment []pattern.SegmentDataInfo, m
 	// query all assigned miner multiaddr
 	peerids, err := n.QueryAssignedMiner(minerTaskList)
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "[QueryAssignedMiner]")
 	}
 
 	basedir := filepath.Dir(segment[0].FragmentHash[0])
@@ -274,16 +275,16 @@ func (n *Node) storageData(roothash string, segment []pattern.SegmentDataInfo, m
 			if err != nil {
 				err = utils.CopyFile(filepath.Join(basedir, roothash), filepath.Join(n.GetDirs().FileDir, roothash))
 				if err != nil {
-					return err
+					return errors.Wrapf(err, "[CopyFile]")
 				}
 				_, _, err = n.ProcessingData(filepath.Join(basedir, roothash))
 				if err != nil {
-					return err
+					return errors.Wrapf(err, "[ProcessingData]")
 				}
 			}
 			err = n.WriteFileAction(id, roothash, fpath)
 			if err != nil {
-				return err
+				return errors.Wrapf(err, "[WriteFileAction]")
 			}
 		}
 	}

@@ -71,5 +71,6 @@ var (
 		"downfile", //Download log
 		"record",
 		"query",
+		"discover",
 	}
 )

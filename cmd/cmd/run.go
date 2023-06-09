@@ -75,7 +75,7 @@ func Command_Run_Runfunc(cmd *cobra.Command, args []string) {
 			if err != nil {
 				continue
 			}
-			n.PutPeer(addrInfo.ID.Pretty())
+			n.PutPeer(addrInfo.ID.Pretty(), addrInfo.Addrs)
 		}
 	}
 

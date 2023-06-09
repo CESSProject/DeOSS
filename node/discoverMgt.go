@@ -14,9 +14,11 @@ import (
 	"time"
 
 	"github.com/CESSProject/DeOSS/pkg/utils"
+	"github.com/libp2p/go-libp2p/core/peer"
 
 	"github.com/CESSProject/sdk-go/core/pattern"
 	sutils "github.com/CESSProject/sdk-go/core/utils"
+	ma "github.com/multiformats/go-multiaddr"
 )
 
 func (n *Node) discoverMgt(ch chan<- bool) {
@@ -26,32 +28,61 @@ func (n *Node) discoverMgt(ch chan<- bool) {
 			n.Pnc(utils.RecoverError(err))
 		}
 	}()
+
+	n.Discover("info", ">>>>> Start discoverMgt task")
+
 	var ok bool
 	var err error
 	var peerid string
 	var addr string
 	var multiaddr string
-	tick := time.NewTicker(time.Second * 30)
+	var id peer.ID
+	var allPeers map[string][]ma.Multiaddr
+
+	tick_30s := time.NewTicker(time.Second * 30)
+	defer tick_30s.Stop()
+
+	tick_60s := time.NewTicker(time.Minute)
+	defer tick_60s.Stop()
+
 	for {
 		select {
-		case <-tick.C:
+		case <-tick_30s.C:
 			ok, err = n.NetListening()
 			if !ok || err != nil {
+				n.Discover("err", pattern.ERR_RPC_CONNECTION.Error())
 				n.SetChainState(false)
 				err = n.Reconnect()
 				if err != nil {
 					log.Println(pattern.ERR_RPC_CONNECTION)
+				} else {
+					n.Discover("info", "reconnected successfully")
 				}
+			}
+		case <-tick_60s.C:
+			allPeers = n.GetAllPeer()
+			for k, v := range allPeers {
+				id, err = peer.Decode(k)
+				if err != nil {
+					continue
+				}
+				addrInfo := peer.AddrInfo{
+					ID:    id,
+					Addrs: v,
+				}
+				n.Connect(n.GetRootCtx(), addrInfo)
 			}
 		case discoverPeer := <-n.DiscoveredPeer():
 			peerid = discoverPeer.ID.Pretty()
-			//log.Println(fmt.Sprintf("Found a peer: %s", peerid))
+			n.Discover("info", fmt.Sprintf("Found a peer: %s", peerid))
 			err := n.Connect(n.GetRootCtx(), discoverPeer)
 			if err != nil {
-				//configs.Err(fmt.Sprintf("Connectto %s failed: %v", peerid, err))
+				n.Discover("err", fmt.Sprintf("Connectto %s failed: %v", peerid, err))
 				continue
 			}
-			n.PutPeer(peerid)
+			n.Discover("info", fmt.Sprintf("Connect to %s ", peerid))
+			n.PutPeer(peerid, discoverPeer.Addrs)
+
 			for _, v := range discoverPeer.Addrs {
 				addr = v.String()
 				temp := strings.Split(addr, "/")
@@ -61,7 +92,7 @@ func (n *Node) discoverMgt(ch chan<- bool) {
 							continue
 						}
 						multiaddr = fmt.Sprintf("%s/p2p/%s", addr, peerid)
-						_, err = n.AddMultiaddrToPeerstore(multiaddr, time.Hour)
+						n.AddMultiaddrToPeerstore(multiaddr, time.Hour)
 					}
 				}
 			}

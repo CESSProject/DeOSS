@@ -196,18 +196,26 @@ func (n *Node) putHandle(c *gin.Context) {
 		return
 	}
 
-	err = os.Rename(filepath.Join(roothashDir, filepath.Base(fpath)), filepath.Join(roothashDir, roothash))
+	err = utils.RenameDir(filepath.Dir(fpath), roothashDir)
 	if err != nil {
 		n.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, err))
 		c.JSON(http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	err = utils.RenameDir(filepath.Dir(fpath), roothashDir)
+	err = os.Rename(filepath.Join(roothashDir, filepath.Base(fpath)), filepath.Join(roothashDir, roothash))
 	if err != nil {
+		os.RemoveAll(roothashDir)
 		n.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, err))
 		c.JSON(http.StatusInternalServerError, err.Error())
 		return
+	}
+
+	for i := 0; i < len(segmentInfo); i++ {
+		segmentInfo[i].SegmentHash = filepath.Join(roothashDir, filepath.Base(segmentInfo[i].SegmentHash))
+		for j := 0; j < len(segmentInfo[i].FragmentHash); j++ {
+			segmentInfo[i].FragmentHash[j] = filepath.Join(roothashDir, filepath.Base(segmentInfo[i].FragmentHash[j]))
+		}
 	}
 
 	var recordInfo = &RecordInfo{

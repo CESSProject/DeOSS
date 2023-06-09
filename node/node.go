@@ -20,6 +20,7 @@ import (
 	"github.com/CESSProject/sdk-go/core/sdk"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	ma "github.com/multiformats/go-multiaddr"
 )
 
 type Oss interface {
@@ -34,7 +35,7 @@ type Node struct {
 	core.P2P
 	*gin.Engine
 	Lock     *sync.RWMutex
-	Peers    map[string]struct{}
+	Peers    map[string][]ma.Multiaddr
 	TrackDir string
 }
 
@@ -42,7 +43,7 @@ type Node struct {
 func New() *Node {
 	return &Node{
 		Lock:  new(sync.RWMutex),
-		Peers: make(map[string]struct{}, 10),
+		Peers: make(map[string][]ma.Multiaddr, 10),
 	}
 }
 
@@ -72,17 +73,25 @@ func (n *Node) Run() {
 	}
 }
 
-func (n *Node) PutPeer(peerid string) {
+func (n *Node) PutPeer(peerid string, addr []ma.Multiaddr) {
 	n.Lock.Lock()
-	if _, ok := n.Peers[peerid]; !ok {
-		n.Peers[peerid] = struct{}{}
-	}
-	n.Lock.Unlock()
+	defer n.Lock.Unlock()
+	n.Peers[peerid] = addr
 }
 
 func (n *Node) Has(peerid string) bool {
 	n.Lock.RLock()
+	defer n.Lock.RUnlock()
 	_, ok := n.Peers[peerid]
-	n.Lock.RUnlock()
 	return ok
+}
+
+func (n *Node) GetAllPeer() map[string][]ma.Multiaddr {
+	var result = make(map[string][]ma.Multiaddr, 0)
+	n.Lock.RLock()
+	defer n.Lock.RUnlock()
+	for k, v := range n.Peers {
+		result[k] = v
+	}
+	return result
 }
