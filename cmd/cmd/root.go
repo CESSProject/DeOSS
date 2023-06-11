@@ -89,3 +89,13 @@ func Command_State() *cobra.Command {
 	}
 	return cc
 }
+
+func Command_Exit() *cobra.Command {
+	cc := &cobra.Command{
+		Use:                   "exit",
+		Short:                 "Unregister the deoss role",
+		Run:                   Command_Exit_Runfunc,
+		DisableFlagsInUseLine: true,
+	}
+	return cc
+}
