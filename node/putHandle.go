@@ -69,8 +69,15 @@ func (n *Node) putHandle(c *gin.Context) {
 	// bucket name
 	bucketName := c.Request.Header.Get(Header_BucketName)
 
+	content_length := c.Request.ContentLength
+	if content_length <= 0 {
+		n.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, ERR_EmptyFile))
+		c.JSON(http.StatusBadRequest, ERR_EmptyFile)
+		return
+	}
+
 	if bucketName == "" {
-		if c.Request.ContentLength > 0 {
+		if content_length > 0 {
 			n.Upfile("err", fmt.Sprintf("[%v] %s", c.ClientIP(), ERR_EmptyBucketName))
 			c.JSON(http.StatusBadRequest, ERR_EmptyBucketName)
 			return
@@ -96,13 +103,6 @@ func (n *Node) putHandle(c *gin.Context) {
 	if !sutils.CheckBucketName(bucketName) {
 		n.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, ERR_InvalidBucketName))
 		c.JSON(http.StatusBadRequest, ERR_InvalidBucketName)
-		return
-	}
-
-	content_length := c.Request.ContentLength
-	if content_length <= 0 {
-		n.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, ERR_EmptyFile))
-		c.JSON(http.StatusBadRequest, ERR_EmptyFile)
 		return
 	}
 

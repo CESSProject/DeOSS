@@ -37,7 +37,7 @@ func Command_Run_Runfunc(cmd *cobra.Command, args []string) {
 		err       error
 		logDir    string
 		dbDir     string
-		bootstrap []string
+		bootstrap = make([]string, 0)
 		n         = node.New()
 	)
 
@@ -60,12 +60,14 @@ func Command_Run_Runfunc(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
-	boot, _ := cmd.Flags().GetString("boot")
-	if boot == "" {
-		log.Printf("Empty boot node")
-	} else {
-		bootstrap, _ = utils.ParseMultiaddrs(boot)
-		for _, v := range bootstrap {
+	boot := n.Confile.GetBootNodes()
+	for _, v := range boot {
+		bootnodes, err := utils.ParseMultiaddrs(v)
+		if err != nil {
+			continue
+		}
+		bootstrap = append(bootstrap, bootnodes...)
+		for _, v := range bootnodes {
 			log.Printf(fmt.Sprintf("bootstrap node: %v", v))
 			addr, err := ma.NewMultiaddr(v)
 			if err != nil {
