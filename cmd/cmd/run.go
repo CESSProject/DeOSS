@@ -35,6 +35,7 @@ import (
 func Command_Run_Runfunc(cmd *cobra.Command, args []string) {
 	var (
 		err       error
+		registed  bool
 		logDir    string
 		dbDir     string
 		bootstrap = make([]string, 0)
@@ -95,6 +96,10 @@ func Command_Run_Runfunc(cmd *cobra.Command, args []string) {
 			}
 			n.SavePeer(addrInfo.ID.Pretty())
 		}
+	}
+	workspace := filepath.Join(n.GetWorkspace(), n.GetSignatureAcc(), configs.Name)
+	if registed {
+		os.RemoveAll(workspace)
 	}
 
 	n.P2P, err = p2pgo.New(
