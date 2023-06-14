@@ -10,12 +10,15 @@ package node
 import (
 	"fmt"
 	"log"
+	"os"
+	"path/filepath"
 	"sync"
 
 	"github.com/CESSProject/DeOSS/configs"
 	"github.com/CESSProject/DeOSS/pkg/confile"
 	"github.com/CESSProject/DeOSS/pkg/db"
 	"github.com/CESSProject/DeOSS/pkg/logger"
+	"github.com/CESSProject/cess-go-sdk/core/pattern"
 	"github.com/CESSProject/cess-go-sdk/core/sdk"
 	"github.com/CESSProject/p2p-go/core"
 	"github.com/gin-contrib/cors"
@@ -85,4 +88,18 @@ func (n *Node) Has(peerid string) bool {
 	defer n.Lock.RUnlock()
 	_, ok := n.Peers[peerid]
 	return ok
+}
+
+func (n *Node) RebuildDirs() {
+	os.RemoveAll(n.GetDirs().FileDir)
+	os.RemoveAll(n.GetDirs().IdleDataDir)
+	os.RemoveAll(n.GetDirs().IdleTagDir)
+	os.RemoveAll(n.GetDirs().ProofDir)
+	os.RemoveAll(n.GetDirs().ServiceTagDir)
+	os.RemoveAll(n.GetDirs().TmpDir)
+	os.RemoveAll(filepath.Join(n.Workspace(), configs.Db))
+	os.RemoveAll(filepath.Join(n.Workspace(), configs.Log))
+	os.RemoveAll(filepath.Join(n.Workspace(), configs.Track))
+	os.MkdirAll(n.GetDirs().FileDir, pattern.DirMode)
+	os.MkdirAll(n.GetDirs().TmpDir, pattern.DirMode)
 }
