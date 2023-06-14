@@ -39,6 +39,7 @@ func Command_Run_Runfunc(cmd *cobra.Command, args []string) {
 		logDir    string
 		dbDir     string
 		bootstrap = make([]string, 0)
+		syncSt    pattern.SysSyncState
 		n         = node.New()
 	)
 
@@ -62,7 +63,7 @@ func Command_Run_Runfunc(cmd *cobra.Command, args []string) {
 	}
 
 	for {
-		syncSt, err := n.SyncState()
+		syncSt, err = n.SyncState()
 		if err != nil {
 			log.Println(err.Error())
 			os.Exit(1)
@@ -74,12 +75,7 @@ func Command_Run_Runfunc(cmd *cobra.Command, args []string) {
 		log.Println(fmt.Sprintf("In the synchronization main chain: %d ...", syncSt.CurrentBlock))
 		time.Sleep(time.Second * time.Duration(utils.Ternary(int64(syncSt.HighestBlock-syncSt.CurrentBlock)*6, 30)))
 	}
-
-	_, registed, _, err = n.Register(configs.Name, n.GetPeerPublickey(), "", 0)
-	if err != nil {
-		log.Println("Register err: ", err)
-		os.Exit(1)
-	}
+	workspace := filepath.Join(n.GetWorkspace(), n.GetSignatureAcc(), n.GetRoleName())
 
 	boot := n.Confile.GetBootNodes()
 	for _, v := range boot {
@@ -117,7 +113,23 @@ func Command_Run_Runfunc(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
-	logDir, dbDir, n.TrackDir, err = buildDir(n.P2P.Workspace())
+	_, err = n.QueryDeossPeerPublickey(n.GetSignatureAccPulickey())
+	if err != nil {
+		if err.Error() == pattern.ERR_Empty {
+			n.RebuildDirs()
+		} else {
+			log.Println("Weak network signal or rpc service failure")
+			os.Exit(1)
+		}
+	}
+
+	_, _, _, err = n.Register(n.GetRoleName(), n.GetPeerPublickey(), "", 0)
+	if err != nil {
+		log.Println("Register or update err: ", err)
+		os.Exit(1)
+	}
+
+	logDir, dbDir, n.TrackDir, err = buildDir(n.Workspace())
 	if err != nil {
 		log.Println("buildDir err: ", err)
 		os.Exit(1)
