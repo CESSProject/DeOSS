@@ -16,8 +16,8 @@ import (
 	"github.com/CESSProject/DeOSS/pkg/confile"
 	"github.com/CESSProject/DeOSS/pkg/db"
 	"github.com/CESSProject/DeOSS/pkg/logger"
+	"github.com/CESSProject/cess-go-sdk/core/sdk"
 	"github.com/CESSProject/p2p-go/core"
-	"github.com/CESSProject/sdk-go/core/sdk"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 )

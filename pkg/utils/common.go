@@ -21,7 +21,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/CESSProject/sdk-go/core/pattern"
+	"github.com/CESSProject/cess-go-sdk/core/pattern"
 )
 
 // RecoverError is used to record the stack information of panic

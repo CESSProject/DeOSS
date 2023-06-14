@@ -16,8 +16,8 @@ import (
 	"strconv"
 
 	"github.com/CESSProject/DeOSS/pkg/utils"
-	"github.com/CESSProject/sdk-go/core/pattern"
-	sutils "github.com/CESSProject/sdk-go/core/utils"
+	"github.com/CESSProject/cess-go-sdk/core/pattern"
+	sutils "github.com/CESSProject/cess-go-sdk/core/utils"
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
 )

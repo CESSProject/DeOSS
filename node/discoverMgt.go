@@ -16,8 +16,8 @@ import (
 	"github.com/CESSProject/DeOSS/pkg/utils"
 	"github.com/libp2p/go-libp2p/core/peer"
 
-	"github.com/CESSProject/sdk-go/core/pattern"
-	sutils "github.com/CESSProject/sdk-go/core/utils"
+	"github.com/CESSProject/cess-go-sdk/core/pattern"
+	sutils "github.com/CESSProject/cess-go-sdk/core/utils"
 	ma "github.com/multiformats/go-multiaddr"
 )
 

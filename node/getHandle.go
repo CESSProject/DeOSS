@@ -14,9 +14,8 @@ import (
 	"path/filepath"
 
 	"github.com/CESSProject/DeOSS/configs"
-	"github.com/CESSProject/sdk-go/core/erasure"
-	"github.com/CESSProject/sdk-go/core/pattern"
-	"github.com/CESSProject/sdk-go/core/utils"
+	"github.com/CESSProject/cess-go-sdk/core/pattern"
+	"github.com/CESSProject/cess-go-sdk/core/utils"
 	"github.com/gin-gonic/gin"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/mr-tron/base58"
@@ -311,7 +310,7 @@ func (n *Node) fetchFiles(roothash, dir string) (string, error) {
 			fragmentpaths = append(fragmentpaths, fragmentpath)
 			segmentpath := filepath.Join(dir, string(segment.Hash[:]))
 			if len(fragmentpaths) >= pattern.DataShards {
-				err = erasure.ReedSolomon_Restore(segmentpath, fragmentpaths)
+				err = n.RedundancyRecovery(segmentpath, fragmentpaths)
 				if err != nil {
 					return "", err
 				}
