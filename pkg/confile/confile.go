@@ -12,7 +12,7 @@ import (
 	"os"
 	"path"
 
-	"github.com/CESSProject/sdk-go/core/pattern"
+	"github.com/CESSProject/cess-go-sdk/core/pattern"
 	"github.com/centrifuge/go-substrate-rpc-client/v4/signature"
 	"github.com/pkg/errors"
 	"github.com/spf13/viper"

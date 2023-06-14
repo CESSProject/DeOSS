@@ -16,8 +16,8 @@ import (
 	"strconv"
 
 	"github.com/CESSProject/DeOSS/pkg/utils"
-	"github.com/CESSProject/sdk-go/core/pattern"
-	sutils "github.com/CESSProject/sdk-go/core/utils"
+	"github.com/CESSProject/cess-go-sdk/core/pattern"
+	sutils "github.com/CESSProject/cess-go-sdk/core/utils"
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
 )
@@ -69,8 +69,15 @@ func (n *Node) putHandle(c *gin.Context) {
 	// bucket name
 	bucketName := c.Request.Header.Get(Header_BucketName)
 
+	content_length := c.Request.ContentLength
+	if content_length <= 0 {
+		n.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, ERR_EmptyFile))
+		c.JSON(http.StatusBadRequest, ERR_EmptyFile)
+		return
+	}
+
 	if bucketName == "" {
-		if c.Request.ContentLength > 0 {
+		if content_length > 0 {
 			n.Upfile("err", fmt.Sprintf("[%v] %s", c.ClientIP(), ERR_EmptyBucketName))
 			c.JSON(http.StatusBadRequest, ERR_EmptyBucketName)
 			return
@@ -96,13 +103,6 @@ func (n *Node) putHandle(c *gin.Context) {
 	if !sutils.CheckBucketName(bucketName) {
 		n.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, ERR_InvalidBucketName))
 		c.JSON(http.StatusBadRequest, ERR_InvalidBucketName)
-		return
-	}
-
-	content_length := c.Request.ContentLength
-	if content_length <= 0 {
-		n.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, ERR_EmptyFile))
-		c.JSON(http.StatusBadRequest, ERR_EmptyFile)
 		return
 	}
 

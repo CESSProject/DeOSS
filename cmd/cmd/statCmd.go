@@ -14,8 +14,8 @@ import (
 
 	"github.com/CESSProject/DeOSS/configs"
 	"github.com/CESSProject/DeOSS/node"
-	sdkgo "github.com/CESSProject/sdk-go"
-	sconfig "github.com/CESSProject/sdk-go/config"
+	sdkgo "github.com/CESSProject/cess-go-sdk"
+	sconfig "github.com/CESSProject/cess-go-sdk/config"
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/spf13/cobra"
@@ -49,14 +49,14 @@ func Command_State_Runfunc(cmd *cobra.Command, args []string) {
 		log.Println(err)
 		os.Exit(1)
 	}
-	ossState, err := n.QueryDeoss(pubkey)
-	if err != nil || ossState == nil {
+	peerPublickey, err := n.QueryDeossPeerPublickey(pubkey)
+	if err != nil || peerPublickey == nil {
 		log.Printf("[err] %v\n", err)
 		os.Exit(1)
 	}
 	var tableRows = []table.Row{
 		{"role", n.GetRoleName()},
-		{"peer id", base58.Encode(ossState)},
+		{"peer id", base58.Encode(peerPublickey)},
 		{"signature account", n.GetSignatureAcc()},
 	}
 	tw := table.NewWriter()

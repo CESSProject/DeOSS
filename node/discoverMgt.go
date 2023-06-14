@@ -16,8 +16,8 @@ import (
 	"github.com/CESSProject/DeOSS/pkg/utils"
 	"github.com/libp2p/go-libp2p/core/peer"
 
-	"github.com/CESSProject/sdk-go/core/pattern"
-	sutils "github.com/CESSProject/sdk-go/core/utils"
+	"github.com/CESSProject/cess-go-sdk/core/pattern"
+	sutils "github.com/CESSProject/cess-go-sdk/core/utils"
 	ma "github.com/multiformats/go-multiaddr"
 )
 
@@ -36,8 +36,9 @@ func (n *Node) discoverMgt(ch chan<- bool) {
 	var peerid string
 	var addr string
 	var multiaddr string
-	var id peer.ID
-	var allPeers map[string][]ma.Multiaddr
+	var boot []string
+	var bootnodes []string
+	var addrInfo *peer.AddrInfo
 
 	tick_30s := time.NewTicker(time.Second * 30)
 	defer tick_30s.Stop()
@@ -60,17 +61,31 @@ func (n *Node) discoverMgt(ch chan<- bool) {
 				}
 			}
 		case <-tick_60s.C:
-			allPeers = n.GetAllPeer()
-			for k, v := range allPeers {
-				id, err = peer.Decode(k)
+			boot = n.GetBootNodes()
+			for _, v := range boot {
+				bootnodes, err = utils.ParseMultiaddrs(v)
 				if err != nil {
 					continue
 				}
-				addrInfo := peer.AddrInfo{
-					ID:    id,
-					Addrs: v,
+				for _, v := range bootnodes {
+					addr, err := ma.NewMultiaddr(v)
+					if err != nil {
+						continue
+					}
+					addrInfo, err = peer.AddrInfoFromP2pAddr(addr)
+					if err != nil {
+						continue
+					}
+					err = n.Connect(n.GetRootCtx(), *addrInfo)
+					if err != nil {
+						n.Log("err", err.Error())
+						continue
+					}
+					n.SavePeer(addrInfo.ID.Pretty())
 				}
-				n.Connect(n.GetRootCtx(), addrInfo)
+			}
+			if !n.GetDiscoverSt() {
+				n.StartDiscover()
 			}
 		case discoverPeer := <-n.DiscoveredPeer():
 			peerid = discoverPeer.ID.Pretty()
@@ -81,7 +96,7 @@ func (n *Node) discoverMgt(ch chan<- bool) {
 				continue
 			}
 			n.Discover("info", fmt.Sprintf("Connect to %s ", peerid))
-			n.PutPeer(peerid, discoverPeer.Addrs)
+			n.SavePeer(peerid)
 
 			for _, v := range discoverPeer.Addrs {
 				addr = v.String()
@@ -97,5 +112,6 @@ func (n *Node) discoverMgt(ch chan<- bool) {
 				}
 			}
 		}
+		time.Sleep(time.Millisecond * 10)
 	}
 }

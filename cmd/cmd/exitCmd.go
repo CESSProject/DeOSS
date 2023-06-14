@@ -13,8 +13,8 @@ import (
 
 	"github.com/CESSProject/DeOSS/configs"
 	"github.com/CESSProject/DeOSS/node"
-	sdkgo "github.com/CESSProject/sdk-go"
-	sconfig "github.com/CESSProject/sdk-go/config"
+	sdkgo "github.com/CESSProject/cess-go-sdk"
+	sconfig "github.com/CESSProject/cess-go-sdk/config"
 	"github.com/spf13/cobra"
 )
 

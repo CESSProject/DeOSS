@@ -38,6 +38,7 @@ func init() {
 		Command_Version(),
 		Command_Run(),
 		Command_State(),
+		Command_Exit(),
 	)
 	rootCmd.PersistentFlags().StringP("config", "c", "conf.yaml", "custom profile")
 	rootCmd.PersistentFlags().StringP("rpc", "", "wss://testnet-rpc0.cess.cloud/ws/", "rpc endpoint")

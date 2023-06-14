@@ -14,7 +14,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/CESSProject/sdk-go/core/pattern"
+	"github.com/CESSProject/cess-go-sdk/core/pattern"
 	"github.com/natefinch/lumberjack"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -24,7 +24,6 @@ import (
 type Logger interface {
 	Log(string, string)
 	Pnc(msg string)
-	//Common(string, error)
 	Upfile(string, string)
 	Downfile(string, string)
 	Record(error)
@@ -72,7 +71,7 @@ func (l *logs) Log(level string, msg string) {
 		switch level {
 		case "info":
 			v.Sugar().Infof("[%v:%d] %v", filepath.Base(file), line, msg)
-		case "error", "err":
+		case "err":
 			v.Sugar().Errorf("[%v:%d] %v", filepath.Base(file), line, msg)
 		}
 	}
