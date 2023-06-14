@@ -65,7 +65,7 @@ const (
 // log file
 var (
 	LogFiles = []string{
-		"common",   //General log
+		"log",      //General log
 		"upfile",   //Upload file log
 		"panic",    //Panic log
 		"downfile", //Download log
