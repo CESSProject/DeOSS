@@ -147,12 +147,15 @@ The public API endpoint URL of DeOSS is the server you deploy, All endpoints des
 
 **Before using DeOSS, you must authorize it as follows:** 
 
-1. Create a wallet account and fund it, refer to [Configure Wallet](https://github.com/CESSProject/DeOSS#configure-wWallet)
+1. Create a wallet account and fund it, refer to [Configure Wallet](https://github.com/CESSProject/DeOSS#configure-wallet)
 
-2. Purchase cess storage space:[BuySpace](https://github.com/CESSProject/W3F-illustration/blob/b712b330772912e8e4a84c03afac1d3a224b9488/gateway/buySpace.jpg)
+2. Purchase cess storage space:[BuySpace](https://github.com/CESSProject/W3F-illustration/blob/4995c1584006823990806b9d30fa7d554630ec14/deoss/buySpace.png)
 
-3. Authorize the use right of the space to DeOSS:[Authorize](https://github.com/CESSProject/W3F-illustration/blob/b712b330772912e8e4a84c03afac1d3a224b9488/gateway/authorize.jpg)
+3. (Optional operations) The default space purchased is valid for 1 month and can be increased by [RenewalSpace](https://github.com/CESSProject/W3F-illustration/blob/4995c1584006823990806b9d30fa7d554630ec14/deoss/renewalSpace.png).
 
+4. Authorize the use right of the space to DeOSS:[Authorize](https://github.com/CESSProject/W3F-illustration/blob/4995c1584006823990806b9d30fa7d554630ec14/deoss/authorizeOss.png)
+
+> If you feel that you do not have enough space, you can expand it by means of [ExpansionSpace](https://github.com/CESSProject/W3F-illustration/blob/4995c1584006823990806b9d30fa7d554630ec14/deoss/expansionSpace.png).
 
 ## Authentication
 
