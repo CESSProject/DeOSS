@@ -49,7 +49,7 @@ func (n *Node) trackFile(ch chan<- bool) {
 		files, _ = filepath.Glob(fmt.Sprintf("%s/*", n.TrackDir))
 		for i := 0; i < len(files); i++ {
 			roothash = filepath.Base(files[i])
-			b, err = n.Cache.Get([]byte("transfer:" + roothash))
+			b, err = n.Get([]byte("transfer:" + roothash))
 			if err == nil {
 				storageorder, err = n.QueryStorageOrder(roothash)
 				if err != nil {
@@ -69,6 +69,7 @@ func (n *Node) trackFile(ch chan<- bool) {
 							os.RemoveAll(filepath.Join(n.GetDirs().FileDir, ownerAcc, roothash))
 							os.Remove(files[i])
 							os.Remove(filepath.Join(n.GetDirs().FileDir, roothash))
+							n.Delete([]byte("transfer:" + roothash))
 							continue
 						}
 					} else {
@@ -84,6 +85,7 @@ func (n *Node) trackFile(ch chan<- bool) {
 								os.RemoveAll(filepath.Join(n.GetDirs().FileDir, ownerAcc, roothash))
 								os.Remove(files[i])
 							}
+							n.Delete([]byte("transfer:" + roothash))
 						}
 					}
 					continue

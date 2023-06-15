@@ -31,7 +31,6 @@ func (n *Node) discoverMgt(ch chan<- bool) {
 
 	n.Discover("info", ">>>>> Start discoverMgt task")
 
-	var ok bool
 	var err error
 	var peerid string
 	var addr string
@@ -40,24 +39,24 @@ func (n *Node) discoverMgt(ch chan<- bool) {
 	var bootnodes []string
 	var addrInfo *peer.AddrInfo
 
-	tick_30s := time.NewTicker(time.Second * 30)
-	defer tick_30s.Stop()
+	tick_BlockInterval := time.NewTicker(pattern.BlockInterval)
+	defer tick_BlockInterval.Stop()
 
 	tick_60s := time.NewTicker(time.Minute)
 	defer tick_60s.Stop()
 
 	for {
 		select {
-		case <-tick_30s.C:
-			ok, err = n.NetListening()
-			if !ok || err != nil {
+		case <-tick_BlockInterval.C:
+			if !n.GetChainState() {
 				n.Discover("err", pattern.ERR_RPC_CONNECTION.Error())
-				n.SetChainState(false)
 				err = n.Reconnect()
 				if err != nil {
 					log.Println(pattern.ERR_RPC_CONNECTION)
+					n.Discover("err", pattern.ERR_RPC_CONNECTION.Error())
 				} else {
-					n.Discover("info", "reconnected successfully")
+					log.Println("rpc reconnection successful")
+					n.Discover("info", "rpc reconnection successfully")
 				}
 			}
 		case <-tick_60s.C:
