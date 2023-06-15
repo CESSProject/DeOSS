@@ -10,6 +10,8 @@ package node
 import (
 	"fmt"
 	"net/http"
+	"os"
+	"path/filepath"
 	"unsafe"
 
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
@@ -27,6 +29,7 @@ func (n *Node) delHandle(c *gin.Context) {
 		err      error
 		txHash   string
 		clientIp string
+		account  string
 		pkey     []byte
 		respMsg  = &RespMsg{}
 	)
@@ -35,7 +38,7 @@ func (n *Node) delHandle(c *gin.Context) {
 	n.Upfile("info", fmt.Sprintf("[%v] %v", clientIp, INFO_DelRequest))
 
 	// verify token
-	_, pkey, err = n.VerifyToken(c, respMsg)
+	account, pkey, err = n.VerifyToken(c, respMsg)
 	if err != nil {
 		n.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, err))
 		c.JSON(respMsg.Code, respMsg.Err)
@@ -49,6 +52,9 @@ func (n *Node) delHandle(c *gin.Context) {
 			c.JSON(400, err.Error())
 			return
 		}
+		os.RemoveAll(filepath.Join(n.GetDirs().FileDir, account, deleteName))
+		os.Remove(filepath.Join(n.TrackDir, deleteName))
+		n.Delete([]byte("transfer:" + deleteName))
 		c.JSON(200, txHash)
 	} else if sutils.CheckBucketName(deleteName) {
 		txHash, err = n.DeleteBucket(pkey, deleteName)
@@ -74,6 +80,5 @@ func (n *Node) delHandle(c *gin.Context) {
 			Block_hash  string
 			Failed_list []pattern.FileHash
 		}{Block_hash: txHash, Failed_list: failList})
-		return
 	}
 }

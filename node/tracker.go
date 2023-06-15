@@ -68,7 +68,6 @@ func (n *Node) trackFile(ch chan<- bool) {
 							n.Upfile("info", "file has been deleted")
 							os.RemoveAll(filepath.Join(n.GetDirs().FileDir, ownerAcc, roothash))
 							os.Remove(files[i])
-							os.Remove(filepath.Join(n.GetDirs().FileDir, roothash))
 							n.Delete([]byte("transfer:" + roothash))
 							continue
 						}
