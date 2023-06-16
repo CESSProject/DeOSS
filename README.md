@@ -403,7 +403,7 @@ Response schema: `application/json`
 - Request example
 
 ```shell
-# curl -X DELETE URL/fid -H "Authorization: eyJhbGciOiJIUzI1Ni......g-hX4bXlIyn5I8ML1g"
+# curl -X DELETE URL/ -d '{"files": ["filehash1", "filehash2"]}' -H "Content-Type: application/json" -H "Authorization: eyJhbGciOiJIUzI1Ni......g-hX4bXlIyn5I8ML1g"
 ```
 
 ## Delete a bucket
