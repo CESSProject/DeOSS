@@ -36,16 +36,16 @@ type Node struct {
 	sdk.SDK
 	core.P2P
 	*gin.Engine
-	Lock     *sync.RWMutex
-	Peers    map[string]struct{}
+	lock     *sync.RWMutex
+	peers    map[string]struct{}
 	TrackDir string
 }
 
 // New is used to build a node instance
 func New() *Node {
 	return &Node{
-		Lock:  new(sync.RWMutex),
-		Peers: make(map[string]struct{}, 10),
+		lock:  new(sync.RWMutex),
+		peers: make(map[string]struct{}, 10),
 	}
 }
 
@@ -76,17 +76,17 @@ func (n *Node) Run() {
 }
 
 func (n *Node) SavePeer(peerid string) {
-	n.Lock.Lock()
-	defer n.Lock.Unlock()
-	if _, ok := n.Peers[peerid]; !ok {
-		n.Peers[peerid] = struct{}{}
+	n.lock.Lock()
+	defer n.lock.Unlock()
+	if _, ok := n.peers[peerid]; !ok {
+		n.peers[peerid] = struct{}{}
 	}
 }
 
 func (n *Node) Has(peerid string) bool {
-	n.Lock.RLock()
-	defer n.Lock.RUnlock()
-	_, ok := n.Peers[peerid]
+	n.lock.RLock()
+	defer n.lock.RUnlock()
+	_, ok := n.peers[peerid]
 	return ok
 }
 

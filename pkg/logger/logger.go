@@ -26,6 +26,7 @@ type Logger interface {
 	Pnc(msg string)
 	Upfile(string, string)
 	Downfile(string, string)
+	Del(string, string)
 	Record(error)
 	Query(string, string)
 	Discover(string, string)
@@ -35,6 +36,20 @@ type logs struct {
 	logpath map[string]string
 	log     map[string]*zap.Logger
 }
+
+// log file
+var (
+	LogFiles = []string{
+		"log",      //General log
+		"panic",    //Panic log
+		"upfile",   //Upload file log
+		"downfile", //Download log
+		"delete",
+		"record",
+		"query",
+		"discover",
+	}
+)
 
 func NewLogs(logfiles map[string]string) (Logger, error) {
 	var (
@@ -101,6 +116,19 @@ func (l *logs) Upfile(level string, msg string) {
 func (l *logs) Downfile(level string, msg string) {
 	_, file, line, _ := runtime.Caller(1)
 	v, ok := l.log["downfile"]
+	if ok {
+		switch level {
+		case "info":
+			v.Sugar().Infof("[%v:%d] %v", filepath.Base(file), line, msg)
+		case "err":
+			v.Sugar().Errorf("[%v:%d] %v", filepath.Base(file), line, msg)
+		}
+	}
+}
+
+func (l *logs) Del(level string, msg string) {
+	_, file, line, _ := runtime.Caller(1)
+	v, ok := l.log["delete"]
 	if ok {
 		switch level {
 		case "info":

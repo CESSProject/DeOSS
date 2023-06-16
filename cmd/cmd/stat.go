@@ -8,6 +8,7 @@
 package cmd
 
 import (
+	"fmt"
 	"log"
 	"os"
 
@@ -15,15 +16,19 @@ import (
 	"github.com/CESSProject/DeOSS/node"
 	sdkgo "github.com/CESSProject/cess-go-sdk"
 	sconfig "github.com/CESSProject/cess-go-sdk/config"
+	"github.com/btcsuite/btcutil/base58"
+	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/spf13/cobra"
 )
 
-// Command_Exit_Runfunc Runfunc is used to unregister the deoss role
-func Command_Exit_Runfunc(cmd *cobra.Command, args []string) {
-	// config file
-	var err error
-	var n = node.New()
-	// Building profile
+// cmd_stat_func is an implementation of the stat command,
+// which is used to view the base information of deoss.
+func cmd_stat_func(cmd *cobra.Command, args []string) {
+	var (
+		err error
+		n   = node.New()
+	)
+
 	n.Confile, err = buildAuthenticationConfig(cmd)
 	if err != nil {
 		log.Println(err)
@@ -41,12 +46,23 @@ func Command_Exit_Runfunc(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
-	txhash, err := n.Exit(n.GetRoleName())
-	if err != nil || txhash == "" {
+	pubkey, err := n.Confile.GetPublickey()
+	if err != nil {
+		log.Println(err)
+		os.Exit(1)
+	}
+	peerPublickey, err := n.QueryDeossPeerPublickey(pubkey)
+	if err != nil || peerPublickey == nil {
 		log.Printf("[err] %v\n", err)
 		os.Exit(1)
 	}
-
-	log.Printf("[OK] %v\n", txhash)
+	var tableRows = []table.Row{
+		{"role", n.GetRoleName()},
+		{"peer id", base58.Encode(peerPublickey)},
+		{"signature account", n.GetSignatureAcc()},
+	}
+	tw := table.NewWriter()
+	tw.AppendRows(tableRows)
+	fmt.Println(tw.Render())
 	os.Exit(0)
 }

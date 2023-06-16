@@ -32,7 +32,7 @@ func (n *Node) VerifyToken(c *gin.Context, respmsg *RespMsg) (string, []byte, er
 	}
 
 	// get token from head
-	tokenstr = c.Request.Header.Get(Header_Auth)
+	tokenstr = c.Request.Header.Get(HTTPHeader_Authorization)
 	if tokenstr == "" {
 		respmsg.Code = http.StatusBadRequest
 		respmsg.Err = errors.New(ERR_MissToken)
@@ -57,7 +57,7 @@ func (n *Node) VerifyToken(c *gin.Context, respmsg *RespMsg) (string, []byte, er
 	if claims, ok = token.Claims.(*CustomClaims); ok && token.Valid {
 		account = claims.Account
 	} else {
-		respmsg.Code = http.StatusInternalServerError
+		respmsg.Code = http.StatusForbidden
 		respmsg.Err = errors.New(ERR_NoPermission)
 		return account, nil, err
 	}

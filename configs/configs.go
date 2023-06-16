@@ -28,16 +28,6 @@ const (
 )
 
 const (
-	// Tcp message interval
-	TCP_Message_Interval = time.Duration(time.Millisecond * 10)
-	// Number of tcp message caches
-	TCP_Message_Send_Buffers = 10
-	TCP_Message_Read_Buffers = 10
-	//
-	TCP_SendBuffer = 8192
-	TCP_ReadBuffer = 12000
-	//
-	Tcp_Dial_Timeout = time.Duration(time.Second * 5)
 	//
 	FileCacheExpirationTime = 720
 )
@@ -60,17 +50,4 @@ const (
 	HELP_update = `    3.Check the FileMap.OssUpdate transaction event result in the block hash above:
         If system.ExtrinsicFailed is prompted, it means failure;
         If system.ExtrinsicSuccess is prompted, it means success;`
-)
-
-// log file
-var (
-	LogFiles = []string{
-		"log",      //General log
-		"upfile",   //Upload file log
-		"panic",    //Panic log
-		"downfile", //Download log
-		"record",
-		"query",
-		"discover",
-	}
 )

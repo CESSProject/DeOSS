@@ -247,8 +247,6 @@ Response schema: `application/json`
 # curl -X PUT URL/BucketName -H "Authorization: eyJhbGciOiJIUzI1NiIsI......P0Jrg-hX4bXlIyn5I8ML1g"
 ```
 
-
-
 ## Upload a file
 
 | **PUT**  /{FileName} |
@@ -357,6 +355,50 @@ Response schema: `application/json`
 | 400       | InvalidParameter.Name | fid is error              |
 | 403       | NoPermission          | token verification failed |
 | 500       | InternalError         | service internal error    |
+
+- Request example
+
+```shell
+# curl -X DELETE URL/fid -H "Authorization: eyJhbGciOiJIUzI1Ni......g-hX4bXlIyn5I8ML1g"
+```
+
+## Delete multiple files
+
+
+| **DELETE**  / |
+| ------------- |
+
+- Request Header
+
+| key           | value |
+| ------------- | ----- |
+| Authorization | token |
+| Content-Type | application/json |
+
+- Request Body
+```
+{
+  "files": [
+    "filehash1",
+    "filehash2",
+    "filehash3"
+  ]
+}
+```
+
+- Responses
+
+Response schema: `application/json`
+
+| HTTP Code | Message                   | Description               |
+| --------- | ------------------------- | ------------------------- |
+| 200       | Block hash                | delete file  block hash   |
+| 400       | InvalidHead.MissToken     | token is empty            |
+| 400       | InvalidHead.Token         | token error               |
+| 400       | ERR_ParseBody             | unable to parse body      |
+| 400       | empty files               | deleted files is empty    |
+| 403       | InvalidToken.NoPermission | token verification failed |
+| 500       | InternalError             | service internal error    |
 
 - Request example
 

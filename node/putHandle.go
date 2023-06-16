@@ -54,12 +54,12 @@ func (n *Node) putHandle(c *gin.Context) {
 	account, pkey, err = n.VerifyToken(c, respMsg)
 	if err != nil {
 		n.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, err))
-		c.JSON(respMsg.Code, respMsg.Err)
+		c.JSON(respMsg.Code, err.Error())
 		return
 	}
 
 	// get parameter name
-	putName := c.Param(PUT_ParameterName)
+	putName := c.Param(HTTP_ParameterName)
 	if putName == "" {
 		n.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, ERR_InvalidName))
 		c.JSON(http.StatusBadRequest, ERR_InvalidName)
@@ -67,14 +67,9 @@ func (n *Node) putHandle(c *gin.Context) {
 	}
 
 	// bucket name
-	bucketName := c.Request.Header.Get(Header_BucketName)
+	bucketName := c.Request.Header.Get(HTTPHeader_BucketName)
 
 	content_length := c.Request.ContentLength
-	if content_length <= 0 {
-		n.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, ERR_EmptyFile))
-		c.JSON(http.StatusBadRequest, ERR_EmptyFile)
-		return
-	}
 
 	if bucketName == "" {
 		if content_length > 0 {
@@ -95,6 +90,12 @@ func (n *Node) putHandle(c *gin.Context) {
 		}
 		n.Upfile("info", fmt.Sprintf("[%v] [%s] create bucket successfully: %v", clientIp, putName, txHash))
 		c.JSON(http.StatusOK, map[string]string{"Block hash:": txHash})
+		return
+	}
+
+	if content_length <= 0 {
+		n.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, ERR_EmptyFile))
+		c.JSON(http.StatusBadRequest, ERR_EmptyFile)
 		return
 	}
 

@@ -16,7 +16,7 @@ const (
 	// version
 	Version = Name + " " + "v0.2.0 dev"
 	// description
-	Description = "Implementation of object storage service based on cess platform"
+	Description = "Object storage service based on cess network"
 )
 
 const (
