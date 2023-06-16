@@ -34,11 +34,11 @@ func Execute() {
 // init
 func init() {
 	rootCmd.AddCommand(
-		Command_Profile(),
-		Command_Version(),
-		Command_Run(),
-		Command_State(),
-		Command_Exit(),
+		cmd_config(),
+		cmd_version(),
+		cmd_run(),
+		cmd_stat(),
+		cmd_exit(),
 	)
 	rootCmd.PersistentFlags().StringP("config", "c", "conf.yaml", "custom profile")
 	rootCmd.PersistentFlags().StringP("rpc", "", "wss://testnet-rpc0.cess.cloud/ws/", "rpc endpoint")
@@ -48,7 +48,7 @@ func init() {
 	rootCmd.PersistentFlags().StringP("boot", "", "_dnsaddr.bootstrap-kldr.cess.cloud", "bootstap nodes")
 }
 
-func Command_Version() *cobra.Command {
+func cmd_version() *cobra.Command {
 	cc := &cobra.Command{
 		Use:   "version",
 		Short: "Print version information",
@@ -61,41 +61,41 @@ func Command_Version() *cobra.Command {
 	return cc
 }
 
-func Command_Profile() *cobra.Command {
+func cmd_config() *cobra.Command {
 	cc := &cobra.Command{
 		Use:                   "config",
 		Short:                 "Generate configuration file",
-		Run:                   Command_Profile_Runfunc,
+		Run:                   cmd_config_func,
 		DisableFlagsInUseLine: true,
 	}
 	return cc
 }
 
-func Command_Run() *cobra.Command {
+func cmd_run() *cobra.Command {
 	cc := &cobra.Command{
 		Use:                   "run",
 		Short:                 "Running services",
-		Run:                   Command_Run_Runfunc,
+		Run:                   cmd_run_func,
 		DisableFlagsInUseLine: true,
 	}
 	return cc
 }
 
-func Command_State() *cobra.Command {
+func cmd_stat() *cobra.Command {
 	cc := &cobra.Command{
 		Use:                   "stat",
 		Short:                 "Query deoss information",
-		Run:                   Command_State_Runfunc,
+		Run:                   cmd_stat_func,
 		DisableFlagsInUseLine: true,
 	}
 	return cc
 }
 
-func Command_Exit() *cobra.Command {
+func cmd_exit() *cobra.Command {
 	cc := &cobra.Command{
 		Use:                   "exit",
 		Short:                 "Unregister the deoss role",
-		Run:                   Command_Exit_Runfunc,
+		Run:                   cmd_exit_func,
 		DisableFlagsInUseLine: true,
 	}
 	return cc

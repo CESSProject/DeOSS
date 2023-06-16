@@ -16,8 +16,9 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// Generate profile template
-func Command_Profile_Runfunc(cmd *cobra.Command, args []string) {
+// cmd_config_func is an implementation of the config command,
+// which is used to generate configuration file.
+func cmd_config_func(cmd *cobra.Command, args []string) {
 	f, err := os.Create(confile.ProfileDefault)
 	if err != nil {
 		log.Printf("[err] %v\n", err)

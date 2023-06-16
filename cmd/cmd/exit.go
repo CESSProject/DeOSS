@@ -8,7 +8,6 @@
 package cmd
 
 import (
-	"fmt"
 	"log"
 	"os"
 
@@ -16,17 +15,17 @@ import (
 	"github.com/CESSProject/DeOSS/node"
 	sdkgo "github.com/CESSProject/cess-go-sdk"
 	sconfig "github.com/CESSProject/cess-go-sdk/config"
-	"github.com/btcsuite/btcutil/base58"
-	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/spf13/cobra"
 )
 
-// Command_ State_ Runfunc is used to view basic OSS service information
-func Command_State_Runfunc(cmd *cobra.Command, args []string) {
-	// config file
-	var err error
-	var n = node.New()
-	// Building profile
+// cmd_exit_func is an implementation of the exit command,
+// which is used to unregister the deoss role.
+func cmd_exit_func(cmd *cobra.Command, args []string) {
+	var (
+		err error
+		n   = node.New()
+	)
+
 	n.Confile, err = buildAuthenticationConfig(cmd)
 	if err != nil {
 		log.Println(err)
@@ -44,23 +43,12 @@ func Command_State_Runfunc(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
-	pubkey, err := n.Confile.GetPublickey()
-	if err != nil {
-		log.Println(err)
-		os.Exit(1)
-	}
-	peerPublickey, err := n.QueryDeossPeerPublickey(pubkey)
-	if err != nil || peerPublickey == nil {
+	txhash, err := n.Exit(n.GetRoleName())
+	if err != nil || txhash == "" {
 		log.Printf("[err] %v\n", err)
 		os.Exit(1)
 	}
-	var tableRows = []table.Row{
-		{"role", n.GetRoleName()},
-		{"peer id", base58.Encode(peerPublickey)},
-		{"signature account", n.GetSignatureAcc()},
-	}
-	tw := table.NewWriter()
-	tw.AppendRows(tableRows)
-	fmt.Println(tw.Render())
+
+	log.Printf("[OK] %v\n", txhash)
 	os.Exit(0)
 }

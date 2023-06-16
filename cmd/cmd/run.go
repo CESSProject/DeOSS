@@ -31,8 +31,9 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// Start service
-func Command_Run_Runfunc(cmd *cobra.Command, args []string) {
+// cmd_run_func is an implementation of the run command,
+// which is used to start the deoss service.
+func cmd_run_func(cmd *cobra.Command, args []string) {
 	var (
 		err       error
 		logDir    string
@@ -49,7 +50,7 @@ func Command_Run_Runfunc(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
-	//Build client
+	// Build sdk
 	n.SDK, err = sdkgo.New(
 		sconfig.CharacterName_Deoss,
 		sdkgo.ConnectRpcAddrs(n.GetRpcAddr()),
@@ -97,6 +98,7 @@ func Command_Run_Runfunc(cmd *cobra.Command, args []string) {
 		}
 	}
 
+	// Build p2p
 	n.P2P, err = p2pgo.New(
 		context.Background(),
 		p2pgo.ListenPort(n.GetP2pPort()),
@@ -130,14 +132,14 @@ func Command_Run_Runfunc(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
-	//Build cache
+	// Build cache
 	n.Cache, err = buildCache(dbDir)
 	if err != nil {
 		log.Println(err)
 		os.Exit(1)
 	}
 
-	//Build Log
+	// Build Log
 	n.Logger, err = buildLogs(logDir)
 	if err != nil {
 		log.Println(err)
@@ -323,7 +325,7 @@ func buildCache(cacheDir string) (db.Cache, error) {
 
 func buildLogs(logDir string) (logger.Logger, error) {
 	var logs_info = make(map[string]string)
-	for _, v := range configs.LogFiles {
+	for _, v := range logger.LogFiles {
 		logs_info[v] = filepath.Join(logDir, v+".log")
 	}
 	return logger.NewLogs(logs_info)

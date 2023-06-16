@@ -70,11 +70,6 @@ func (n *Node) putHandle(c *gin.Context) {
 	bucketName := c.Request.Header.Get(Header_BucketName)
 
 	content_length := c.Request.ContentLength
-	if content_length <= 0 {
-		n.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, ERR_EmptyFile))
-		c.JSON(http.StatusBadRequest, ERR_EmptyFile)
-		return
-	}
 
 	if bucketName == "" {
 		if content_length > 0 {
@@ -95,6 +90,12 @@ func (n *Node) putHandle(c *gin.Context) {
 		}
 		n.Upfile("info", fmt.Sprintf("[%v] [%s] create bucket successfully: %v", clientIp, putName, txHash))
 		c.JSON(http.StatusOK, map[string]string{"Block hash:": txHash})
+		return
+	}
+
+	if content_length <= 0 {
+		n.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, ERR_EmptyFile))
+		c.JSON(http.StatusBadRequest, ERR_EmptyFile)
 		return
 	}
 

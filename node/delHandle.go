@@ -12,7 +12,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"unsafe"
 
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
 	sutils "github.com/CESSProject/cess-go-sdk/core/utils"
@@ -35,23 +34,28 @@ func (n *Node) delHandle(c *gin.Context) {
 	)
 
 	clientIp = c.ClientIP()
-	n.Upfile("info", fmt.Sprintf("[%v] %v", clientIp, INFO_DelRequest))
+	n.Del("info", fmt.Sprintf("[%v] %v", clientIp, INFO_DelRequest))
 
 	// verify token
 	account, pkey, err = n.VerifyToken(c, respMsg)
 	if err != nil {
-		n.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, err))
+		n.Del("err", fmt.Sprintf("[%v] %v", clientIp, err))
 		c.JSON(respMsg.Code, respMsg.Err)
 		return
 	}
+	n.Del("info", fmt.Sprintf("[%v] %v", clientIp, account))
 
 	deleteName := c.Param(PUT_ParameterName)
-	if len(deleteName) == int(unsafe.Sizeof(pattern.FileHash{})) {
+	n.Del("info", fmt.Sprintf("[%v] %v", clientIp, deleteName))
+
+	if len(deleteName) == len(pattern.FileHash{}) {
 		txHash, _, err = n.DeleteFile(pkey, []string{deleteName})
 		if err != nil {
+			n.Del("err", fmt.Sprintf("[%v] [DeleteFile] %v", clientIp, err))
 			c.JSON(400, err.Error())
 			return
 		}
+		n.Del("info", fmt.Sprintf("[%v] [DeleteFile] %v", clientIp, txHash))
 		os.RemoveAll(filepath.Join(n.GetDirs().FileDir, account, deleteName))
 		os.Remove(filepath.Join(n.TrackDir, deleteName))
 		n.Delete([]byte("transfer:" + deleteName))
@@ -59,19 +63,23 @@ func (n *Node) delHandle(c *gin.Context) {
 	} else if sutils.CheckBucketName(deleteName) {
 		txHash, err = n.DeleteBucket(pkey, deleteName)
 		if err != nil {
+			n.Del("err", fmt.Sprintf("[%v] [DeleteBucket] %v", clientIp, err))
 			c.JSON(400, err.Error())
 			return
 		}
+		n.Del("info", fmt.Sprintf("[%v] [DeleteBucket] %v", clientIp, txHash))
 		c.JSON(200, txHash)
 	} else {
 		deleteNames := c.PostFormArray("delete_list")
 		if err != nil {
+			n.Del("err", fmt.Sprintf("[%v] [PostFormArray] %v", clientIp, err))
 			c.JSON(400, "InvalidBody.DeleteList")
 			return
 		}
-
+		n.Del("info", fmt.Sprintf("[%v] [PostFormArray] %v", clientIp, deleteNames))
 		txHash, failList, err := n.DeleteFile(pkey, deleteNames)
 		if err != nil {
+			n.Del("err", fmt.Sprintf("[%v] [DeleteFile] %v", clientIp, err))
 			c.JSON(400, err.Error())
 			return
 		}
