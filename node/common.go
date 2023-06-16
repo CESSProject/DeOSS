@@ -32,7 +32,7 @@ func (n *Node) VerifyToken(c *gin.Context, respmsg *RespMsg) (string, []byte, er
 	}
 
 	// get token from head
-	tokenstr = c.Request.Header.Get(Header_Auth)
+	tokenstr = c.Request.Header.Get(HTTPHeader_Authorization)
 	if tokenstr == "" {
 		respmsg.Code = http.StatusBadRequest
 		respmsg.Err = errors.New(ERR_MissToken)

@@ -7,12 +7,16 @@
 
 package node
 
+import "fmt"
+
 func (n *Node) addRoute() {
 	n.Engine.POST("/auth", n.authHandle)
 
-	n.Engine.PUT("/:name", n.putHandle)
+	n.Engine.GET(fmt.Sprintf("/:%s", HTTP_ParameterName), n.GetHandle)
 
-	n.Engine.DELETE("/:name", n.delHandle)
+	n.Engine.PUT(fmt.Sprintf("/:%s", HTTP_ParameterName), n.putHandle)
 
-	n.Engine.GET("/:name", n.GetHandle)
+	n.Engine.DELETE(fmt.Sprintf("/:%s", HTTP_ParameterName), n.delHandle)
+
+	n.Engine.DELETE("/", n.delFilesHandle)
 }

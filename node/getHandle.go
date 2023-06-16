@@ -77,7 +77,7 @@ func (n *Node) GetHandle(c *gin.Context) {
 	}
 
 	if len(getName) != len(pattern.FileHash{}) {
-		account := c.Request.Header.Get(Header_Account)
+		account := c.Request.Header.Get(HTTPHeader_Account)
 		if account == "" {
 			n.Query("err", fmt.Sprintf("[%s] %s", clientIp, ERR_MissAccount))
 			c.JSON(http.StatusBadRequest, ERR_MissAccount)

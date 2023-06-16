@@ -1,3 +1,10 @@
+/*
+	Copyright (C) CESS. All rights reserved.
+	Copyright (C) Cumulus Encrypted Storage System. All rights reserved.
+
+	SPDX-License-Identifier: Apache-2.0
+*/
+
 package node
 
 type RespMsg struct {
@@ -5,13 +12,13 @@ type RespMsg struct {
 	Err  error
 }
 
+// HTTP HEADER
 const (
-	Header_Auth       = "Authorization"
-	Header_BucketName = "BucketName"
-	Header_Account    = "Account"
-	Header_Digest     = "Digest"
-	Header_Operation  = "Operation"
-	TokenDated        = 60 * 60 * 24 * 30
+	HTTPHeader_Authorization = "Authorization"
+	HTTPHeader_BucketName    = "BucketName"
+	HTTPHeader_Account       = "Account"
+	HTTPHeader_Digest        = "Digest"
+	HTTPHeader_Operation     = "Operation"
 )
 
 const (
@@ -22,11 +29,13 @@ const (
 )
 
 const (
-	PUT_ParameterName = "name"
-	FormFileKey1      = "file"
-	FormFileKey2      = "File"
-	FormFileKey3      = "FILE"
+	HTTP_ParameterName = "name"
+	FormFileKey1       = "file"
+	FormFileKey2       = "File"
+	FormFileKey3       = "FILE"
 )
+
+const TokenDated = 60 * 60 * 24 * 30
 
 const (
 	ERR_ReportProblem = "Sorry, please report this problem to the service provider:"
@@ -35,21 +44,23 @@ const (
 	INFO_GetRequest = "GetRequest"
 	INFO_DelRequest = "DelRequest"
 
-	ERR_DuplicateOrder    = "duplicate order"
-	ERR_MissToken         = "InvalidHead.MissToken"
-	ERR_EmptySeed         = "InvalidProfile.EmptySeed"
-	ERR_MissAccount       = "InvalidHead.MissAccount"
-	ERR_InvalidAccount    = "InvalidHead.Account"
-	ERR_NoPermission      = "InvalidToken.NoPermission"
-	ERR_InvalidToken      = "InvalidHead.Token"
-	ERR_InvalidName       = "InvalidParameter.Name"
-	ERR_InvalidBucketName = "InvalidHead.BucketName"
-	ERR_EmptyBucketName   = "Invalid.EmptyBucketName"
-	ERR_UnauthorizedSpace = "UnauthorizedSpace"
-	ERR_EmptyFile         = "InvalidBody.EmptyFile"
-	ERR_ReadBody          = "InvalidBody.ReadErr"
-	ERR_SpaceExpired      = "space expired"
-	ERR_NotEnoughSpace    = "not enough space"
+	ERR_DuplicateOrder        = "duplicate order"
+	ERR_MissToken             = "InvalidHead.MissToken"
+	ERR_EmptySeed             = "InvalidProfile.EmptySeed"
+	ERR_MissAccount           = "InvalidHead.MissAccount"
+	ERR_InvalidAccount        = "InvalidHead.Account"
+	ERR_NoPermission          = "InvalidToken.NoPermission"
+	ERR_InvalidToken          = "InvalidHead.Token"
+	ERR_InvalidName           = "InvalidParameter.Name"
+	ERR_InvalidFilehash       = "InvalidParameter.FileHash"
+	ERR_InvalidParaBucketName = "InvalidParameter.BucketName"
+	ERR_InvalidBucketName     = "InvalidHead.BucketName"
+	ERR_EmptyBucketName       = "Invalid.EmptyBucketName"
+	ERR_UnauthorizedSpace     = "UnauthorizedSpace"
+	ERR_EmptyFile             = "InvalidBody.EmptyFile"
+	ERR_ReadBody              = "InvalidBody.ReadErr"
+	ERR_SpaceExpired          = "space expired"
+	ERR_NotEnoughSpace        = "not enough space"
 
 	ERR_InternalServer = "InternalError"
 )
