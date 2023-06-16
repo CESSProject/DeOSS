@@ -57,7 +57,7 @@ func (n *Node) VerifyToken(c *gin.Context, respmsg *RespMsg) (string, []byte, er
 	if claims, ok = token.Claims.(*CustomClaims); ok && token.Valid {
 		account = claims.Account
 	} else {
-		respmsg.Code = http.StatusInternalServerError
+		respmsg.Code = http.StatusForbidden
 		respmsg.Err = errors.New(ERR_NoPermission)
 		return account, nil, err
 	}
