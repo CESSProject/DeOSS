@@ -3,56 +3,65 @@
 DeOSS ( Decentralized Object Storage Service ) is a decentralized object-based mass storage service that provides low-cost, secure and scalable distributed data storage services for the web3 domain.
 
 ## Reporting a Vulnerability
-If you find out any system bugs or you have a better suggestions, Please send an email to frode@cess.one,
-we are happy to communicate with you.
-
+If you find out any system bugs or you have a better suggestions, please send an email to frode@cess.one or join [CESS discord](https://discord.gg/mYHTMfBwNS) to communicate with us.
 
 ## System Requirements
 - Linux-amd64
 
-## System configuration
-**Ddependencies**
+> :warning: The following commands are executed with root privileges, if the prompt `Permission denied` appears, you need to switch to root privileges, or add `sudo` at the top of these commands.
 
-ubuntu:
+## System configuration
+### Install Aapplication tools
+
+For the Debian and  ubuntu families of linux systems:
 
 ```shell
-sudo apt update && sudo apt upgrade
-sudo apt install make gcc git curl wget vim util-linux -y
+apt install git curl wget vim util-linux -y
 ```
-centos:
-```
-sudo yum update && sudo yum upgrade
-sudo yum install make gcc git curl wget vim util-linux -y
-```
-**Firewall**
 
-If the firewall is turned on, you need to open the running port, the default port is 4001 and 8080.
+For the Fedora, RedHat and CentOS families of linux systems:
 
-ubuntu:
-
-First check if the firewall is on with the following command:
 ```
-sudo ufw status
+yum install git curl wget vim util-linux -y
+```
+
+### Firewall configuration
+
+By default, DeOSS uses port `8080` to listen for incoming connections and internally uses port `4001` for p2p communication, if your platform blocks these two ports by default, you may need to enable access to these port.
+
+#### ufw
+For hosts with ufw enabled (Debian, Ubuntu, etc.), you can use the ufw command to allow traffic to flow to specific ports. Use the following command to allow access to a port:
+
+```
+ufw allow 8080
+ufw allow 4001
 ```
 If the prompt `Status: active` indicates that the firewall is enabled, use the following command to open the port:
 ```shell
 sudo ufw allow 4001/tcp
 sudo ufw allow 8080/tcp
 ```
-centos:
+#### firewall-cmd
+For hosts with firewall-cmd enabled (CentOS), you can use the firewall-cmd command to allow traffic on specific ports. Use the following command to allow access to a port:
+```
+firewall-cmd --get-active-zones
+```
+This command gets the active zone(s). Now, apply port rules to the relevant zones returned above. For example if the zone is public, use
+```
+firewall-cmd --zone=public --add-port=4001/tcp --permanent
+firewall-cmd --zone=public --add-port=8080/tcp --permanent
+```
+Note that permanent makes sure the rules are persistent across firewall start, restart or reload. Finally reload the firewall for changes to take effect.
+```
+firewall-cmd --reload
+```
 
-First check if the firewall is on with the following command:
+#### iptables
+For hosts with iptables enabled (RHEL, CentOS, etc.), you can use the iptables command to enable all traffic to a specific port. Use the following command to allow access to a port:
 ```
-sudo firewall-cmd --state
-```
-If the prompt `running` indicates that the firewall is enabled, enter the following command to open the port:
-```
-sudo firewall-cmd --permanent --add-port=4001/tcp
-sudo firewall-cmd --permanent --add-port=8080/tcp
-```
-Restart firewall
-```
-sudo firewall-cmd --reload
+iptables -A INPUT -p tcp --dport 4001 -j ACCEPT
+iptables -A INPUT -p tcp --dport 8080 -j ACCEPT
+service iptables restart
 ```
 
 ## Build from source
