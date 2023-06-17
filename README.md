@@ -31,16 +31,11 @@ By default, DeOSS uses port `8080` to listen for incoming connections and intern
 
 #### ufw
 For hosts with ufw enabled (Debian, Ubuntu, etc.), you can use the ufw command to allow traffic to flow to specific ports. Use the following command to allow access to a port:
-
 ```
 ufw allow 8080
 ufw allow 4001
 ```
-If the prompt `Status: active` indicates that the firewall is enabled, use the following command to open the port:
-```shell
-sudo ufw allow 4001/tcp
-sudo ufw allow 8080/tcp
-```
+
 #### firewall-cmd
 For hosts with firewall-cmd enabled (CentOS), you can use the firewall-cmd command to allow traffic on specific ports. Use the following command to allow access to a port:
 ```
