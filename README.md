@@ -145,6 +145,11 @@ nohup ./deoss run 2>&1 &
 ./deoss stat
 ```
 
+## Exit the cess network
+```
+./deoss exit
+```
+
 # Usage for DeOSS API
 
 The public API endpoint URL of DeOSS is the server you deploy, All endpoints described in this document should be made relative to this root URL,The following example uses URL instead.
