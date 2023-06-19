@@ -28,6 +28,7 @@ type RecordInfo struct {
 	Roothash    string                    `json:"roothash"`
 	Filename    string                    `json:"filename"`
 	Buckname    string                    `json:"buckname"`
+	Filesize    uint64                    `json:"filesize"`
 	Putflag     bool                      `json:"putflag"`
 	Count       uint8                     `json:"count"`
 	Duplicate   bool                      `json:"duplicate"`
@@ -167,7 +168,7 @@ func (n *Node) putHandle(c *gin.Context) {
 		return
 	}
 
-	ok, err = n.deduplication(pkey, segmentInfo, roothash, putName, bucketName)
+	ok, err = n.deduplication(pkey, segmentInfo, roothash, putName, bucketName, uint64(fstat.Size()))
 	if err != nil {
 		n.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, err))
 		c.JSON(http.StatusBadRequest, err.Error())
@@ -225,6 +226,7 @@ func (n *Node) putHandle(c *gin.Context) {
 		Roothash:    roothash,
 		Filename:    putName,
 		Buckname:    bucketName,
+		Filesize:    uint64(fstat.Size()),
 		Putflag:     false,
 		Count:       0,
 		Duplicate:   false,
@@ -262,7 +264,7 @@ func (n *Node) putHandle(c *gin.Context) {
 	return
 }
 
-func (n *Node) deduplication(pkey []byte, segmentInfo []pattern.SegmentDataInfo, roothash, filename, bucketname string) (bool, error) {
+func (n *Node) deduplication(pkey []byte, segmentInfo []pattern.SegmentDataInfo, roothash, filename, bucketname string, filesize uint64) (bool, error) {
 	fmeta, err := n.QueryFileMetadata(roothash)
 	if err == nil {
 		for _, v := range fmeta.Owner {
@@ -270,7 +272,7 @@ func (n *Node) deduplication(pkey []byte, segmentInfo []pattern.SegmentDataInfo,
 				return true, nil
 			}
 		}
-		_, err = n.GenerateStorageOrder(roothash, nil, pkey, filename, bucketname)
+		_, err = n.GenerateStorageOrder(roothash, nil, pkey, filename, bucketname, filesize)
 		if err != nil {
 			return false, errors.Wrapf(err, "[GenerateStorageOrder]")
 		}

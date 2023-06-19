@@ -115,7 +115,7 @@ func (n *Node) trackFile(ch chan<- bool) {
 			if recordFile.Duplicate {
 				_, err = n.QueryFileMetadata(recordFile.Roothash)
 				if err == nil {
-					_, err = n.GenerateStorageOrder(recordFile.Roothash, nil, recordFile.Owner, recordFile.Filename, recordFile.Buckname)
+					_, err = n.GenerateStorageOrder(recordFile.Roothash, nil, recordFile.Owner, recordFile.Filename, recordFile.Buckname, recordFile.Filesize)
 					if err != nil {
 						n.Upfile("err", fmt.Sprintf("[%s] Duplicate file declaration failed: %v", roothash, err))
 						continue
@@ -166,7 +166,7 @@ func (n *Node) trackFile(ch chan<- bool) {
 				continue
 			}
 
-			count, err = n.backupFiles(recordFile.Owner, recordFile.SegmentInfo, roothash, recordFile.Filename, recordFile.Buckname)
+			count, err = n.backupFiles(recordFile.Owner, recordFile.SegmentInfo, roothash, recordFile.Filename, recordFile.Buckname, recordFile.Filesize)
 			if err != nil {
 				n.Upfile("err", fmt.Sprintf("[%v] %v", roothash, err))
 				continue
@@ -218,7 +218,7 @@ func (n *Node) trackFile(ch chan<- bool) {
 	}
 }
 
-func (n *Node) backupFiles(owner []byte, segmentInfo []pattern.SegmentDataInfo, roothash, filename, bucketname string) (uint8, error) {
+func (n *Node) backupFiles(owner []byte, segmentInfo []pattern.SegmentDataInfo, roothash, filename, bucketname string, filesize uint64) (uint8, error) {
 	var err error
 	var storageOrder pattern.StorageOrder
 
@@ -231,7 +231,7 @@ func (n *Node) backupFiles(owner []byte, segmentInfo []pattern.SegmentDataInfo, 
 		storageOrder, err = n.QueryStorageOrder(roothash)
 		if err != nil {
 			if err.Error() == pattern.ERR_Empty {
-				_, err = n.GenerateStorageOrder(roothash, segmentInfo, owner, filename, bucketname)
+				_, err = n.GenerateStorageOrder(roothash, segmentInfo, owner, filename, bucketname, filesize)
 				if err != nil {
 					return 0, err
 				}

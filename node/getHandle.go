@@ -331,8 +331,13 @@ func (n *Node) fetchFiles(roothash, dir string) (string, error) {
 				if err != nil {
 					return "", err
 				}
-				f.Write(buf)
+				if (writecount + 1) >= len(fmeta.SegmentList) {
+					f.Write(buf[:(fmeta.FileSize.Uint64() - uint64(writecount*pattern.SegmentSize))])
+				} else {
+					f.Write(buf)
+				}
 				writecount++
+
 				break
 			}
 		}
@@ -340,5 +345,6 @@ func (n *Node) fetchFiles(roothash, dir string) (string, error) {
 	if writecount != len(fmeta.SegmentList) {
 		return "", fmt.Errorf("Write failed")
 	}
+
 	return userfile, nil
 }
