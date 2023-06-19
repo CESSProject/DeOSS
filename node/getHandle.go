@@ -340,5 +340,6 @@ func (n *Node) fetchFiles(roothash, dir string) (string, error) {
 	if writecount != len(fmeta.SegmentList) {
 		return "", fmt.Errorf("Write failed")
 	}
+
 	return userfile, nil
 }
