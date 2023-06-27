@@ -21,8 +21,11 @@ import (
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
 	"github.com/CESSProject/cess-go-sdk/core/sdk"
 	"github.com/CESSProject/p2p-go/core"
+	"github.com/bytedance/sonic"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
+	"github.com/pkg/errors"
 )
 
 type Oss interface {
@@ -36,17 +39,19 @@ type Node struct {
 	sdk.SDK
 	core.P2P
 	*gin.Engine
-	signkey  []byte
-	lock     *sync.RWMutex
-	peers    map[string]struct{}
-	TrackDir string
+	signkey   []byte
+	trackLock *sync.RWMutex
+	lock      *sync.RWMutex
+	peers     map[string]struct{}
+	TrackDir  string
 }
 
 // New is used to build a node instance
 func New() *Node {
 	return &Node{
-		lock:  new(sync.RWMutex),
-		peers: make(map[string]struct{}, 10),
+		trackLock: new(sync.RWMutex),
+		lock:      new(sync.RWMutex),
+		peers:     make(map[string]struct{}, 10),
 	}
 }
 
@@ -92,6 +97,62 @@ func (n *Node) Has(peerid string) bool {
 
 func (n *Node) SetSignkey(signkey []byte) {
 	n.signkey = signkey
+}
+
+func (n *Node) WriteTrackFile(filehash string, data []byte) error {
+	if len(data) < MinRecordInfoLength {
+		return errors.New("invalid data")
+	}
+	if len(filehash) != len(pattern.FileHash{}) {
+		return errors.New("invalid filehash")
+	}
+	fpath := filepath.Join(n.TrackDir, uuid.New().String())
+	n.trackLock.Lock()
+	defer n.trackLock.Unlock()
+	os.RemoveAll(fpath)
+	f, err := os.Create(fpath)
+	if err != nil {
+		return errors.Wrapf(err, "[os.Create]")
+	}
+	defer os.Remove(fpath)
+
+	_, err = f.Write(data)
+	if err != nil {
+		f.Close()
+		return errors.Wrapf(err, "[f.Write]")
+	}
+	err = f.Sync()
+	if err != nil {
+		f.Close()
+		return errors.Wrapf(err, "[f.Sync]")
+	}
+	f.Close()
+	err = os.Rename(fpath, filepath.Join(n.TrackDir, filehash))
+	return err
+}
+
+func (n *Node) ParseRTrackFromFile(filehash string) (RecordInfo, error) {
+	var result RecordInfo
+	n.trackLock.RUnlock()
+	defer n.trackLock.RUnlock()
+	b, err := os.ReadFile(filepath.Join(n.TrackDir, filehash))
+	if err != nil {
+		return result, err
+	}
+	err = sonic.Unmarshal(b, &result)
+	return result, err
+}
+
+func (n *Node) ListTrackFiles() ([]string, error) {
+	n.trackLock.RLock()
+	defer n.trackLock.RUnlock()
+	return filepath.Glob(fmt.Sprintf("%s/*", n.TrackDir))
+}
+
+func (n *Node) DeleteTrackFile(filehash string) {
+	n.trackLock.Lock()
+	defer n.trackLock.Unlock()
+	os.Remove(filepath.Join(n.TrackDir, filehash))
 }
 
 func (n *Node) RebuildDirs() {

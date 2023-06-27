@@ -13,13 +13,13 @@ func (n *Node) TaskMgt() {
 		ch_discoverMgt = make(chan bool, 1)
 	)
 
-	go n.trackFile(ch_trackFile)
+	go n.tracker(ch_trackFile)
 	go n.discoverMgt(ch_discoverMgt)
 
 	for {
 		select {
 		case <-ch_trackFile:
-			go n.trackFile(ch_trackFile)
+			go n.tracker(ch_trackFile)
 		case <-ch_discoverMgt:
 			go n.discoverMgt(ch_discoverMgt)
 		}
