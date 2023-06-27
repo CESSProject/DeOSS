@@ -254,7 +254,7 @@ Response schema: `application/json`
 - Request example
 
 ```shell
-# curl -X PUT URL/BucketName -H "Authorization: eyJhbGciOiJIUzI1NiIsI......P0Jrg-hX4bXlIyn5I8ML1g"
+# curl -X PUT URL/ -H "BucketName: bucketname" -H "Authorization: eyJhbGciOiJIUzI1NiIsI......P0Jrg-hX4bXlIyn5I8ML1g"
 ```
 
 ## Upload a file
@@ -304,8 +304,8 @@ Response schema: `application/json`
 
 - Request example
 
-```
-# curl -X PUT URL/test.log -F 'file=@test.log;type=application/octet-stream' -H "Authorization: eyJhbGciOiJIUzI...Iyn5I8ML1g" -H "BucketName: bucket1"
+```shell
+# curl -X PUT URL/ -F 'file=@test.log;type=application/octet-stream' -H "Authorization: eyJhbGciOiJIUzI...Iyn5I8ML1g" -H "BucketName: bucket1"
 ```
 
 ## Download a file
