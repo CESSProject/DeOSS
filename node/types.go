@@ -60,8 +60,8 @@ const (
 	ERR_EmptyFile             = "InvalidBody.EmptyFile"
 	ERR_ReadBody              = "InvalidBody.ReadErr"
 	ERR_ParseBody             = "InvalidBody.ParseErr"
-	ERR_SpaceExpired          = "space expired"
-	ERR_NotEnoughSpace        = "not enough space"
+	//ERR_SpaceExpired          = "space expired"
+	ERR_NotEnoughSpace = "not enough space"
 
 	ERR_InternalServer = "InternalError"
 )
@@ -74,4 +74,9 @@ const (
 	ERR_BodyFieldSignature = "BodyErr_InvalidField_signature"
 
 	ERR_HeaderFieldBucketName = "HeaderErr_InvalidBucketName"
+
+	ERR_AccountNotExist = "account does not exist"
+	ERR_RpcFailed       = "rpc connection failed"
+
+	ERR_SpaceExpiresSoon = "space expires soon"
 )
