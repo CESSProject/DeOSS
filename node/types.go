@@ -75,10 +75,10 @@ const (
 
 	ERR_HeaderFieldBucketName = "HeaderErr_InvalidBucketName"
 
-	ERR_AccountNotExist = "account does not exist"
-	ERR_RpcFailed       = "rpc connection failed"
-
+	ERR_AccountNotExist  = "account does not exist"
+	ERR_RpcFailed        = "rpc connection failed"
 	ERR_SpaceExpiresSoon = "space expires soon"
+	ERR_SpaceNotAuth     = "space is not authorized"
 
 	ERR_ReceiveFile = "InternalError"
 )

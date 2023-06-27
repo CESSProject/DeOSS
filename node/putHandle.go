@@ -74,7 +74,13 @@ func (n *Node) putHandle(c *gin.Context) {
 		return
 	}
 
-	contentLength := c.Request.ContentLength
+	//
+	authAcc, _ := n.QuaryAuthorizedAccount(pkey)
+	if n.GetSignatureAcc() != authAcc {
+		n.Upfile("info", fmt.Sprintf("[%v] %v", clientIp, ERR_SpaceNotAuth))
+		c.JSON(http.StatusForbidden, ERR_SpaceNotAuth)
+		return
+	}
 
 	userInfo, err := n.QueryUserSpaceSt(pkey)
 	if err != nil {
@@ -101,6 +107,7 @@ func (n *Node) putHandle(c *gin.Context) {
 		return
 	}
 
+	contentLength := c.Request.ContentLength
 	usedSpace := contentLength * 15 / 10
 	remainingSpace, err := strconv.ParseUint(userInfo.RemainingSpace, 10, 64)
 	if err != nil {
