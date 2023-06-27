@@ -54,7 +54,7 @@ func (n *Node) tracker(ch chan<- bool) {
 		trackFiles, err = n.ListTrackFiles()
 		if err != nil {
 			if err.Error() != recordErr {
-				n.Upfile("err", recordErr)
+				n.Upfile("err", err.Error())
 				recordErr = err.Error()
 			}
 			time.Sleep(pattern.BlockInterval)
@@ -64,7 +64,7 @@ func (n *Node) tracker(ch chan<- bool) {
 			err = n.trackFile(v)
 			if err != nil {
 				if err.Error() != recordErr {
-					n.Upfile("err", recordErr)
+					n.Upfile("err", err.Error())
 					recordErr = err.Error()
 				}
 			}
