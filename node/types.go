@@ -38,7 +38,7 @@ const (
 const TokenDated = 60 * 60 * 24 * 30
 
 const (
-	ERR_ReportProblem = "Sorry, please report this problem to the service provider:"
+	//ERR_ReportProblem = "Sorry, please report this problem to the service provider:"
 
 	INFO_PutRequest = "PutRequest"
 	INFO_GetRequest = "GetRequest"
