@@ -36,36 +36,32 @@ func (n *Node) authHandle(c *gin.Context) {
 		err error
 		req AuthType
 	)
+
 	if err = c.ShouldBind(&req); err != nil {
-		c.JSON(400, "Invalid.Body")
+		c.JSON(400, ERR_BodyFormat)
 		return
 	}
 
 	// Check publickey
 	pubkey, err := utils.DecodePublicKeyOfCessAccount(req.Account)
 	if err != nil {
-		c.JSON(400, "InvalidParameter.Account")
+		c.JSON(400, ERR_BodyFieldAccount)
 		return
 	}
 
 	if req.Message == "" {
-		c.JSON(400, "InvalidParameter.Message")
+		c.JSON(400, ERR_BodyFieldMessage)
 		return
 	}
 
 	if len(req.Signature) < 64 {
-		c.JSON(400, "InvalidParameter.Signature")
+		c.JSON(400, ERR_BodyFieldSignature)
 		return
 	}
 
-	ok, err := VerifySign(pubkey, []byte(req.Message), req.Signature)
-	if err != nil {
-		c.JSON(400, err.Error())
-		return
-	}
-
+	ok, _ := VerifySign(pubkey, []byte(req.Message), req.Signature)
 	if !ok {
-		c.JSON(403, "NoPermission")
+		c.JSON(400, ERR_BodyFieldSignature)
 		return
 	}
 
@@ -79,19 +75,13 @@ func (n *Node) authHandle(c *gin.Context) {
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 
-	signKey, err := utils.CalcMD5(n.Confile.GetMnemonic())
-	if err != nil {
-		c.JSON(500, "InvalidProfile")
-		return
-	}
-
-	tokenString, err := token.SignedString(signKey)
+	tokenString, err := token.SignedString(n.signkey)
 	if err != nil {
 		c.JSON(500, "InternalError")
 		return
 	}
 
-	c.JSON(http.StatusOK, map[string]string{"token": tokenString})
+	c.JSON(http.StatusOK, map[string]string{HTTPHeader_Authorization: tokenString})
 	return
 }
 

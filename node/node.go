@@ -36,6 +36,7 @@ type Node struct {
 	sdk.SDK
 	core.P2P
 	*gin.Engine
+	signkey  []byte
 	lock     *sync.RWMutex
 	peers    map[string]struct{}
 	TrackDir string
@@ -52,7 +53,6 @@ func New() *Node {
 func (n *Node) Run() {
 	gin.SetMode(gin.ReleaseMode)
 	n.Engine = gin.Default()
-	n.Engine.MaxMultipartMemory = 256 << 20
 	config := cors.DefaultConfig()
 	config.AllowAllOrigins = true
 	config.AllowMethods = []string{"HEAD", "GET", "POST", "PUT", "DELETE", "OPTIONS"}
@@ -88,6 +88,10 @@ func (n *Node) Has(peerid string) bool {
 	defer n.lock.RUnlock()
 	_, ok := n.peers[peerid]
 	return ok
+}
+
+func (n *Node) SetSignkey(signkey []byte) {
+	n.signkey = signkey
 }
 
 func (n *Node) RebuildDirs() {

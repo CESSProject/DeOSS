@@ -38,7 +38,7 @@ const (
 const TokenDated = 60 * 60 * 24 * 30
 
 const (
-	ERR_ReportProblem = "Sorry, please report this problem to the service provider:"
+	//ERR_ReportProblem = "Sorry, please report this problem to the service provider:"
 
 	INFO_PutRequest = "PutRequest"
 	INFO_GetRequest = "GetRequest"
@@ -60,8 +60,25 @@ const (
 	ERR_EmptyFile             = "InvalidBody.EmptyFile"
 	ERR_ReadBody              = "InvalidBody.ReadErr"
 	ERR_ParseBody             = "InvalidBody.ParseErr"
-	ERR_SpaceExpired          = "space expired"
-	ERR_NotEnoughSpace        = "not enough space"
+	//ERR_SpaceExpired          = "space expired"
+	ERR_NotEnoughSpace = "not enough space"
 
 	ERR_InternalServer = "InternalError"
+)
+
+const (
+	ERR_Authorization      = "HeaderErr_InvalidAuthorization"
+	ERR_BodyFormat         = "BodyErr_InvalidDataFormat"
+	ERR_BodyFieldAccount   = "BodyErr_InvalidField_account"
+	ERR_BodyFieldMessage   = "BodyErr_InvalidField_message"
+	ERR_BodyFieldSignature = "BodyErr_InvalidField_signature"
+
+	ERR_HeaderFieldBucketName = "HeaderErr_InvalidBucketName"
+
+	ERR_AccountNotExist = "account does not exist"
+	ERR_RpcFailed       = "rpc connection failed"
+
+	ERR_SpaceExpiresSoon = "space expires soon"
+
+	ERR_ReceiveFile = "InternalError"
 )
