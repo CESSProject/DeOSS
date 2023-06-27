@@ -18,6 +18,7 @@ import (
 	"github.com/CESSProject/DeOSS/configs"
 	"github.com/CESSProject/DeOSS/pkg/utils"
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
+	sutils "github.com/CESSProject/cess-go-sdk/core/utils"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/mr-tron/base58"
 	"github.com/pkg/errors"
@@ -233,7 +234,7 @@ func (n *Node) backupFiles(owner []byte, segmentInfo []pattern.SegmentDataInfo, 
 			if err.Error() == pattern.ERR_Empty {
 				_, err = n.GenerateStorageOrder(roothash, segmentInfo, owner, filename, bucketname, filesize)
 				if err != nil {
-					return 0, err
+					return 0, errors.Wrapf(err, "[GenerateStorageOrder]")
 				}
 			}
 			time.Sleep(pattern.BlockInterval)
@@ -242,13 +243,13 @@ func (n *Node) backupFiles(owner []byte, segmentInfo []pattern.SegmentDataInfo, 
 		break
 	}
 	if err != nil {
-		return 0, err
+		return 0, errors.Wrapf(err, "[QueryStorageOrder]")
 	}
 
 	// store fragment to storage
 	err = n.storageData(roothash, segmentInfo, storageOrder.AssignedMiner)
 	if err != nil {
-		return 0, err
+		return 0, errors.Wrapf(err, "[storageData]")
 	}
 	return uint8(storageOrder.Count), nil
 }
@@ -257,7 +258,7 @@ func (n *Node) storageData(roothash string, segment []pattern.SegmentDataInfo, m
 	var err error
 	var fpath string
 	// query all assigned miner multiaddr
-	peerids, err := n.QueryAssignedMiner(minerTaskList)
+	peerids, accs, err := n.QueryAssignedMiner(minerTaskList)
 	if err != nil {
 		return errors.Wrapf(err, "[QueryAssignedMiner]")
 	}
@@ -265,7 +266,7 @@ func (n *Node) storageData(roothash string, segment []pattern.SegmentDataInfo, m
 	basedir := filepath.Dir(segment[0].FragmentHash[0])
 	for i := 0; i < len(peerids); i++ {
 		if !n.Has(peerids[i]) {
-			return fmt.Errorf("Allocated storage node not found: %s", peerids[i])
+			return fmt.Errorf("Allocated storage node not found: [%s] [%s]", accs[i], peerids[i])
 		}
 
 		id, _ := peer.Decode(peerids[i])
@@ -293,16 +294,18 @@ func (n *Node) storageData(roothash string, segment []pattern.SegmentDataInfo, m
 	return nil
 }
 
-func (n *Node) QueryAssignedMiner(minerTaskList []pattern.MinerTaskList) ([]string, error) {
+func (n *Node) QueryAssignedMiner(minerTaskList []pattern.MinerTaskList) ([]string, []string, error) {
 	var peerids = make([]string, len(minerTaskList))
+	var accs = make([]string, len(minerTaskList))
 	for i := 0; i < len(minerTaskList); i++ {
 		minerInfo, err := n.QueryStorageMiner(minerTaskList[i].Account[:])
 		if err != nil {
-			return peerids, err
+			return peerids, accs, err
 		}
 		peerids[i] = base58.Encode([]byte(string(minerInfo.PeerId[:])))
+		accs[i], _ = sutils.EncodePublicKeyAsCessAccount(minerTaskList[i].Account[:])
 	}
-	return peerids, nil
+	return peerids, accs, nil
 }
 
 func parseRecordInfoFromFile(file string) (RecordInfo, error) {
