@@ -67,5 +67,11 @@ const (
 )
 
 const (
-	ERR_Authorization = "HeadErr_InvalidAuthorization"
+	ERR_Authorization      = "HeaderErr_InvalidAuthorization"
+	ERR_BodyFormat         = "BodyErr_InvalidDataFormat"
+	ERR_BodyFieldAccount   = "BodyErr_InvalidField_account"
+	ERR_BodyFieldMessage   = "BodyErr_InvalidField_message"
+	ERR_BodyFieldSignature = "BodyErr_InvalidField_signature"
+
+	ERR_HeaderFieldBucketName = "HeaderErr_InvalidBucketName"
 )
