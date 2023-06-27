@@ -226,16 +226,17 @@ Response schema: `application/json`
 
 ## Create a bucket
 
-| **PUT**  /{BucketName} |
-| ---------------------- |
+| **PUT**  / |
+| ---------- |
 
 The put bucket interface is used to create a bucket. When uploading files, the bucket must be specified for storage.
 
 - Request Header
 
-| key           | value |
-| ------------- | ----- |
-| Authorization | token |
+| key           | value               |
+| ------------- | ------------------- |
+| Authorization | token               |
+| BucketName    | created bucket name |
 
 - Responses
 
@@ -258,8 +259,8 @@ Response schema: `application/json`
 
 ## Upload a file
 
-| **PUT**  /{FileName} |
-| -------------------- |
+| **PUT**  / |
+| ---------- |
 
 The put file interface is used to upload files to the cess system. You need to submit the file as form data and use provide the specific field.
 If the upload is successful, you will get the fid of the file.
