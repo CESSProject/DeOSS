@@ -79,13 +79,7 @@ func (n *Node) authHandle(c *gin.Context) {
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 
-	signKey, err := utils.CalcMD5(n.Confile.GetMnemonic())
-	if err != nil {
-		c.JSON(500, "InvalidProfile")
-		return
-	}
-
-	tokenString, err := token.SignedString(signKey)
+	tokenString, err := token.SignedString(n.signkey)
 	if err != nil {
 		c.JSON(500, "InternalError")
 		return

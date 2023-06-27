@@ -50,6 +50,14 @@ func cmd_run_func(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
+	signKey, err := utils.CalcMD5(n.Confile.GetMnemonic())
+	if err != nil {
+		log.Println(err)
+		os.Exit(1)
+	}
+
+	n.SetSignkey(signKey)
+
 	// Build sdk
 	n.SDK, err = sdkgo.New(
 		sconfig.CharacterName_Deoss,

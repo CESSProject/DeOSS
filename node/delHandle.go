@@ -37,7 +37,8 @@ func (n *Node) delHandle(c *gin.Context) {
 	n.Del("info", fmt.Sprintf("[%v] %v", clientIp, INFO_DelRequest))
 
 	// verify token
-	account, pkey, err = n.VerifyToken(c, respMsg)
+	token := c.Request.Header.Get(HTTPHeader_Authorization)
+	account, pkey, err = n.verifyToken(token, respMsg)
 	if err != nil {
 		n.Del("err", fmt.Sprintf("[%v] %v", clientIp, err))
 		c.JSON(respMsg.Code, err.Error())
@@ -95,7 +96,8 @@ func (n *Node) delFilesHandle(c *gin.Context) {
 	n.Del("info", fmt.Sprintf("[%v] %v", clientIp, INFO_DelRequest))
 
 	// verify token
-	account, pkey, err = n.VerifyToken(c, respMsg)
+	token := c.Request.Header.Get(HTTPHeader_Authorization)
+	account, pkey, err = n.verifyToken(token, respMsg)
 	if err != nil {
 		n.Del("err", fmt.Sprintf("[%v] %v", clientIp, err))
 		c.JSON(respMsg.Code, err.Error())

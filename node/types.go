@@ -65,3 +65,7 @@ const (
 
 	ERR_InternalServer = "InternalError"
 )
+
+const (
+	ERR_Authorization = "HeadErr_InvalidAuthorization"
+)

@@ -18,43 +18,34 @@ import (
 )
 
 // VerifyToken is used to parse and verify token
-func (n *Node) VerifyToken(c *gin.Context, respmsg *RespMsg) (string, []byte, error) {
+func (n *Node) verifyToken(token string, respmsg *RespMsg) (string, []byte, error) {
 	var (
 		ok       bool
 		err      error
-		tokenstr string
 		claims   *CustomClaims
-		token    *jwt.Token
+		jwttoken *jwt.Token
 		account  string
 	)
+
 	if respmsg.Err != nil {
 		return account, nil, err
 	}
 
-	// get token from head
-	tokenstr = c.Request.Header.Get(HTTPHeader_Authorization)
-	if tokenstr == "" {
-		respmsg.Code = http.StatusBadRequest
-		respmsg.Err = errors.New(ERR_MissToken)
-		return account, nil, errors.New(ERR_MissToken)
+	if token == "" {
+		respmsg.Code = http.StatusForbidden
+		respmsg.Err = errors.New(ERR_Authorization)
+		return account, nil, respmsg.Err
 	}
 
 	// parse token
-	signKey, err := utils.CalcMD5(n.Confile.GetMnemonic())
-	if err != nil {
-		respmsg.Code = http.StatusInternalServerError
-		respmsg.Err = errors.New(ERR_EmptySeed)
-		return account, nil, err
-	}
-
-	token, err = jwt.ParseWithClaims(
-		tokenstr,
+	jwttoken, err = jwt.ParseWithClaims(
+		token,
 		&CustomClaims{},
 		func(token *jwt.Token) (interface{}, error) {
-			return signKey, nil
+			return n.signkey, nil
 		})
 
-	if claims, ok = token.Claims.(*CustomClaims); ok && token.Valid {
+	if claims, ok = jwttoken.Claims.(*CustomClaims); ok && jwttoken.Valid {
 		account = claims.Account
 	} else {
 		respmsg.Code = http.StatusForbidden

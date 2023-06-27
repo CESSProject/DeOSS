@@ -52,7 +52,8 @@ func (n *Node) putHandle(c *gin.Context) {
 	n.Upfile("info", fmt.Sprintf("[%v] %v", clientIp, INFO_PutRequest))
 
 	// verify token
-	account, pkey, err = n.VerifyToken(c, respMsg)
+	token := c.Request.Header.Get(HTTPHeader_Authorization)
+	account, pkey, err = n.verifyToken(token, respMsg)
 	if err != nil {
 		n.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, err))
 		c.JSON(respMsg.Code, err.Error())
