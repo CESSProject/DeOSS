@@ -38,6 +38,7 @@ func (n *Node) discoverMgt(ch chan<- bool) {
 	var boot []string
 	var bootnodes []string
 	var addrInfo *peer.AddrInfo
+	//var linuxFileAttr *syscall.Stat_t
 
 	tick_BlockInterval := time.NewTicker(pattern.BlockInterval * 30)
 	defer tick_BlockInterval.Stop()
@@ -86,6 +87,17 @@ func (n *Node) discoverMgt(ch chan<- bool) {
 			if !n.GetDiscoverSt() {
 				n.StartDiscover()
 			}
+			// Delete files that have not been accessed for more than 30 days
+			// files, _ = filepath.Glob(filepath.Join(n.GetDirs().FileDir, "/*"))
+			// for _, v := range files {
+			// 	fs, err := os.Stat(v)
+			// 	if err == nil {
+			// 		linuxFileAttr = fs.Sys().(*syscall.Stat_t)
+			// 		if time.Since(time.Unix(linuxFileAttr.Atim.Sec, 0)).Hours() > configs.FileCacheExpirationTime {
+			// 			os.Remove(v)
+			// 		}
+			// 	}
+			// }
 		case discoverPeer := <-n.DiscoveredPeer():
 			peerid = discoverPeer.ID.Pretty()
 			n.Discover("info", fmt.Sprintf("Found a peer: %s", peerid))

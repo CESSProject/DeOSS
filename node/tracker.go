@@ -8,14 +8,11 @@
 package node
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
-	"syscall"
 	"time"
 
-	"github.com/CESSProject/DeOSS/configs"
 	"github.com/CESSProject/DeOSS/pkg/utils"
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
 	sutils "github.com/CESSProject/cess-go-sdk/core/utils"
@@ -47,12 +44,14 @@ func (n *Node) tracker(ch chan<- bool) {
 		}
 	}()
 
+	n.Upfile("info", ">>>>> start tracker <<<<<")
+
 	var err error
 	var recordErr string
 	var trackFiles []string
 
 	for {
-		trackFiles, err = filepath.Glob(fmt.Sprintf("%s/*", n.TrackDir))
+		trackFiles, err = n.ListTrackFiles()
 		if err != nil {
 			if err.Error() != recordErr {
 				n.Upfile("err", recordErr)
@@ -63,22 +62,25 @@ func (n *Node) tracker(ch chan<- bool) {
 		}
 		for _, v := range trackFiles {
 			err = n.trackFile(v)
+			if err != nil {
+				if err.Error() != recordErr {
+					n.Upfile("err", recordErr)
+					recordErr = err.Error()
+				}
+			}
 		}
 	}
 }
 
 func (n *Node) trackFile(trackfile string) error {
 	var (
-		err           error
-		count         uint8
-		roothash      string
-		ownerAcc      string
-		files         []string
-		b             []byte
-		f             *os.File
-		recordFile    RecordInfo
-		storageorder  pattern.StorageOrder
-		linuxFileAttr *syscall.Stat_t
+		err          error
+		count        uint8
+		roothash     string
+		ownerAcc     string
+		b            []byte
+		recordFile   RecordInfo
+		storageorder pattern.StorageOrder
 	)
 
 	roothash = filepath.Base(trackfile)
@@ -103,25 +105,26 @@ func (n *Node) trackFile(trackfile string) error {
 					return nil
 				}
 			} else {
-				recordFile, err = n.ParseRTrackFromFile(roothash)
-				if err == nil {
-					ownerAcc, err = utils.EncodePublicKeyAsCessAccount(recordFile.Owner)
-					if err == nil {
-						os.Rename(filepath.Join(n.GetDirs().FileDir, ownerAcc, roothash, roothash), filepath.Join(n.GetDirs().FileDir, roothash))
-						os.RemoveAll(filepath.Join(n.GetDirs().FileDir, ownerAcc, roothash))
-						n.DeleteTrackFile(roothash)
-						n.Delete([]byte("transfer:" + roothash))
-					}
-					n.Upfile("info", fmt.Sprintf("[%s] File storage success", roothash))
+				recordFile, err = n.ParseTrackFromFile(roothash)
+				if err != nil {
+					return errors.Wrapf(err, "[ParseTrackFromFile]")
 				}
+				ownerAcc, err = utils.EncodePublicKeyAsCessAccount(recordFile.Owner)
+				if err == nil {
+					os.Rename(filepath.Join(n.GetDirs().FileDir, ownerAcc, roothash, roothash), filepath.Join(n.GetDirs().FileDir, roothash))
+					os.RemoveAll(filepath.Join(n.GetDirs().FileDir, ownerAcc, roothash))
+					n.DeleteTrackFile(roothash)
+					n.Delete([]byte("transfer:" + roothash))
+				}
+				n.Upfile("info", fmt.Sprintf("[%s] File storage success", roothash))
 			}
 			return nil
 		}
 	}
 
-	recordFile, err = n.ParseRTrackFromFile(roothash)
+	recordFile, err = n.ParseTrackFromFile(roothash)
 	if err != nil {
-		return errors.Wrapf(err, "[ParseRTrackFromFile]")
+		return errors.Wrapf(err, "[ParseTrackFromFile]")
 	}
 
 	if roothash != recordFile.Roothash {
@@ -164,11 +167,11 @@ func (n *Node) trackFile(trackfile string) error {
 			recordFile.Putflag = false
 			b, err = sonic.Marshal(&recordFile)
 			if err != nil {
-				return errors.Wrapf(err, "[sonic.Marshal]")
+				return errors.Wrapf(err, "[%s] [sonic.Marshal]", roothash)
 			}
 			err = n.WriteTrackFile(roothash, b)
 			if err != nil {
-				return errors.Wrapf(err, "[WriteTrackFile]")
+				return errors.Wrapf(err, "[%s] [WriteTrackFile]", roothash)
 			}
 		}
 		return nil
@@ -176,52 +179,23 @@ func (n *Node) trackFile(trackfile string) error {
 
 	count, err = n.backupFiles(recordFile.Owner, recordFile.SegmentInfo, roothash, recordFile.Filename, recordFile.Buckname, recordFile.Filesize)
 	if err != nil {
-		n.Upfile("err", fmt.Sprintf("[%v] %v", roothash, err))
-		return nil
+		return errors.Wrapf(err, "[%s] [backupFiles]", roothash)
 	}
 
-	n.Upfile("info", fmt.Sprintf("File [%s] backup suc", roothash))
+	n.Upfile("info", fmt.Sprintf("[%s] File storage success", roothash))
 
 	recordFile.Putflag = true
 	recordFile.Count = count
-	b, err = json.Marshal(&recordFile)
+	b, err = sonic.Marshal(&recordFile)
 	if err != nil {
-		n.Upfile("err", fmt.Sprintf("[%v] %v", roothash, err))
-		continue
+		return errors.Wrapf(err, "[%s] [sonic.Marshal]", roothash)
 	}
 
-	f, err = os.OpenFile(filepath.Join(n.TrackDir, roothash), os.O_CREATE|os.O_TRUNC|os.O_WRONLY, os.ModePerm)
+	err = n.WriteTrackFile(roothash, b)
 	if err != nil {
-		n.Upfile("err", fmt.Sprintf("[%v] %v", roothash, err))
-		continue
+		return errors.Wrapf(err, "[%s] [WriteTrackFile]", roothash)
 	}
-	_, err = f.Write(b)
-	if err != nil {
-		f.Close()
-		n.Upfile("err", fmt.Sprintf("[%v] %v", roothash, err))
-		continue
-	}
-
-	err = f.Sync()
-	if err != nil {
-		f.Close()
-		n.Upfile("err", fmt.Sprintf("[%v] %v", roothash, err))
-		continue
-	}
-	f.Close()
 	n.Cache.Put([]byte("transfer:"+roothash), []byte(fmt.Sprintf("%v", count)))
-
-	// Delete files that have not been accessed for more than 30 days
-	files, _ = filepath.Glob(filepath.Join(n.GetDirs().FileDir, "/*"))
-	for _, v := range files {
-		fs, err := os.Stat(v)
-		if err == nil {
-			linuxFileAttr = fs.Sys().(*syscall.Stat_t)
-			if time.Since(time.Unix(linuxFileAttr.Atim.Sec, 0)).Hours() > configs.FileCacheExpirationTime {
-				os.Remove(v)
-			}
-		}
-	}
 	return nil
 }
 
@@ -272,11 +246,10 @@ func (n *Node) storageData(roothash string, segment []pattern.SegmentDataInfo, m
 	basedir := filepath.Dir(segment[0].FragmentHash[0])
 	for i := 0; i < len(peerids); i++ {
 		if !n.Has(peerids[i]) {
-			return fmt.Errorf("Allocated storage node not found: [%s] [%s]", accs[i], peerids[i])
+			return fmt.Errorf("No assigned miner found: [%s] [%s]", accs[i], peerids[i])
 		}
 
 		id, _ := peer.Decode(peerids[i])
-
 		for j := 0; j < len(minerTaskList[i].Hash); j++ {
 			fpath = filepath.Join(basedir, string(minerTaskList[i].Hash[j][:]))
 			_, err = os.Stat(fpath)
