@@ -156,44 +156,28 @@ func (n *Node) trackFile(trackfile string) error {
 		}
 		_, err = n.QueryStorageOrder(recordFile.Roothash)
 		if err != nil {
-			if err.Error() == pattern.ERR_Empty {
-				n.Upfile("info", fmt.Sprintf("[%s] Duplicate file become primary file", roothash))
-				recordFile.Duplicate = false
-				recordFile.Putflag = false
-				b, err = sonic.Marshal(&recordFile)
-				if err != nil {
-					return errors.Wrapf(err, "[sonic.Marshal]")
-				}
-
-				f, err = os.OpenFile(filepath.Join(n.TrackDir, roothash), os.O_CREATE|os.O_TRUNC|os.O_WRONLY, os.ModePerm)
-				if err != nil {
-					n.Upfile("err", fmt.Sprintf("[%v] %v", roothash, err))
-					continue
-				}
-				_, err = f.Write(b)
-				if err != nil {
-					f.Close()
-					n.Upfile("err", fmt.Sprintf("[%v] %v", roothash, err))
-					continue
-				}
-
-				err = f.Sync()
-				if err != nil {
-					f.Close()
-					n.Upfile("err", fmt.Sprintf("[%v] %v", roothash, err))
-					continue
-				}
-				f.Close()
+			if err.Error() != pattern.ERR_Empty {
+				return errors.Wrapf(err, "[%s] [QueryStorageOrder]", roothash)
 			}
-			n.Upfile("err", fmt.Sprintf("[%s] QueryStorageOrder err: %v", roothash, err))
+			n.Upfile("info", fmt.Sprintf("[%s] Duplicate file become primary file", roothash))
+			recordFile.Duplicate = false
+			recordFile.Putflag = false
+			b, err = sonic.Marshal(&recordFile)
+			if err != nil {
+				return errors.Wrapf(err, "[sonic.Marshal]")
+			}
+			err = n.WriteTrackFile(roothash, b)
+			if err != nil {
+				return errors.Wrapf(err, "[WriteTrackFile]")
+			}
 		}
-		continue
+		return nil
 	}
 
 	count, err = n.backupFiles(recordFile.Owner, recordFile.SegmentInfo, roothash, recordFile.Filename, recordFile.Buckname, recordFile.Filesize)
 	if err != nil {
 		n.Upfile("err", fmt.Sprintf("[%v] %v", roothash, err))
-		continue
+		return nil
 	}
 
 	n.Upfile("info", fmt.Sprintf("File [%s] backup suc", roothash))
