@@ -39,7 +39,7 @@ func (n *Node) discoverMgt(ch chan<- bool) {
 	var bootnodes []string
 	var addrInfo *peer.AddrInfo
 
-	tick_BlockInterval := time.NewTicker(pattern.BlockInterval)
+	tick_BlockInterval := time.NewTicker(pattern.BlockInterval * 30)
 	defer tick_BlockInterval.Stop()
 
 	tick_60s := time.NewTicker(time.Minute)
