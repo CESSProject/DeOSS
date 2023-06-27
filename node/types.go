@@ -79,4 +79,6 @@ const (
 	ERR_RpcFailed       = "rpc connection failed"
 
 	ERR_SpaceExpiresSoon = "space expires soon"
+
+	ERR_ReceiveFile = "InternalError"
 )

@@ -53,7 +53,6 @@ func New() *Node {
 func (n *Node) Run() {
 	gin.SetMode(gin.ReleaseMode)
 	n.Engine = gin.Default()
-	n.Engine.MaxMultipartMemory = 256 << 20
 	config := cors.DefaultConfig()
 	config.AllowAllOrigins = true
 	config.AllowMethods = []string{"HEAD", "GET", "POST", "PUT", "DELETE", "OPTIONS"}
