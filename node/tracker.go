@@ -46,7 +46,7 @@ func (n *Node) tracker(ch chan<- bool) {
 		}
 	}()
 
-	n.Upfile("info", ">>>>> start tracker <<<<<")
+	n.Track("info", ">>>>> start tracker <<<<<")
 
 	var err error
 	var recordErr string
@@ -56,7 +56,7 @@ func (n *Node) tracker(ch chan<- bool) {
 		trackFiles, err = n.ListTrackFiles()
 		if err != nil {
 			if err.Error() != recordErr {
-				n.Upfile("err", err.Error())
+				n.Track("err", err.Error())
 				recordErr = err.Error()
 			}
 			time.Sleep(pattern.BlockInterval)
@@ -66,7 +66,7 @@ func (n *Node) tracker(ch chan<- bool) {
 			err = n.trackFile(v)
 			if err != nil {
 				if err.Error() != recordErr {
-					n.Upfile("err", err.Error())
+					n.Track("err", err.Error())
 					recordErr = err.Error()
 				}
 			}
@@ -79,7 +79,6 @@ func (n *Node) trackFile(trackfile string) error {
 		err          error
 		count        uint8
 		roothash     string
-		ownerAcc     string
 		b            []byte
 		recordFile   RecordInfo
 		storageorder pattern.StorageOrder
@@ -91,34 +90,36 @@ func (n *Node) trackFile(trackfile string) error {
 		storageorder, err = n.QueryStorageOrder(roothash)
 		if err != nil {
 			if err.Error() != pattern.ERR_Empty {
-				return errors.Wrapf(err, "[QueryStorageOrder]")
+				return errors.Wrapf(err, "[%s] [QueryStorageOrder]", roothash)
 			}
-
 			_, err = n.QueryFileMetadata(roothash)
 			if err != nil {
 				if err.Error() != pattern.ERR_Empty {
-					return errors.Wrapf(err, "[QueryFileMetadata]")
+					return errors.Wrapf(err, "[%s] [QueryFileMetadata]", roothash)
 				}
-				if err.Error() == pattern.ERR_Empty {
-					n.Upfile("info", fmt.Sprintf("[%s] File has been deleted", roothash))
-					os.RemoveAll(filepath.Join(n.GetDirs().FileDir, ownerAcc, roothash))
-					n.DeleteTrackFile(roothash)
-					n.Delete([]byte("transfer:" + roothash))
-					return nil
-				}
-			} else {
+				n.Track("info", fmt.Sprintf("[%s] File has been deleted", roothash))
 				recordFile, err = n.ParseTrackFromFile(roothash)
-				if err != nil {
-					return errors.Wrapf(err, "[ParseTrackFromFile]")
-				}
-				ownerAcc, err = utils.EncodePublicKeyAsCessAccount(recordFile.Owner)
 				if err == nil {
-					os.Rename(filepath.Join(n.GetDirs().FileDir, ownerAcc, roothash, roothash), filepath.Join(n.GetDirs().FileDir, roothash))
-					os.RemoveAll(filepath.Join(n.GetDirs().FileDir, ownerAcc, roothash))
-					n.DeleteTrackFile(roothash)
-					n.Delete([]byte("transfer:" + roothash))
+					if len(recordFile.SegmentInfo) > 0 {
+						baseDir := filepath.Dir(recordFile.SegmentInfo[0].SegmentHash)
+						os.RemoveAll(baseDir)
+					}
 				}
-				n.Upfile("info", fmt.Sprintf("[%s] File storage success", roothash))
+				n.DeleteTrackFile(roothash)
+				n.Delete([]byte("transfer:" + roothash))
+				return nil
+			} else {
+				n.Track("info", fmt.Sprintf("[%s] File storage success", roothash))
+				recordFile, err = n.ParseTrackFromFile(roothash)
+				if err == nil {
+					if len(recordFile.SegmentInfo) > 0 {
+						baseDir := filepath.Dir(recordFile.SegmentInfo[0].SegmentHash)
+						os.Rename(filepath.Join(baseDir, roothash), filepath.Join(n.GetDirs().FileDir, roothash))
+						os.RemoveAll(baseDir)
+					}
+				}
+				n.DeleteTrackFile(roothash)
+				n.Delete([]byte("transfer:" + roothash))
 			}
 			return nil
 		}
@@ -147,16 +148,15 @@ func (n *Node) trackFile(trackfile string) error {
 		if err == nil {
 			_, err = n.GenerateStorageOrder(recordFile.Roothash, nil, recordFile.Owner, recordFile.Filename, recordFile.Buckname, recordFile.Filesize)
 			if err != nil {
-				n.Upfile("err", fmt.Sprintf("[%s] Duplicate file declaration failed: %v", roothash, err))
 				return errors.Wrapf(err, " [%s] [GenerateStorageOrder]", roothash)
 			}
-			ownerAcc, err = utils.EncodePublicKeyAsCessAccount(recordFile.Owner)
-			if err == nil {
-				os.Rename(filepath.Join(n.GetDirs().FileDir, ownerAcc, roothash, roothash), filepath.Join(n.GetDirs().FileDir, roothash))
-				os.RemoveAll(filepath.Join(n.GetDirs().FileDir, ownerAcc, roothash))
+			if len(recordFile.SegmentInfo) > 0 {
+				baseDir := filepath.Dir(recordFile.SegmentInfo[0].SegmentHash)
+				os.Rename(filepath.Join(baseDir, roothash), filepath.Join(n.GetDirs().FileDir, roothash))
+				os.RemoveAll(baseDir)
 			}
 			n.DeleteTrackFile(roothash)
-			n.Upfile("info", fmt.Sprintf("[%s] Duplicate file declaration suc", roothash))
+			n.Track("info", fmt.Sprintf("[%s] Duplicate file declaration suc", roothash))
 			return nil
 		}
 		_, err = n.QueryStorageOrder(recordFile.Roothash)
@@ -164,7 +164,7 @@ func (n *Node) trackFile(trackfile string) error {
 			if err.Error() != pattern.ERR_Empty {
 				return errors.Wrapf(err, "[%s] [QueryStorageOrder]", roothash)
 			}
-			n.Upfile("info", fmt.Sprintf("[%s] Duplicate file become primary file", roothash))
+			n.Track("info", fmt.Sprintf("[%s] Duplicate file become primary file", roothash))
 			recordFile.Duplicate = false
 			recordFile.Putflag = false
 			b, err = sonic.Marshal(&recordFile)
@@ -184,7 +184,7 @@ func (n *Node) trackFile(trackfile string) error {
 		return errors.Wrapf(err, "[%s] [backupFiles]", roothash)
 	}
 
-	n.Upfile("info", fmt.Sprintf("[%s] File successfully transferred to all allocated storage nodes", roothash))
+	n.Track("info", fmt.Sprintf("[%s] File successfully transferred to all allocated storage nodes", roothash))
 
 	recordFile.Putflag = true
 	recordFile.Count = count
@@ -271,7 +271,6 @@ func (n *Node) storageData(roothash string, segment []pattern.SegmentDataInfo, m
 			}
 		}
 	}
-
 	return nil
 }
 
