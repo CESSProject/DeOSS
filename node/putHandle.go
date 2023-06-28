@@ -97,8 +97,31 @@ func (n *Node) putHandle(c *gin.Context) {
 		return
 	}
 
+	// verify mem availability
 	contentLength := c.Request.ContentLength
-	// todo: verify disk space availability
+	mem, err := utils.GetSysMemAvailable()
+	if err == nil {
+		if uint64(contentLength) > uint64(mem*95/100) {
+			if uint64(contentLength) < MaxMemUsed {
+				n.Upfile("err", fmt.Sprintf("[%v] %v, size: [%d] mem: [%d]", clientIp, ERR_SysMemNoLeft, contentLength, mem))
+				c.JSON(http.StatusForbidden, ERR_SysMemNoLeft)
+				return
+			}
+		}
+	}
+
+	// verify disk space availability
+	if contentLength > MaxMemUsed {
+		freeSpace, err := utils.GetDirFreeSpace("/tmp")
+		if err == nil {
+			if uint64(contentLength+pattern.SIZE_1MiB*16) > freeSpace {
+				n.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, ERR_DeviceSpaceNoLeft))
+				c.JSON(http.StatusForbidden, ERR_DeviceSpaceNoLeft)
+				return
+			}
+		}
+	}
+
 	usedSpace := contentLength * 15 / 10
 	remainingSpace, err := strconv.ParseUint(userInfo.RemainingSpace, 10, 64)
 	if err != nil {
@@ -134,8 +157,11 @@ func (n *Node) putHandle(c *gin.Context) {
 	formfile, fileHeder, err := c.Request.FormFile("file")
 	if err != nil {
 		n.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, err.Error()))
+		if strings.Contains(err.Error(), "no space left on device") {
+			c.JSON(http.StatusForbidden, ERR_DeviceSpaceNoLeft)
+			return
+		}
 		if err.Error() != http.ErrNotMultipart.ErrorString {
-			n.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, err.Error()))
 			c.JSON(http.StatusBadRequest, err.Error())
 			return
 		}

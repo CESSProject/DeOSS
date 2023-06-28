@@ -67,6 +67,7 @@ func (n *Node) Run() {
 		configs.Header_BucketName,
 		"*",
 	)
+	n.Engine.MaxMultipartMemory = MaxMemUsed
 	n.Engine.Use(cors.New(config))
 	// Add route
 	n.addRoute()

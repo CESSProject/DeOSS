@@ -6,6 +6,7 @@ import (
 	"github.com/CESSProject/DeOSS/pkg/utils"
 	jwt "github.com/dgrijalva/jwt-go"
 	"github.com/pkg/errors"
+	"github.com/shirou/gopsutil/disk"
 )
 
 // VerifyToken is used to parse and verify token
@@ -53,6 +54,45 @@ func (n *Node) verifyToken(token string, respmsg *RespMsg) (string, []byte, erro
 	respmsg.Code = http.StatusOK
 	respmsg.Err = nil
 	return account, pkey, nil
+}
+
+// 判断挂载目录
+func judgeMountPath(mountpath string, addspace uint64) (bool, error) {
+	var availabeStorage []struct {
+		Path  string
+		Total uint64
+		Free  uint64
+	}
+
+	//获取磁盘分区
+	pss, err := disk.Partitions(false)
+	if err != nil {
+		return false, errors.Wrapf(err, "[disk.Partitions]")
+	}
+
+	for _, ps := range pss {
+		// Usage返回文件系统的使用情况。Path是文件系统路径，如“/”，而不是设备文件路径，如“/dev/vda1”。如果要使用磁盘返回值。分区，使用“挂载点”而不是“设备”。
+		us, err := disk.Usage(ps.Mountpoint)
+		if err != nil {
+			continue
+		}
+		//磁盘空间最小限制500G
+		if us.Total < 500 {
+			continue
+		} else {
+			ab := struct {
+				Path  string
+				Total uint64
+				Free  uint64
+			}{
+				Path:  us.Path,
+				Total: us.Total,
+				Free:  us.Free,
+			}
+			availabeStorage = append(availabeStorage, ab)
+		}
+	}
+	return true, nil
 }
 
 // SaveFormFile is used to save form files
