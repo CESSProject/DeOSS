@@ -144,6 +144,13 @@ func (n *Node) ParseTrackFromFile(filehash string) (RecordInfo, error) {
 	return result, err
 }
 
+func (n *Node) HasTrackFile(filehash string) bool {
+	n.trackLock.RLock()
+	defer n.trackLock.RUnlock()
+	_, err := os.Stat(filepath.Join(n.TrackDir, filehash))
+	return err == nil
+}
+
 func (n *Node) ListTrackFiles() ([]string, error) {
 	n.trackLock.RLock()
 	defer n.trackLock.RUnlock()

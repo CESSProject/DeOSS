@@ -267,8 +267,7 @@ func (n *Node) putHandle(c *gin.Context) {
 	roothashDir := filepath.Join(n.GetDirs().FileDir, account, roothash)
 	_, err = os.Stat(roothashDir)
 	if err == nil {
-		_, err = os.Stat(filepath.Join(n.TrackDir, roothash))
-		if err == nil {
+		if ok := n.HasTrackFile(roothash); ok {
 			c.JSON(http.StatusOK, roothash)
 			n.Upfile("info", fmt.Sprintf("[%v] [%s] uploaded successfully", clientIp, roothash))
 			return

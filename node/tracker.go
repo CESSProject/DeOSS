@@ -34,8 +34,10 @@ type RecordInfo struct {
 	Duplicate   bool                      `json:"duplicate"`
 }
 
+// MinRecordInfoLength = len(json.Marshal(RecordInfo{}))
 const MinRecordInfoLength = 132
 
+// tracker
 func (n *Node) tracker(ch chan<- bool) {
 	defer func() {
 		ch <- true
@@ -182,7 +184,7 @@ func (n *Node) trackFile(trackfile string) error {
 		return errors.Wrapf(err, "[%s] [backupFiles]", roothash)
 	}
 
-	n.Upfile("info", fmt.Sprintf("[%s] File storage success", roothash))
+	n.Upfile("info", fmt.Sprintf("[%s] File successfully transferred to all allocated storage nodes", roothash))
 
 	recordFile.Putflag = true
 	recordFile.Count = count
