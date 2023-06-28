@@ -36,6 +36,7 @@ const (
 )
 
 const TokenDated = 60 * 60 * 24 * 30
+const MaxMemUsed = 512 << 20
 
 const (
 	//ERR_ReportProblem = "Sorry, please report this problem to the service provider:"
@@ -61,7 +62,7 @@ const (
 	ERR_ReadBody              = "InvalidBody.ReadErr"
 	ERR_ParseBody             = "InvalidBody.ParseErr"
 	//ERR_SpaceExpired          = "space expired"
-	ERR_NotEnoughSpace = "not enough space"
+	ERR_NotEnoughSpace = "not enough space for users to buy"
 
 	ERR_InternalServer = "InternalError"
 )
@@ -75,10 +76,13 @@ const (
 
 	ERR_HeaderFieldBucketName = "HeaderErr_InvalidBucketName"
 
-	ERR_AccountNotExist  = "account does not exist"
-	ERR_RpcFailed        = "rpc connection failed"
-	ERR_SpaceExpiresSoon = "space expires soon"
-	ERR_SpaceNotAuth     = "space is not authorized"
+	ERR_AccountNotExist   = "account does not exist"
+	ERR_RpcFailed         = "rpc connection failed"
+	ERR_SpaceExpiresSoon  = "space expires soon"
+	ERR_SpaceNotAuth      = "space is not authorized"
+	ERR_DeviceSpaceNoLeft = "no space left on the server device"
+
+	ERR_SysMemNoLeft = "server unsupported file size"
 
 	ERR_ReceiveFile = "InternalError"
 )

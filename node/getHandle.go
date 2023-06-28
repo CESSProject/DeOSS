@@ -61,22 +61,23 @@ type FileMetaData struct {
 	Owner       []RtnUserBrief
 }
 
-// It is used to authorize users
-func (n *Node) GetHandle(c *gin.Context) {
+// getHandle
+func (n *Node) getHandle(c *gin.Context) {
 	var (
 		clientIp string
 	)
+
 	clientIp = c.ClientIP()
 	n.Query("info", fmt.Sprintf("[%s] %s", clientIp, INFO_GetRequest))
 
-	getName := c.Param("name")
-	if getName == "version" {
+	queryName := c.Param(HTTP_ParameterName)
+	if queryName == "version" {
 		n.Query("info", fmt.Sprintf("[%s] Query version", clientIp))
 		c.JSON(http.StatusOK, configs.Version)
 		return
 	}
 
-	if len(getName) != len(pattern.FileHash{}) {
+	if len(queryName) != len(pattern.FileHash{}) {
 		account := c.Request.Header.Get(HTTPHeader_Account)
 		if account == "" {
 			n.Query("err", fmt.Sprintf("[%s] %s", clientIp, ERR_MissAccount))
@@ -90,16 +91,16 @@ func (n *Node) GetHandle(c *gin.Context) {
 			return
 		}
 		// Query bucket
-		if utils.CheckBucketName(getName) {
-			n.Query("info", fmt.Sprintf("[%s] Query bucket [%s] info", clientIp, getName))
-			bucketInfo, err := n.QueryBucketInfo(pkey, getName)
+		if utils.CheckBucketName(queryName) {
+			n.Query("info", fmt.Sprintf("[%s] Query bucket [%s] info", clientIp, queryName))
+			bucketInfo, err := n.QueryBucketInfo(pkey, queryName)
 			if err != nil {
 				if err.Error() == pattern.ERR_Empty {
-					n.Query("err", fmt.Sprintf("[%s] Query bucket [%s] info: NotFount", clientIp, getName))
+					n.Query("err", fmt.Sprintf("[%s] Query bucket [%s] info: NotFount", clientIp, queryName))
 					c.JSON(http.StatusNotFound, "NotFound")
 					return
 				}
-				n.Query("err", fmt.Sprintf("[%s] Query bucket [%s] info: %v", clientIp, getName, err))
+				n.Query("err", fmt.Sprintf("[%s] Query bucket [%s] info: %v", clientIp, queryName, err))
 				c.JSON(http.StatusInternalServerError, "InternalError")
 				return
 			}
@@ -123,12 +124,12 @@ func (n *Node) GetHandle(c *gin.Context) {
 				Owners: owners,
 				Files:  filesHash,
 			}
-			n.Query("info", fmt.Sprintf("[%s] Query bucket [%s] info suc", clientIp, getName))
+			n.Query("info", fmt.Sprintf("[%s] Query bucket [%s] info suc", clientIp, queryName))
 			c.JSON(http.StatusOK, data)
 			return
 		}
 		// Query bucket list
-		if getName == "*" {
+		if queryName == "*" {
 			bucketList, err := n.QueryAllBucketName(pkey)
 			if err != nil {
 				if err.Error() == pattern.ERR_Empty {
@@ -145,7 +146,7 @@ func (n *Node) GetHandle(c *gin.Context) {
 			return
 		}
 
-		n.Query("err", fmt.Sprintf("[%s] Invalid query para: %s", clientIp, getName))
+		n.Query("err", fmt.Sprintf("[%s] Invalid query para: %s", clientIp, queryName))
 		c.JSON(http.StatusBadRequest, "InvalidParameter.Name")
 		return
 	}
@@ -154,27 +155,27 @@ func (n *Node) GetHandle(c *gin.Context) {
 
 	// view file
 	if operation == "view" {
-		n.Query("info", fmt.Sprintf("[%s] Query file [%s] info", clientIp, getName))
-		fmeta, err := n.QueryFileMetadata(getName)
+		n.Query("info", fmt.Sprintf("[%s] Query file [%s] info", clientIp, queryName))
+		fmeta, err := n.QueryFileMetadata(queryName)
 		if err != nil {
 			if err.Error() == pattern.ERR_Empty {
-				_, err = n.QueryStorageOrder(getName)
+				_, err = n.QueryStorageOrder(queryName)
 				if err != nil {
 					if err.Error() == pattern.ERR_Empty {
-						n.Query("err", fmt.Sprintf("[%s] Query file [%s] info: NotFount", clientIp, getName))
+						n.Query("err", fmt.Sprintf("[%s] Query file [%s] info: NotFount", clientIp, queryName))
 						c.JSON(http.StatusNotFound, "NotFound")
 						return
 					}
 				} else {
-					n.Query("info", fmt.Sprintf("[%s] Query file [%s] info: Data is being stored", clientIp, getName))
+					n.Query("info", fmt.Sprintf("[%s] Query file [%s] info: Data is being stored", clientIp, queryName))
 					c.JSON(http.StatusOK, "Data is being stored")
 					return
 				}
-				n.Query("err", fmt.Sprintf("[%s] Query file [%s] info: %v", clientIp, getName, err))
+				n.Query("err", fmt.Sprintf("[%s] Query file [%s] info: %v", clientIp, queryName, err))
 				c.JSON(http.StatusInternalServerError, "InternalError")
 				return
 			}
-			n.Query("err", fmt.Sprintf("[%s] Query file [%s] info: %v", clientIp, getName, err))
+			n.Query("err", fmt.Sprintf("[%s] Query file [%s] info: %v", clientIp, queryName, err))
 			c.JSON(http.StatusInternalServerError, "InternalError")
 			return
 		}
@@ -209,7 +210,7 @@ func (n *Node) GetHandle(c *gin.Context) {
 				fileMetadata.SegmentList[i].FragmentList[j].Miner, _ = utils.EncodePublicKeyAsCessAccount(fmeta.SegmentList[i].FragmentList[j].Miner[:])
 			}
 		}
-		n.Query("info", fmt.Sprintf("[%s] Query file [%s] info suc", clientIp, getName))
+		n.Query("info", fmt.Sprintf("[%s] Query file [%s] info suc", clientIp, queryName))
 		c.JSON(http.StatusOK, fileMetadata)
 		return
 	}
@@ -217,11 +218,11 @@ func (n *Node) GetHandle(c *gin.Context) {
 	// download file
 	if operation == "download" {
 		dir := n.GetDirs().FileDir
-		n.Query("info", fmt.Sprintf("[%s] Download file [%s]", clientIp, getName))
-		fpath := filepath.Join(dir, getName)
+		n.Query("info", fmt.Sprintf("[%s] Download file [%s]", clientIp, queryName))
+		fpath := filepath.Join(dir, queryName)
 		_, err := os.Stat(fpath)
 		if err == nil {
-			n.Query("info", fmt.Sprintf("[%s] Download file [%s] from cache", clientIp, getName))
+			n.Query("info", fmt.Sprintf("[%s] Download file [%s] from cache", clientIp, queryName))
 			c.File(fpath)
 			select {
 			case <-c.Request.Context().Done():
@@ -230,20 +231,20 @@ func (n *Node) GetHandle(c *gin.Context) {
 		}
 
 		//Download from miner
-		fpath, err = n.fetchFiles(getName, dir)
+		fpath, err = n.fetchFiles(queryName, dir)
 		if err != nil {
-			n.Query("err", fmt.Sprintf("[%s] Download file [%s] : %v", clientIp, getName, err))
+			n.Query("err", fmt.Sprintf("[%s] Download file [%s] : %v", clientIp, queryName, err))
 			c.JSON(http.StatusInternalServerError, "InternalError")
 			return
 		}
-		n.Query("info", fmt.Sprintf("[%s] Download file [%s] suc", clientIp, getName))
+		n.Query("info", fmt.Sprintf("[%s] Download file [%s] suc", clientIp, queryName))
 		c.File(fpath)
 		select {
 		case <-c.Request.Context().Done():
 			return
 		}
 	}
-	n.Query("err", fmt.Sprintf("[%s] [%s] InvalidHeader.Operation", clientIp, getName))
+	n.Query("err", fmt.Sprintf("[%s] [%s] InvalidHeader.Operation", clientIp, queryName))
 	c.JSON(http.StatusBadRequest, "InvalidHeader.Operation")
 	return
 }

@@ -67,6 +67,7 @@ func (n *Node) Run() {
 		configs.Header_BucketName,
 		"*",
 	)
+	n.Engine.MaxMultipartMemory = MaxMemUsed
 	n.Engine.Use(cors.New(config))
 	// Add route
 	n.addRoute()
@@ -141,6 +142,13 @@ func (n *Node) ParseTrackFromFile(filehash string) (RecordInfo, error) {
 	}
 	err = sonic.Unmarshal(b, &result)
 	return result, err
+}
+
+func (n *Node) HasTrackFile(filehash string) bool {
+	n.trackLock.RLock()
+	defer n.trackLock.RUnlock()
+	_, err := os.Stat(filepath.Join(n.TrackDir, filehash))
+	return err == nil
 }
 
 func (n *Node) ListTrackFiles() ([]string, error) {

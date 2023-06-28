@@ -27,7 +27,7 @@ type Logger interface {
 	Upfile(string, string)
 	Downfile(string, string)
 	Del(string, string)
-	Record(error)
+	Track(string, string)
 	Query(string, string)
 	Discover(string, string)
 }
@@ -45,7 +45,7 @@ var (
 		"upfile",   //Upload file log
 		"downfile", //Download log
 		"delete",
-		"record",
+		"track",
 		"query",
 		"discover",
 	}
@@ -139,11 +139,16 @@ func (l *logs) Del(level string, msg string) {
 	}
 }
 
-func (l *logs) Record(err error) {
+func (l *logs) Track(level string, msg string) {
 	_, file, line, _ := runtime.Caller(1)
-	v, ok := l.log["record"]
+	v, ok := l.log["track"]
 	if ok {
-		v.Sugar().Infof("[%v:%d] %v", filepath.Base(file), line, err)
+		switch level {
+		case "info":
+			v.Sugar().Infof("[%v:%d] %v", filepath.Base(file), line, msg)
+		case "err":
+			v.Sugar().Errorf("[%v:%d] %v", filepath.Base(file), line, msg)
+		}
 	}
 }
 

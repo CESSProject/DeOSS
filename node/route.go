@@ -12,7 +12,7 @@ import "fmt"
 func (n *Node) addRoute() {
 	n.Engine.POST("/auth", n.authHandle)
 
-	n.Engine.GET(fmt.Sprintf("/:%s", HTTP_ParameterName), n.GetHandle)
+	n.Engine.GET(fmt.Sprintf("/:%s", HTTP_ParameterName), n.getHandle)
 
 	n.Engine.PUT("/", n.putHandle)
 

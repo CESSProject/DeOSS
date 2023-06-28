@@ -171,8 +171,18 @@ func buildConfigFile(cmd *cobra.Command) (confile.Confile, error) {
 	configpath1, _ := cmd.Flags().GetString("config")
 	configpath2, _ := cmd.Flags().GetString("c")
 	if configpath1 != "" {
+		_, err := os.Stat(configpath1)
+		if err != nil {
+			log.Println(err)
+			os.Exit(1)
+		}
 		conFilePath = configpath1
 	} else if configpath2 != "" {
+		_, err := os.Stat(configpath2)
+		if err != nil {
+			log.Println(err)
+			os.Exit(1)
+		}
 		conFilePath = configpath2
 	} else {
 		conFilePath = configs.DefaultConfig
@@ -188,15 +198,37 @@ func buildConfigFile(cmd *cobra.Command) (confile.Confile, error) {
 	if err != nil {
 		return cfg, err
 	}
+
+	if len(rpc) == 0 {
+		log.Println("Please specify the rpc address with --rpc")
+		os.Exit(1)
+	}
+	cfg.SetRpcAddr(rpc)
+
 	boot, err := cmd.Flags().GetStringSlice("boot")
 	if err != nil {
 		return cfg, err
 	}
+	if len(boot) == 0 {
+		log.Println("Please specify the boot node address with --boot")
+		os.Exit(1)
+	}
 	cfg.SetBootNodes(boot)
+
 	workspace, err := cmd.Flags().GetString("ws")
 	if err != nil {
 		return cfg, err
 	}
+	if workspace == "" {
+		log.Println("Please specify the sorkspace with --ws")
+		os.Exit(1)
+	}
+	err = cfg.SetWorkspace(workspace)
+	if err != nil {
+		log.Println(err)
+		os.Exit(1)
+	}
+
 	http_port, err := cmd.Flags().GetInt("http_port")
 	if err != nil {
 		http_port, err = cmd.Flags().GetInt("hp")
@@ -211,11 +243,7 @@ func buildConfigFile(cmd *cobra.Command) (confile.Confile, error) {
 			return cfg, err
 		}
 	}
-	cfg.SetRpcAddr(rpc)
-	err = cfg.SetWorkspace(workspace)
-	if err != nil {
-		return cfg, err
-	}
+
 	err = cfg.SetHttpPort(http_port)
 	if err != nil {
 		return cfg, err
