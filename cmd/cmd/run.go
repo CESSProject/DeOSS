@@ -233,6 +233,7 @@ func buildConfigFile(cmd *cobra.Command) (confile.Confile, error) {
 	if err != nil {
 		return cfg, err
 	}
+
 	p2p_port, err := cmd.Flags().GetInt("p2p_port")
 	if err != nil {
 		return cfg, err
