@@ -40,12 +40,12 @@ func init() {
 		cmd_stat(),
 		cmd_exit(),
 	)
-	rootCmd.PersistentFlags().StringP("config", "c", "conf.yaml", "custom profile")
-	rootCmd.PersistentFlags().StringP("rpc", "", "wss://testnet-rpc0.cess.cloud/ws/", "rpc endpoint")
-	rootCmd.PersistentFlags().StringP("ws", "", "/", "workspace")
+	rootCmd.PersistentFlags().StringP("config", "c", "", "custom profile")
+	rootCmd.PersistentFlags().StringSliceP("rpc", "", nil, "rpc endpoint")
+	rootCmd.PersistentFlags().StringP("ws", "", "", "workspace")
 	rootCmd.PersistentFlags().IntP("http_port", "P", 8080, "service listening port")
 	rootCmd.PersistentFlags().IntP("p2p_port", "p", 4001, "p2p port")
-	rootCmd.PersistentFlags().StringP("boot", "", "_dnsaddr.bootstrap-kldr.cess.cloud", "bootstap nodes")
+	rootCmd.PersistentFlags().StringSliceP("boot", "", nil, "bootstap nodes")
 }
 
 func cmd_version() *cobra.Command {
