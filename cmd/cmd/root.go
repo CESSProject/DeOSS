@@ -43,9 +43,10 @@ func init() {
 	rootCmd.PersistentFlags().StringP("config", "c", "", "custom profile")
 	rootCmd.PersistentFlags().StringSliceP("rpc", "", nil, "rpc endpoint")
 	rootCmd.PersistentFlags().StringP("ws", "", "", "workspace")
-	rootCmd.PersistentFlags().IntP("http_port", "P", 8080, "service listening port")
-	rootCmd.PersistentFlags().IntP("p2p_port", "p", 4001, "p2p port")
+	rootCmd.PersistentFlags().IntP("http_port", "", 8080, "service listening port")
+	rootCmd.PersistentFlags().IntP("p2p_port", "", 4001, "p2p communication port")
 	rootCmd.PersistentFlags().StringSliceP("boot", "", nil, "bootstap nodes")
+	rootCmd.PersistentFlags().StringP("mnemonic", "", "", "wallet mnemonic")
 }
 
 func cmd_version() *cobra.Command {

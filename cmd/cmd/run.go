@@ -231,47 +231,56 @@ func buildConfigFile(cmd *cobra.Command) (confile.Confile, error) {
 
 	http_port, err := cmd.Flags().GetInt("http_port")
 	if err != nil {
-		http_port, err = cmd.Flags().GetInt("hp")
-		if err != nil {
-			return cfg, err
-		}
+		return cfg, err
 	}
 	p2p_port, err := cmd.Flags().GetInt("p2p_port")
 	if err != nil {
-		p2p_port, err = cmd.Flags().GetInt("pp")
-		if err != nil {
-			return cfg, err
-		}
+		return cfg, err
 	}
 
 	err = cfg.SetHttpPort(http_port)
 	if err != nil {
-		return cfg, err
+		log.Println(err)
+		os.Exit(1)
 	}
 	err = cfg.SetP2pPort(p2p_port)
 	if err != nil {
+		log.Println(err)
+		os.Exit(1)
+	}
+
+	mnemonic, err := cmd.Flags().GetString("mnemonic")
+	if err != nil {
 		return cfg, err
 	}
-	log.Println("Please enter the mnemonic of the staking account:")
-	for {
-		pwd, err := gopass.GetPasswdMasked()
-		if err != nil {
-			if err.Error() == "interrupted" || err.Error() == "interrupt" || err.Error() == "killed" {
-				os.Exit(0)
+	if mnemonic == "" {
+		log.Println("Please enter the mnemonic of the staking account:")
+		for {
+			pwd, err := gopass.GetPasswdMasked()
+			if err != nil {
+				if err.Error() == "interrupted" || err.Error() == "interrupt" || err.Error() == "killed" {
+					os.Exit(0)
+				}
+				log.Println("Invalid mnemonic, please check and re-enter:")
+				continue
 			}
-			log.Println("Invalid mnemonic, please check and re-enter:")
-			continue
+			if len(pwd) == 0 {
+				log.Println("The mnemonic you entered is empty, please re-enter:")
+				continue
+			}
+			err = cfg.SetMnemonic(string(pwd))
+			if err != nil {
+				log.Println("Invalid mnemonic, please check and re-enter:")
+				continue
+			}
+			break
 		}
-		if len(pwd) == 0 {
-			log.Println("The mnemonic you entered is empty, please re-enter:")
-			continue
-		}
-		err = cfg.SetMnemonic(string(pwd))
+	} else {
+		err = cfg.SetMnemonic(mnemonic)
 		if err != nil {
-			log.Println("Invalid mnemonic, please check and re-enter:")
-			continue
+			log.Println("invalid mnemonic")
+			os.Exit(1)
 		}
-		break
 	}
 	return cfg, nil
 }
