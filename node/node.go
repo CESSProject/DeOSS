@@ -20,7 +20,6 @@ import (
 	"github.com/CESSProject/DeOSS/pkg/logger"
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
 	"github.com/CESSProject/cess-go-sdk/core/sdk"
-	"github.com/CESSProject/p2p-go/core"
 	"github.com/bytedance/sonic"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -37,7 +36,6 @@ type Node struct {
 	logger.Logger
 	db.Cache
 	sdk.SDK
-	core.P2P
 	*gin.Engine
 	signkey   []byte
 	trackLock *sync.RWMutex
