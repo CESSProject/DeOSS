@@ -62,7 +62,7 @@ const (
 	ERR_ReadBody              = "InvalidBody.ReadErr"
 	ERR_ParseBody             = "InvalidBody.ParseErr"
 	//ERR_SpaceExpired          = "space expired"
-	ERR_NotEnoughSpace = "not enough space for users to buy"
+	ERR_NotEnoughSpace = "not enough account space"
 
 	ERR_InternalServer = "InternalError"
 )

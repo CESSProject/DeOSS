@@ -8,7 +8,6 @@
 package cmd
 
 import (
-	"context"
 	"fmt"
 	"log"
 	"os"
@@ -24,7 +23,6 @@ import (
 	sdkgo "github.com/CESSProject/cess-go-sdk"
 	sconfig "github.com/CESSProject/cess-go-sdk/config"
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
-	p2pgo "github.com/CESSProject/p2p-go"
 	"github.com/howeyc/gopass"
 	"github.com/libp2p/go-libp2p/core/peer"
 	ma "github.com/multiformats/go-multiaddr"
@@ -35,12 +33,13 @@ import (
 // which is used to start the deoss service.
 func cmd_run_func(cmd *cobra.Command, args []string) {
 	var (
-		err       error
-		logDir    string
-		dbDir     string
-		bootstrap = make([]string, 0)
-		syncSt    pattern.SysSyncState
-		n         = node.New()
+		registerFlag bool
+		err          error
+		logDir       string
+		dbDir        string
+		bootstrap    = make([]string, 0)
+		syncSt       pattern.SysSyncState
+		n            = node.New()
 	)
 
 	// Building Profile Instances
@@ -57,33 +56,6 @@ func cmd_run_func(cmd *cobra.Command, args []string) {
 	}
 
 	n.SetSignkey(signKey)
-
-	// Build sdk
-	n.SDK, err = sdkgo.New(
-		sconfig.CharacterName_Deoss,
-		sdkgo.ConnectRpcAddrs(n.GetRpcAddr()),
-		sdkgo.Mnemonic(n.GetMnemonic()),
-		sdkgo.TransactionTimeout(configs.TimeOut_WaitBlock),
-	)
-	if err != nil {
-		log.Println(err)
-		os.Exit(1)
-	}
-
-	for {
-		syncSt, err = n.SyncState()
-		if err != nil {
-			log.Println(err.Error())
-			os.Exit(1)
-		}
-		if syncSt.CurrentBlock == syncSt.HighestBlock {
-			log.Println(fmt.Sprintf("Synchronization main chain completed: %d", syncSt.CurrentBlock))
-			break
-		}
-		log.Println(fmt.Sprintf("In the synchronization main chain: %d ...", syncSt.CurrentBlock))
-		time.Sleep(time.Second * time.Duration(utils.Ternary(int64(syncSt.HighestBlock-syncSt.CurrentBlock)*6, 30)))
-	}
-	workspace := filepath.Join(n.GetWorkspace(), n.GetSignatureAcc(), n.GetRoleName())
 
 	boot := n.Confile.GetBootNodes()
 	for _, v := range boot {
@@ -106,22 +78,39 @@ func cmd_run_func(cmd *cobra.Command, args []string) {
 		}
 	}
 
-	// Build p2p
-	n.P2P, err = p2pgo.New(
-		context.Background(),
-		p2pgo.ListenPort(n.GetP2pPort()),
-		p2pgo.Workspace(workspace),
-		p2pgo.BootPeers(bootstrap),
+	// Build sdk
+	n.SDK, err = sdkgo.New(
+		sconfig.CharacterName_Deoss,
+		sdkgo.ConnectRpcAddrs(n.GetRpcAddr()),
+		sdkgo.Mnemonic(n.GetMnemonic()),
+		sdkgo.TransactionTimeout(configs.TimeOut_WaitBlock),
+		sdkgo.Workspace(n.GetWorkspace()),
+		sdkgo.P2pPort(n.GetP2pPort()),
+		sdkgo.Bootnodes(bootstrap),
 	)
 	if err != nil {
 		log.Println(err)
 		os.Exit(1)
 	}
 
+	for {
+		syncSt, err = n.SyncState()
+		if err != nil {
+			log.Println(err.Error())
+			os.Exit(1)
+		}
+		if syncSt.CurrentBlock == syncSt.HighestBlock {
+			log.Println(fmt.Sprintf("Synchronization main chain completed: %d", syncSt.CurrentBlock))
+			break
+		}
+		log.Println(fmt.Sprintf("In the synchronization main chain: %d ...", syncSt.CurrentBlock))
+		time.Sleep(time.Second * time.Duration(utils.Ternary(int64(syncSt.HighestBlock-syncSt.CurrentBlock)*6, 30)))
+	}
+
 	_, err = n.QueryDeossPeerPublickey(n.GetSignatureAccPulickey())
 	if err != nil {
 		if err.Error() == pattern.ERR_Empty {
-			n.RebuildDirs()
+			registerFlag = true
 		} else {
 			log.Println("Weak network signal or rpc service failure")
 			os.Exit(1)
@@ -132,6 +121,10 @@ func cmd_run_func(cmd *cobra.Command, args []string) {
 	if err != nil {
 		log.Println("Register or update err: ", err)
 		os.Exit(1)
+	}
+
+	if registerFlag {
+		n.RebuildDirs()
 	}
 
 	logDir, dbDir, n.TrackDir, err = buildDir(n.Workspace())
@@ -152,10 +145,6 @@ func cmd_run_func(cmd *cobra.Command, args []string) {
 	if err != nil {
 		log.Println(err)
 		os.Exit(1)
-	}
-
-	for _, v := range n.Addrs() {
-		log.Println(fmt.Sprintf("Local multiaddr: %s/p2p/%s", v.String(), n.ID().Pretty()))
 	}
 
 	if n.GetDiscoverSt() {

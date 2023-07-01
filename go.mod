@@ -3,9 +3,8 @@ module github.com/CESSProject/DeOSS
 go 1.19
 
 require (
-	github.com/CESSProject/cess-go-sdk v0.2.1
+	github.com/CESSProject/cess-go-sdk v0.2.5
 	github.com/CESSProject/go-keyring v0.0.0-20220614131247-ee3a8da30fde
-	github.com/CESSProject/p2p-go v0.0.33
 	github.com/btcsuite/btcutil v1.0.3-0.20201208143702-a53e38424cce
 	github.com/bwmarrin/snowflake v0.3.0
 	github.com/bytedance/sonic v1.8.0
@@ -32,6 +31,7 @@ require (
 )
 
 require (
+	github.com/CESSProject/p2p-go v0.0.33 // indirect
 	github.com/ChainSafe/go-schnorrkel v1.0.0 // indirect
 	github.com/StackExchange/wmi v0.0.0-20180116203802-5d049714c4a6 // indirect
 	github.com/benbjohnson/clock v1.3.0 // indirect
@@ -149,6 +149,7 @@ require (
 	github.com/raulk/go-watchdog v1.3.0 // indirect
 	github.com/rivo/uniseg v0.2.0 // indirect
 	github.com/rs/cors v1.8.2 // indirect
+	github.com/samber/lo v1.36.0 // indirect
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
 	github.com/spf13/afero v1.9.3 // indirect
 	github.com/spf13/cast v1.5.0 // indirect

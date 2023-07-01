@@ -13,6 +13,7 @@ import (
 	"path"
 
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
+	sutils "github.com/CESSProject/cess-go-sdk/core/utils"
 	"github.com/centrifuge/go-substrate-rpc-client/v4/signature"
 	"github.com/pkg/errors"
 	"github.com/spf13/viper"
@@ -46,6 +47,7 @@ type Confile interface {
 	GetWorkspace() string
 	GetMnemonic() string
 	GetPublickey() ([]byte, error)
+	GetAccount() string
 }
 
 type confile struct {
@@ -204,4 +206,10 @@ func (c *confile) GetPublickey() ([]byte, error) {
 		return nil, err
 	}
 	return key.PublicKey, nil
+}
+
+func (c *confile) GetAccount() string {
+	key, _ := signature.KeyringPairFromSecret(c.GetMnemonic(), 0)
+	acc, _ := sutils.EncodePublicKeyAsCessAccount(key.PublicKey)
+	return acc
 }
