@@ -62,6 +62,7 @@ func (n *Node) tracker(ch chan<- bool) {
 			time.Sleep(pattern.BlockInterval)
 			continue
 		}
+		recordErr = ""
 		for _, v := range trackFiles {
 			err = n.trackFile(v)
 			if err != nil {

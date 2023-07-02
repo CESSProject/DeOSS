@@ -3,7 +3,7 @@ package node
 import (
 	"net/http"
 
-	"github.com/CESSProject/DeOSS/pkg/utils"
+	sutils "github.com/CESSProject/cess-go-sdk/core/utils"
 	jwt "github.com/dgrijalva/jwt-go"
 	"github.com/pkg/errors"
 	"github.com/shirou/gopsutil/disk"
@@ -44,7 +44,7 @@ func (n *Node) verifyToken(token string, respmsg *RespMsg) (string, []byte, erro
 		respmsg.Err = errors.New(ERR_NoPermission)
 		return account, nil, err
 	}
-	pkey, err := utils.DecodePublicKeyOfCessAccount(account)
+	pkey, err := sutils.ParsingPublickey(account)
 	if err != nil {
 		respmsg.Code = http.StatusBadRequest
 		respmsg.Err = errors.New(ERR_InvalidToken)

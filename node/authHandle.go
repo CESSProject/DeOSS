@@ -13,7 +13,7 @@ import (
 	"time"
 
 	"github.com/CESSProject/DeOSS/configs"
-	"github.com/CESSProject/DeOSS/pkg/utils"
+	sutils "github.com/CESSProject/cess-go-sdk/core/utils"
 	"github.com/CESSProject/go-keyring"
 	jwt "github.com/dgrijalva/jwt-go"
 	"github.com/gin-gonic/gin"
@@ -43,7 +43,7 @@ func (n *Node) authHandle(c *gin.Context) {
 	}
 
 	// Check publickey
-	pubkey, err := utils.DecodePublicKeyOfCessAccount(req.Account)
+	pubkey, err := sutils.ParsingPublickey(req.Account)
 	if err != nil {
 		c.JSON(400, ERR_BodyFieldAccount)
 		return
@@ -90,7 +90,7 @@ func VerifySign(pkey, signmsg, sign []byte) (bool, error) {
 		return false, errors.New("Invalid.Signature")
 	}
 
-	ss58, err := utils.EncodePublicKeyAsSubstrateAccount(pkey)
+	ss58, err := sutils.EncodePublicKeyAsSubstrateAccount(pkey)
 	if err != nil {
 		return false, err
 	}

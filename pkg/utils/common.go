@@ -12,14 +12,10 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
-	"math/rand"
-	"net"
 	"os"
 	"path/filepath"
 	"reflect"
 	"runtime/debug"
-	"strings"
-	"time"
 
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
 	"github.com/pkg/errors"
@@ -38,27 +34,6 @@ func RecoverError(err interface{}) string {
 	return buf.String()
 }
 
-// RandSlice is used to disrupt the order of elements in the slice
-func RandSlice(slice interface{}) {
-	rv := reflect.ValueOf(slice)
-	if rv.Type().Kind() != reflect.Slice {
-		return
-	}
-
-	length := rv.Len()
-	if length < 2 {
-		return
-	}
-
-	swap := reflect.Swapper(slice)
-	rand.Seed(time.Now().Unix())
-	for i := length - 1; i >= 0; i-- {
-		j := rand.Intn(length)
-		swap(i, j)
-	}
-	return
-}
-
 // InterfaceIsNIL returns the comparison between i and nil
 func InterfaceIsNIL(i interface{}) bool {
 	ret := i == nil
@@ -69,18 +44,6 @@ func InterfaceIsNIL(i interface{}) bool {
 		ret = reflect.ValueOf(i).IsNil()
 	}
 	return ret
-}
-
-// IsIPv4 is used to determine whether ipAddr is an ipv4 address
-func IsIPv4(ipAddr string) bool {
-	ip := net.ParseIP(ipAddr)
-	return ip != nil && strings.Contains(ipAddr, ".")
-}
-
-// IsIPv6 is used to determine whether ipAddr is an ipv6 address
-func IsIPv6(ipAddr string) bool {
-	ip := net.ParseIP(ipAddr)
-	return ip != nil && strings.Contains(ipAddr, ":")
 }
 
 func Int64ToBytes(i int64) []byte {
