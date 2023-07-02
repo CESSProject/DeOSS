@@ -63,7 +63,7 @@ func (n *Node) discoverMgt(ch chan<- bool) {
 		case <-tick_60s.C:
 			boot = n.GetBootNodes()
 			for _, v := range boot {
-				bootnodes, err = utils.ParseMultiaddrs(v)
+				bootnodes, err = sutils.ParseMultiaddrs(v)
 				if err != nil {
 					continue
 				}

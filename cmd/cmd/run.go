@@ -23,6 +23,7 @@ import (
 	sdkgo "github.com/CESSProject/cess-go-sdk"
 	sconfig "github.com/CESSProject/cess-go-sdk/config"
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
+	sutils "github.com/CESSProject/cess-go-sdk/core/utils"
 	"github.com/howeyc/gopass"
 	"github.com/libp2p/go-libp2p/core/peer"
 	ma "github.com/multiformats/go-multiaddr"
@@ -49,7 +50,7 @@ func cmd_run_func(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
-	signKey, err := utils.CalcMD5(n.Confile.GetMnemonic())
+	signKey, err := sutils.CalcMD5(n.Confile.GetMnemonic())
 	if err != nil {
 		log.Println(err)
 		os.Exit(1)
@@ -59,7 +60,7 @@ func cmd_run_func(cmd *cobra.Command, args []string) {
 
 	boot := n.Confile.GetBootNodes()
 	for _, v := range boot {
-		bootnodes, err := utils.ParseMultiaddrs(v)
+		bootnodes, err := sutils.ParseMultiaddrs(v)
 		if err != nil {
 			continue
 		}
@@ -343,19 +344,7 @@ func buildDir(workspace string) (string, string, string, error) {
 }
 
 func buildCache(cacheDir string) (db.Cache, error) {
-	cache, err := db.NewCache(cacheDir, 0, 0, configs.NameSpace)
-	if err != nil {
-		return nil, err
-	}
-
-	ok, err := cache.Has([]byte("SigningKey"))
-	if err != nil {
-		return nil, err
-	}
-	if !ok {
-		err = cache.Put([]byte("SigningKey"), []byte(utils.GetRandomcode(16)))
-	}
-	return cache, err
+	return db.NewCache(cacheDir, 0, 0, configs.NameSpace)
 }
 
 func buildLogs(logDir string) (logger.Logger, error) {
