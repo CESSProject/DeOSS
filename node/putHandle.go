@@ -101,7 +101,7 @@ func (n *Node) putHandle(c *gin.Context) {
 	contentLength := c.Request.ContentLength
 	mem, err := utils.GetSysMemAvailable()
 	if err == nil {
-		if uint64(contentLength) > uint64(mem*95/100) {
+		if uint64(contentLength) > uint64(mem*90/100) {
 			if uint64(contentLength) < MaxMemUsed {
 				n.Upfile("err", fmt.Sprintf("[%v] %v, size: [%d] mem: [%d]", clientIp, ERR_SysMemNoLeft, contentLength, mem))
 				c.JSON(http.StatusForbidden, ERR_SysMemNoLeft)
@@ -178,21 +178,12 @@ func (n *Node) putHandle(c *gin.Context) {
 			return
 		}
 		// save body content
-		f, err := os.Create(fpath)
+		err = sutils.WriteBufToFile(buf, fpath)
 		if err != nil {
-			fmt.Println(err)
-			c.JSON(500, err.Error())
+			n.Upfile("err", fmt.Sprintf("[%v] %v", c.ClientIP(), err))
+			c.JSON(http.StatusInternalServerError, ERR_InternalServer)
 			return
 		}
-		defer func() {
-			if f != nil {
-				f.Close()
-			}
-		}()
-		f.Write(buf)
-		f.Sync()
-		f.Close()
-		f = nil
 	} else {
 		filename = fileHeder.Filename
 		if len(filename) > pattern.MaxBucketNameLength {
@@ -200,37 +191,19 @@ func (n *Node) putHandle(c *gin.Context) {
 		}
 		f, err := os.Create(fpath)
 		if err != nil {
-			fmt.Println(err)
-			c.JSON(500, err.Error())
+			n.Upfile("err", fmt.Sprintf("[%v] %v", c.ClientIP(), err))
+			c.JSON(http.StatusInternalServerError, ERR_InternalServer)
 			return
 		}
 
-		defer func() {
-			if f != nil {
-				f.Close()
-			}
-		}()
-
-		// save form file
-		var num int
-		var buf = make([]byte, 4*1024*1024)
-		for {
-			num, err = formfile.Read(buf)
-			if err == io.EOF {
-				break
-			}
-			if err != nil {
-				c.JSON(400, "InvalidParameter.File")
-				return
-			}
-			if num == 0 {
-				continue
-			}
-			f.Write(buf[:num])
+		_, err = io.Copy(f, formfile)
+		if err != nil {
+			f.Close()
+			n.Upfile("err", fmt.Sprintf("[%v] %v", c.ClientIP(), err))
+			c.JSON(http.StatusInternalServerError, ERR_InternalServer)
+			return
 		}
-		f.Sync()
 		f.Close()
-		f = nil
 	}
 
 	fstat, err := os.Stat(fpath)
