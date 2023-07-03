@@ -17,7 +17,6 @@ import (
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
 	"github.com/CESSProject/cess-go-sdk/core/utils"
 	"github.com/gin-gonic/gin"
-	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/mr-tron/base58"
 )
 
@@ -299,12 +298,16 @@ func (n *Node) fetchFiles(roothash, dir string) (string, error) {
 				return "", err
 			}
 			peerid := base58.Encode([]byte(string(miner.PeerId[:])))
-			if !n.Has(peerid) {
+			addr, ok := n.GetPeer(peerid)
+			if !ok {
 				continue
 			}
-			id, _ := peer.Decode(peerid)
+			err = n.Connect(n.GetRootCtx(), addr)
+			if err != nil {
+				continue
+			}
 			fragmentpath := filepath.Join(dir, string(fragment.Hash[:]))
-			err = n.ReadFileAction(id, roothash, string(fragment.Hash[:]), fragmentpath, pattern.FragmentSize)
+			err = n.ReadFileAction(addr.ID, roothash, string(fragment.Hash[:]), fragmentpath, pattern.FragmentSize)
 			if err != nil {
 				continue
 			}
