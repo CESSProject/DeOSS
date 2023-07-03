@@ -24,6 +24,7 @@ import (
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/pkg/errors"
 )
 
@@ -40,7 +41,7 @@ type Node struct {
 	signkey   []byte
 	trackLock *sync.RWMutex
 	lock      *sync.RWMutex
-	peers     map[string]struct{}
+	peers     map[string]peer.AddrInfo
 	TrackDir  string
 }
 
@@ -49,7 +50,7 @@ func New() *Node {
 	return &Node{
 		trackLock: new(sync.RWMutex),
 		lock:      new(sync.RWMutex),
-		peers:     make(map[string]struct{}, 10),
+		peers:     make(map[string]peer.AddrInfo, 20),
 	}
 }
 
@@ -79,19 +80,25 @@ func (n *Node) Run() {
 	}
 }
 
-func (n *Node) SavePeer(peerid string) {
-	n.lock.Lock()
-	defer n.lock.Unlock()
-	if _, ok := n.peers[peerid]; !ok {
-		n.peers[peerid] = struct{}{}
+func (n *Node) SavePeer(peerid string, addr peer.AddrInfo) {
+	if n.lock.TryLock() {
+		n.peers[peerid] = addr
+		n.lock.Unlock()
 	}
 }
 
-func (n *Node) Has(peerid string) bool {
+func (n *Node) HasPeer(peerid string) bool {
 	n.lock.RLock()
 	defer n.lock.RUnlock()
 	_, ok := n.peers[peerid]
 	return ok
+}
+
+func (n *Node) GetPeer(peerid string) (peer.AddrInfo, bool) {
+	n.lock.RLock()
+	result, ok := n.peers[peerid]
+	n.lock.RUnlock()
+	return result, ok
 }
 
 func (n *Node) SetSignkey(signkey []byte) {

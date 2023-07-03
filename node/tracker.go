@@ -17,7 +17,6 @@ import (
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
 	sutils "github.com/CESSProject/cess-go-sdk/core/utils"
 	"github.com/bytedance/sonic"
-	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/mr-tron/base58"
 	"github.com/pkg/errors"
 )
@@ -62,7 +61,6 @@ func (n *Node) tracker(ch chan<- bool) {
 			time.Sleep(pattern.BlockInterval)
 			continue
 		}
-		recordErr = ""
 		for _, v := range trackFiles {
 			err = n.trackFile(v)
 			if err != nil {
@@ -72,6 +70,7 @@ func (n *Node) tracker(ch chan<- bool) {
 				}
 			}
 		}
+		time.Sleep(time.Minute)
 	}
 }
 
@@ -240,37 +239,52 @@ func (n *Node) backupFiles(owner []byte, segmentInfo []pattern.SegmentDataInfo, 
 func (n *Node) storageData(roothash string, segment []pattern.SegmentDataInfo, minerTaskList []pattern.MinerTaskList) error {
 	var err error
 	var fpath string
+	var failed bool
 	// query all assigned miner multiaddr
 	peerids, accs, err := n.QueryAssignedMiner(minerTaskList)
 	if err != nil {
-		return errors.Wrapf(err, "[QueryAssignedMiner]")
+		return errors.Wrapf(err, "[%s] [QueryAssignedMiner]", roothash)
 	}
 
 	basedir := filepath.Dir(segment[0].FragmentHash[0])
 	for i := 0; i < len(peerids); i++ {
-		if !n.Has(peerids[i]) {
-			return fmt.Errorf("No assigned miner found: [%s] [%s]", accs[i], peerids[i])
+		addr, ok := n.GetPeer(peerids[i])
+		if !ok {
+			failed = true
+			n.Track("err", fmt.Sprintf("[%s] No assigned miner found: [%s] [%s]", roothash, accs[i], peerids[i]))
+			continue
+		}
+		err = n.Connect(n.GetRootCtx(), addr)
+		if err != nil {
+			failed = true
+			n.Track("err", fmt.Sprintf("[%s] Connect to miner [%s] failed: [%s]", roothash, accs[i], err))
+			continue
 		}
 
-		id, _ := peer.Decode(peerids[i])
 		for j := 0; j < len(minerTaskList[i].Hash); j++ {
 			fpath = filepath.Join(basedir, string(minerTaskList[i].Hash[j][:]))
 			_, err = os.Stat(fpath)
 			if err != nil {
 				err = utils.CopyFile(filepath.Join(basedir, roothash), filepath.Join(n.GetDirs().FileDir, roothash))
 				if err != nil {
+					failed = true
 					return errors.Wrapf(err, "[CopyFile]")
 				}
 				_, _, err = n.ProcessingData(filepath.Join(basedir, roothash))
 				if err != nil {
+					failed = true
 					return errors.Wrapf(err, "[ProcessingData]")
 				}
 			}
-			err = n.WriteFileAction(id, roothash, fpath)
+			err = n.WriteFileAction(addr.ID, roothash, fpath)
 			if err != nil {
+				failed = true
 				return errors.Wrapf(err, "[WriteFileAction]")
 			}
 		}
+	}
+	if failed {
+		return errors.New("some storage nodes failed to transmit")
 	}
 	return nil
 }
