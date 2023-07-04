@@ -12,6 +12,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/CESSProject/DeOSS/configs"
@@ -24,9 +25,8 @@ import (
 	sconfig "github.com/CESSProject/cess-go-sdk/config"
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
 	sutils "github.com/CESSProject/cess-go-sdk/core/utils"
+	"github.com/CESSProject/p2p-go/config"
 	"github.com/howeyc/gopass"
-	"github.com/libp2p/go-libp2p/core/peer"
-	ma "github.com/multiformats/go-multiaddr"
 	"github.com/spf13/cobra"
 )
 
@@ -34,13 +34,13 @@ import (
 // which is used to start the deoss service.
 func cmd_run_func(cmd *cobra.Command, args []string) {
 	var (
-		registerFlag bool
-		err          error
-		logDir       string
-		dbDir        string
-		bootstrap    = make([]string, 0)
-		syncSt       pattern.SysSyncState
-		n            = node.New()
+		registerFlag   bool
+		err            error
+		logDir         string
+		dbDir          string
+		protocolPrefix string
+		syncSt         pattern.SysSyncState
+		n              = node.New()
 	)
 
 	// Building Profile Instances
@@ -58,24 +58,22 @@ func cmd_run_func(cmd *cobra.Command, args []string) {
 
 	n.SetSignkey(signKey)
 
-	boot := n.Confile.GetBootNodes()
-	for _, v := range boot {
-		bootnodes, err := sutils.ParseMultiaddrs(v)
-		if err != nil {
-			continue
-		}
-		bootstrap = append(bootstrap, bootnodes...)
-		for _, v := range bootnodes {
-			log.Printf(fmt.Sprintf("bootstrap node: %v", v))
-			addr, err := ma.NewMultiaddr(v)
-			if err != nil {
-				continue
-			}
-			addrInfo, err := peer.AddrInfoFromP2pAddr(addr)
-			if err != nil {
-				continue
-			}
-			n.SavePeer(addrInfo.ID.Pretty(), *addrInfo)
+	boots := n.GetBootNodes()
+	for _, v := range boots {
+		if strings.Contains(v, "testnet") {
+			log.Println("Test network")
+			protocolPrefix = config.TestnetProtocolPrefix
+			break
+		} else if strings.Contains(v, "mainnet") {
+			log.Println("Main network")
+			protocolPrefix = config.MainnetProtocolPrefix
+			break
+		} else if strings.Contains(v, "devnet") {
+			log.Println("Dev network")
+			protocolPrefix = config.DevnetProtocolPrefix
+			break
+		} else {
+			log.Println("Unknown network")
 		}
 	}
 
@@ -87,7 +85,8 @@ func cmd_run_func(cmd *cobra.Command, args []string) {
 		sdkgo.TransactionTimeout(configs.TimeOut_WaitBlock),
 		sdkgo.Workspace(n.GetWorkspace()),
 		sdkgo.P2pPort(n.GetP2pPort()),
-		sdkgo.Bootnodes(bootstrap),
+		sdkgo.Bootnodes(n.GetBootNodes()),
+		sdkgo.ProtocolPrefix(protocolPrefix),
 	)
 	if err != nil {
 		log.Println(err)
