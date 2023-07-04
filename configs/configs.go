@@ -38,16 +38,3 @@ const (
 	//
 	DefaultConfig = "conf.yaml"
 )
-
-// explanation
-const (
-	HELP_common = `Please check with the following help information:
-    1.Check if the wallet balance is sufficient
-    2.Block hash:`
-	HELP_register = `    3.Check the FileMap.OssRegister transaction event result in the block hash above:
-        If system.ExtrinsicFailed is prompted, it means failure;
-        If system.ExtrinsicSuccess is prompted, it means success;`
-	HELP_update = `    3.Check the FileMap.OssUpdate transaction event result in the block hash above:
-        If system.ExtrinsicFailed is prompted, it means failure;
-        If system.ExtrinsicSuccess is prompted, it means success;`
-)

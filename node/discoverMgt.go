@@ -28,12 +28,6 @@ func (n *Node) discoverMgt(ch chan<- bool) {
 		case discoverPeer := <-n.DiscoveredPeer():
 			peerid = discoverPeer.ID.Pretty()
 			n.Discover("info", fmt.Sprintf("Found a peer: %s", peerid))
-			// err := n.Connect(n.GetRootCtx(), discoverPeer)
-			// if err != nil {
-			// 	n.Discover("err", fmt.Sprintf("Connectto %s failed: %v", peerid, err))
-			// 	continue
-			// }
-			// n.Discover("info", fmt.Sprintf("Connect to %s ", peerid))
 			n.SavePeer(peerid, discoverPeer)
 		}
 	}
