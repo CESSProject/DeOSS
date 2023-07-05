@@ -5,10 +5,28 @@ DeOSS ( Decentralized Object Storage Service ) is a decentralized object-based m
 ## Reporting a Vulnerability
 If you find out any system bugs or you have a better suggestions, please send an email to frode@cess.one or join [CESS discord](https://discord.gg/mYHTMfBwNS) to communicate with us.
 
+## 📑 Announcement
+**CESS test network rpc endpoints**
+```
+wss://testnet-rpc0.cess.cloud/ws/
+wss://testnet-rpc1.cess.cloud/ws/
+wss://testnet-rpc2.cess.cloud/ws/
+```
+**CESS test network bootstrap node**
+```
+_dnsaddr.boot-kldr-testnet.cess.cloud
+```
+
+### 🚰 CESS test network faucet
+```
+https://testnet-faucet.cess.cloud/
+```
+
+## :warning: Attention
+The following commands are executed with root privileges, if the prompt `Permission denied` appears, you need to switch to root privileges, or add `sudo` at the top of these commands.
+
 ## System Requirements
 - Linux 64-bit Intel/AMD
-
-> :warning: The following commands are executed with root privileges, if the prompt `Permission denied` appears, you need to switch to root privileges, or add `sudo` at the top of these commands.
 
 ## System configuration
 ### Install application tools
