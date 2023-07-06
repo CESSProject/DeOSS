@@ -68,13 +68,14 @@ func cmd_run_func(cmd *cobra.Command, args []string) {
 			log.Println("Main network")
 			protocolPrefix = config.MainnetProtocolPrefix
 			break
-		} else if strings.Contains(v, "devnet") {
-			log.Println("Dev network")
-			protocolPrefix = config.DevnetProtocolPrefix
-			break
 		} else {
 			log.Println("Unknown network")
 		}
+		// else if strings.Contains(v, "devnet") {
+		// 	log.Println("Dev network")
+		// 	protocolPrefix = config.DevnetProtocolPrefix
+		// 	break
+		// }
 	}
 
 	// Build sdk
