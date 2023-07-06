@@ -282,12 +282,13 @@ func (n *Node) storageData(roothash string, segment []pattern.SegmentDataInfo, m
 			err = n.WriteFileAction(addr.ID, roothash, fpath)
 			if err != nil {
 				failed = true
-				return errors.Wrapf(err, "[WriteFileAction]")
+				n.Track("err", fmt.Sprintf("[%s] [WriteFileAction] [%s] [%s] err: %v", roothash, accs[i], peerids[i], err))
+				break
 			}
 		}
 	}
 	if failed {
-		return errors.New("some storage nodes failed to transmit")
+		return errors.New("File storage failure")
 	}
 	return nil
 }
