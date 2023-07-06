@@ -101,6 +101,18 @@ func (n *Node) GetPeer(peerid string) (peer.AddrInfo, bool) {
 	return result, ok
 }
 
+func (n *Node) GetAllPeerId() []string {
+	n.lock.RLock()
+	defer n.lock.RUnlock()
+	var result = make([]string, len(n.peers))
+	var i int
+	for k, _ := range n.peers {
+		result[i] = k
+		i++
+	}
+	return result
+}
+
 func (n *Node) SetSignkey(signkey []byte) {
 	n.signkey = signkey
 }
