@@ -22,6 +22,7 @@
 ## Binaries for programs and plugins
 main
 oss*
+deoss*
 *.exe
 *.dll
 *.so
