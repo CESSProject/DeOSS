@@ -300,7 +300,10 @@ func (n *Node) fetchFiles(roothash, dir string) (string, error) {
 			peerid := base58.Encode([]byte(string(miner.PeerId[:])))
 			addr, ok := n.GetPeer(peerid)
 			if !ok {
-				continue
+				addr, err = n.DHTFindPeer(peerid)
+				if err != nil {
+					continue
+				}
 			}
 			err = n.Connect(n.GetRootCtx(), addr)
 			if err != nil {

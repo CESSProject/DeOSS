@@ -250,9 +250,12 @@ func (n *Node) storageData(roothash string, segment []pattern.SegmentDataInfo, m
 	for i := 0; i < len(peerids); i++ {
 		addr, ok := n.GetPeer(peerids[i])
 		if !ok {
-			failed = true
-			n.Track("err", fmt.Sprintf("[%s] No assigned miner found: [%s] [%s]", roothash, accs[i], peerids[i]))
-			continue
+			addr, err = n.DHTFindPeer(peerids[i])
+			if err != nil {
+				failed = true
+				n.Track("err", fmt.Sprintf("[%s] No assigned miner found: [%s] [%s]", roothash, accs[i], peerids[i]))
+				continue
+			}
 		}
 		err = n.Connect(n.GetRootCtx(), addr)
 		if err != nil {
