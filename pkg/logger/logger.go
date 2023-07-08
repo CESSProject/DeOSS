@@ -29,7 +29,7 @@ type Logger interface {
 	Del(string, string)
 	Track(string, string)
 	Query(string, string)
-	Discover(string)
+	Discover(string, string)
 }
 
 type logs struct {
@@ -165,11 +165,16 @@ func (l *logs) Query(level string, msg string) {
 	}
 }
 
-func (l *logs) Discover(msg string) {
+func (l *logs) Discover(level, msg string) {
 	_, file, line, _ := runtime.Caller(1)
 	v, ok := l.log["discover"]
 	if ok {
-		v.Sugar().Infof("[%v:%d] %v", filepath.Base(file), line, msg)
+		switch level {
+		case "info":
+			v.Sugar().Infof("[%v:%d] %v", filepath.Base(file), line, msg)
+		case "err":
+			v.Sugar().Errorf("[%v:%d] %v", filepath.Base(file), line, msg)
+		}
 	}
 }
 

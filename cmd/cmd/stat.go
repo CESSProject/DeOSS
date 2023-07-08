@@ -8,6 +8,7 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"os"
@@ -36,6 +37,7 @@ func cmd_stat_func(cmd *cobra.Command, args []string) {
 	}
 
 	n.SDK, err = sdkgo.New(
+		context.Background(),
 		sconfig.CharacterName_Deoss,
 		sdkgo.ConnectRpcAddrs(n.Confile.GetRpcAddr()),
 		sdkgo.Mnemonic(n.Confile.GetMnemonic()),

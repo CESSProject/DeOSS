@@ -78,7 +78,7 @@ func (n *Node) sdkMgt(ch chan<- bool) {
 				if err != nil {
 					continue
 				}
-				err = n.Connect(n.GetRootCtx(), *addrInfo)
+				err = n.Connect(n.GetCtxQueryFromCtxCancel(), *addrInfo)
 				if err != nil {
 					continue
 				}

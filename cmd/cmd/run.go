@@ -8,6 +8,7 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"os"
@@ -79,6 +80,7 @@ func cmd_run_func(cmd *cobra.Command, args []string) {
 
 	// Build sdk
 	n.SDK, err = sdkgo.New(
+		context.Background(),
 		sconfig.CharacterName_Deoss,
 		sdkgo.ConnectRpcAddrs(n.GetRpcAddr()),
 		sdkgo.Mnemonic(n.GetMnemonic()),
@@ -145,10 +147,6 @@ func cmd_run_func(cmd *cobra.Command, args []string) {
 	if err != nil {
 		log.Println(err)
 		os.Exit(1)
-	}
-
-	if n.GetDiscoverSt() {
-		log.Println("Start node discovery service")
 	}
 
 	// run

@@ -70,7 +70,7 @@ func (n *Node) tracker(ch chan<- bool) {
 				}
 			}
 		}
-		time.Sleep(time.Minute)
+		time.Sleep(pattern.BlockInterval)
 	}
 }
 
@@ -257,7 +257,7 @@ func (n *Node) storageData(roothash string, segment []pattern.SegmentDataInfo, m
 				continue
 			}
 		}
-		err = n.Connect(n.GetRootCtx(), addr)
+		err = n.Connect(n.GetCtxQueryFromCtxCancel(), addr)
 		if err != nil {
 			failed = true
 			n.Track("err", fmt.Sprintf("[%s] Connect to miner [%s] failed: [%s]", roothash, accs[i], err))
@@ -285,6 +285,7 @@ func (n *Node) storageData(roothash string, segment []pattern.SegmentDataInfo, m
 				n.Track("err", fmt.Sprintf("[%s] [WriteFileAction] [%s] [%s] err: %v", roothash, accs[i], peerids[i], err))
 				break
 			}
+			n.Track("info", fmt.Sprintf("[%s] [%s] transfer to [%s] ", roothash, string(minerTaskList[i].Hash[j][:]), accs[i]))
 		}
 	}
 	if failed {
