@@ -54,7 +54,7 @@ func (n *Node) discoverMgt(ch chan<- bool) {
 				}
 			}
 			n.Discover("info", "RouteTableFindPeers")
-			_, err := n.RouteTableFindPeers(len(n.peers) + 10)
+			_, err := n.RouteTableFindPeers(len(n.peers) + 20)
 			if err != nil {
 				n.Discover("err", err.Error())
 			}
