@@ -20,6 +20,7 @@ import (
 	"github.com/CESSProject/DeOSS/pkg/logger"
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
 	"github.com/CESSProject/cess-go-sdk/core/sdk"
+	"github.com/CESSProject/p2p-go/out"
 	"github.com/bytedance/sonic"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -72,7 +73,7 @@ func (n *Node) Run() {
 	n.addRoute()
 	// Task management
 	go n.TaskMgt()
-	log.Println("Listening on port:", n.GetHttpPort())
+	out.Tip(fmt.Sprintf("Listening on port: %d", n.GetHttpPort()))
 	// Run
 	err := n.Engine.Run(fmt.Sprintf(":%d", n.GetHttpPort()))
 	if err != nil {
