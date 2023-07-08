@@ -305,7 +305,7 @@ func (n *Node) fetchFiles(roothash, dir string) (string, error) {
 					continue
 				}
 			}
-			err = n.Connect(n.GetRootCtx(), addr)
+			err = n.Connect(n.GetCtxQueryFromCtxCancel(), addr)
 			if err != nil {
 				continue
 			}
