@@ -2,10 +2,10 @@
 
 DeOSS ( Decentralized Object Storage Service ) is a decentralized object-based mass storage service that provides low-cost, secure and scalable distributed data storage services for the web3 domain.
 
-## Reporting a Vulnerability
+## 📝 Reporting a Vulnerability
 If you find out any system bugs or you have a better suggestions, please send an email to frode@cess.one or join [CESS discord](https://discord.gg/mYHTMfBwNS) to communicate with us.
 
-## 📑 Announcement
+## 📢 Announcement
 **CESS test network rpc endpoints**
 ```
 wss://testnet-rpc0.cess.cloud/ws/
@@ -81,7 +81,7 @@ service iptables restart
 ### Method one
 Download the latest release of the binary application directly at：
 ```
-wget https://github.com/CESSProject/DeOSS/releases/download/v0.2.2/deoss
+wget https://github.com/CESSProject/DeOSS/releases/download/v0.2.3/deoss
 ```
 
 ### Method two
