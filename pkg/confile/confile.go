@@ -25,11 +25,12 @@ const (
 Rpc:
   - "wss://testnet-rpc0.cess.cloud/ws/"
   - "wss://testnet-rpc1.cess.cloud/ws/"
+  - "wss://testnet-rpc2.cess.cloud/ws/"
 # Bootstrap Nodes
 Boot:
-  - "_dnsaddr.bootstrap-kldr.cess.cloud"  
+  - "_dnsaddr.boot-kldr-testnet.cess.cloud"  
 # Account mnemonic
-Mnemonic: ""
+Mnemonic: "xxx ... xxx"
 # Service workspace
 Workspace: /
 # P2P communication port
