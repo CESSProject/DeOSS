@@ -8,6 +8,7 @@
 package node
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"os"
@@ -21,7 +22,6 @@ import (
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
 	"github.com/CESSProject/cess-go-sdk/core/sdk"
 	"github.com/CESSProject/p2p-go/out"
-	"github.com/bytedance/sonic"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -158,7 +158,7 @@ func (n *Node) ParseTrackFromFile(filehash string) (RecordInfo, error) {
 	if err != nil {
 		return result, err
 	}
-	err = sonic.Unmarshal(b, &result)
+	err = json.Unmarshal(b, &result)
 	return result, err
 }
 

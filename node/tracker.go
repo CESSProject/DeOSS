@@ -8,6 +8,7 @@
 package node
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -16,7 +17,6 @@ import (
 	"github.com/CESSProject/DeOSS/pkg/utils"
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
 	sutils "github.com/CESSProject/cess-go-sdk/core/utils"
-	"github.com/bytedance/sonic"
 	"github.com/mr-tron/base58"
 	"github.com/pkg/errors"
 )
@@ -167,9 +167,9 @@ func (n *Node) trackFile(trackfile string) error {
 			n.Track("info", fmt.Sprintf("[%s] Duplicate file become primary file", roothash))
 			recordFile.Duplicate = false
 			recordFile.Putflag = false
-			b, err = sonic.Marshal(&recordFile)
+			b, err = json.Marshal(&recordFile)
 			if err != nil {
-				return errors.Wrapf(err, "[%s] [sonic.Marshal]", roothash)
+				return errors.Wrapf(err, "[%s] [json.Marshal]", roothash)
 			}
 			err = n.WriteTrackFile(roothash, b)
 			if err != nil {
@@ -188,9 +188,9 @@ func (n *Node) trackFile(trackfile string) error {
 
 	recordFile.Putflag = true
 	recordFile.Count = count
-	b, err = sonic.Marshal(&recordFile)
+	b, err = json.Marshal(&recordFile)
 	if err != nil {
-		return errors.Wrapf(err, "[%s] [sonic.Marshal]", roothash)
+		return errors.Wrapf(err, "[%s] [json.Marshal]", roothash)
 	}
 
 	err = n.WriteTrackFile(roothash, b)
