@@ -233,15 +233,15 @@ func (n *Node) getHandle(c *gin.Context) {
 		fpath, err = n.fetchFiles(queryName, dir)
 		if err != nil {
 			n.Query("err", fmt.Sprintf("[%s] Download file [%s] : %v", clientIp, queryName, err))
-			c.JSON(http.StatusInternalServerError, "InternalError")
+			c.JSON(http.StatusInternalServerError, "File download failed, please try again later.")
 			return
 		}
 		n.Query("info", fmt.Sprintf("[%s] Download file [%s] suc", clientIp, queryName))
 		c.File(fpath)
 		return
 	}
-	n.Query("err", fmt.Sprintf("[%s] [%s] InvalidHeader.Operation", clientIp, queryName))
-	c.JSON(http.StatusBadRequest, "InvalidHeader.Operation")
+	n.Query("err", fmt.Sprintf("[%s] [%s] %s", clientIp, queryName, ERR_HeadOperation))
+	c.JSON(http.StatusBadRequest, ERR_HeadOperation)
 	return
 }
 
