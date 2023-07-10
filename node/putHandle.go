@@ -212,6 +212,11 @@ func (n *Node) putHandle(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, ERR_InternalServer)
 		return
 	}
+	if fstat.Size() == 0 {
+		n.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, ERR_BodyEmptyFile))
+		c.JSON(http.StatusBadRequest, ERR_BodyEmptyFile)
+		return
+	}
 
 	segmentInfo, roothash, err := n.ProcessingData(fpath)
 	if err != nil {
