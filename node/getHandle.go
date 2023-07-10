@@ -14,8 +14,9 @@ import (
 	"path/filepath"
 
 	"github.com/CESSProject/DeOSS/configs"
+	"github.com/CESSProject/DeOSS/pkg/utils"
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
-	"github.com/CESSProject/cess-go-sdk/core/utils"
+	sutils "github.com/CESSProject/cess-go-sdk/core/utils"
 	"github.com/gin-gonic/gin"
 	"github.com/mr-tron/base58"
 )
@@ -83,14 +84,14 @@ func (n *Node) getHandle(c *gin.Context) {
 			c.JSON(http.StatusBadRequest, ERR_MissAccount)
 			return
 		}
-		pkey, err := utils.ParsingPublickey(account)
+		pkey, err := sutils.ParsingPublickey(account)
 		if err != nil {
 			n.Query("err", fmt.Sprintf("[%s] %s", clientIp, ERR_InvalidAccount))
 			c.JSON(http.StatusBadRequest, ERR_InvalidAccount)
 			return
 		}
 		// Query bucket
-		if utils.CheckBucketName(queryName) {
+		if sutils.CheckBucketName(queryName) {
 			n.Query("info", fmt.Sprintf("[%s] Query bucket [%s] info", clientIp, queryName))
 			bucketInfo, err := n.QueryBucketInfo(pkey, queryName)
 			if err != nil {
@@ -111,7 +112,7 @@ func (n *Node) getHandle(c *gin.Context) {
 
 			owners := make([]string, len(bucketInfo.Authority))
 			for i := 0; i < len(bucketInfo.Authority); i++ {
-				owners[i], _ = utils.EncodePublicKeyAsCessAccount(bucketInfo.Authority[i][:])
+				owners[i], _ = sutils.EncodePublicKeyAsCessAccount(bucketInfo.Authority[i][:])
 			}
 
 			data := struct {
@@ -154,32 +155,34 @@ func (n *Node) getHandle(c *gin.Context) {
 
 	// view file
 	if operation == "view" {
+		var fileMetadata FileMetaData
 		n.Query("info", fmt.Sprintf("[%s] Query file [%s] info", clientIp, queryName))
 		fmeta, err := n.QueryFileMetadata(queryName)
 		if err != nil {
-			if err.Error() == pattern.ERR_Empty {
-				_, err = n.QueryStorageOrder(queryName)
-				if err != nil {
-					if err.Error() == pattern.ERR_Empty {
-						n.Query("err", fmt.Sprintf("[%s] Query file [%s] info: NotFount", clientIp, queryName))
-						c.JSON(http.StatusNotFound, "NotFound")
-						return
-					}
-				} else {
-					n.Query("info", fmt.Sprintf("[%s] Query file [%s] info: Data is being stored", clientIp, queryName))
-					c.JSON(http.StatusOK, "Data is being stored")
-					return
-				}
+			if err.Error() != pattern.ERR_Empty {
 				n.Query("err", fmt.Sprintf("[%s] Query file [%s] info: %v", clientIp, queryName, err))
-				c.JSON(http.StatusInternalServerError, "InternalError")
+				c.JSON(http.StatusInternalServerError, ERR_RpcFailed)
 				return
 			}
-			n.Query("err", fmt.Sprintf("[%s] Query file [%s] info: %v", clientIp, queryName, err))
-			c.JSON(http.StatusInternalServerError, "InternalError")
+
+			_, err = n.QueryStorageOrder(queryName)
+			if err != nil {
+				if err.Error() != pattern.ERR_Empty {
+					n.Query("err", fmt.Sprintf("[%s] Query file [%s] info: %v", clientIp, queryName, err))
+					c.JSON(http.StatusInternalServerError, ERR_RpcFailed)
+					return
+				}
+				if !n.HasTrackFile(queryName) {
+					n.Query("err", fmt.Sprintf("[%s] Query file [%s] info: NotFount", clientIp, queryName))
+					c.JSON(http.StatusNotFound, "NotFound")
+					return
+				}
+			}
+			n.Query("info", fmt.Sprintf("[%s] Query file [%s] info: Data is being stored", clientIp, queryName))
+			c.JSON(http.StatusOK, "Data is being stored")
 			return
 		}
 
-		var fileMetadata FileMetaData
 		fileMetadata.Completion = uint32(fmeta.Completion)
 		switch int(fmeta.State) {
 		case Active:
@@ -197,7 +200,7 @@ func (n *Node) getHandle(c *gin.Context) {
 		for i := 0; i < len(fmeta.Owner); i++ {
 			fileMetadata.Owner[i].BucketName = string(fmeta.Owner[i].BucketName)
 			fileMetadata.Owner[i].FileName = string(fmeta.Owner[i].FileName)
-			fileMetadata.Owner[i].User, _ = utils.EncodePublicKeyAsCessAccount(fmeta.Owner[i].User[:])
+			fileMetadata.Owner[i].User, _ = sutils.EncodePublicKeyAsCessAccount(fmeta.Owner[i].User[:])
 		}
 		fileMetadata.SegmentList = make([]SegmentInfo, len(fmeta.SegmentList))
 		for i := 0; i < len(fmeta.SegmentList); i++ {
@@ -206,7 +209,7 @@ func (n *Node) getHandle(c *gin.Context) {
 			for j := 0; j < len(fmeta.SegmentList[i].FragmentList); j++ {
 				fileMetadata.SegmentList[i].FragmentList[j].Avail = bool(fmeta.SegmentList[i].FragmentList[j].Avail)
 				fileMetadata.SegmentList[i].FragmentList[j].FragmentHash = string(fmeta.SegmentList[i].FragmentList[j].Hash[:])
-				fileMetadata.SegmentList[i].FragmentList[j].Miner, _ = utils.EncodePublicKeyAsCessAccount(fmeta.SegmentList[i].FragmentList[j].Miner[:])
+				fileMetadata.SegmentList[i].FragmentList[j].Miner, _ = sutils.EncodePublicKeyAsCessAccount(fmeta.SegmentList[i].FragmentList[j].Miner[:])
 			}
 		}
 		n.Query("info", fmt.Sprintf("[%s] Query file [%s] info suc", clientIp, queryName))
@@ -216,17 +219,14 @@ func (n *Node) getHandle(c *gin.Context) {
 
 	// download file
 	if operation == "download" {
+		var err error
 		dir := n.GetDirs().FileDir
 		n.Query("info", fmt.Sprintf("[%s] Download file [%s]", clientIp, queryName))
-		fpath := filepath.Join(dir, queryName)
-		_, err := os.Stat(fpath)
-		if err == nil {
+		fpath := utils.FindFile(dir, queryName)
+		if fpath != "" {
 			n.Query("info", fmt.Sprintf("[%s] Download file [%s] from cache", clientIp, queryName))
 			c.File(fpath)
-			select {
-			case <-c.Request.Context().Done():
-				return
-			}
+			return
 		}
 
 		//Download from miner
@@ -238,10 +238,7 @@ func (n *Node) getHandle(c *gin.Context) {
 		}
 		n.Query("info", fmt.Sprintf("[%s] Download file [%s] suc", clientIp, queryName))
 		c.File(fpath)
-		select {
-		case <-c.Request.Context().Done():
-			return
-		}
+		return
 	}
 	n.Query("err", fmt.Sprintf("[%s] [%s] InvalidHeader.Operation", clientIp, queryName))
 	c.JSON(http.StatusBadRequest, "InvalidHeader.Operation")
@@ -271,7 +268,7 @@ func (n *Node) fetchFiles(roothash, dir string) (string, error) {
 	}
 
 	for _, v := range fmeta.Owner {
-		acc, err = utils.EncodePublicKeyAsCessAccount(v.User[:])
+		acc, err = sutils.EncodePublicKeyAsCessAccount(v.User[:])
 		if err != nil {
 			continue
 		}

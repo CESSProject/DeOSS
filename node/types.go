@@ -73,6 +73,7 @@ const (
 	ERR_BodyFieldAccount   = "BodyErr_InvalidField_account"
 	ERR_BodyFieldMessage   = "BodyErr_InvalidField_message"
 	ERR_BodyFieldSignature = "BodyErr_InvalidField_signature"
+	ERR_BodyEmptyFile      = "BodyErr_EmptyFile"
 
 	ERR_HeaderFieldBucketName = "HeaderErr_InvalidBucketName"
 
