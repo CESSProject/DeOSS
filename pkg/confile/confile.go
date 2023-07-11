@@ -23,13 +23,16 @@ const (
 	ProfileDefault  = "conf.yaml"
 	ProfileTemplete = `# The rpc endpoint of the chain node
 Rpc:
+  # test network
   - "wss://testnet-rpc0.cess.cloud/ws/"
   - "wss://testnet-rpc1.cess.cloud/ws/"
+  - "wss://testnet-rpc2.cess.cloud/ws/"
 # Bootstrap Nodes
 Boot:
-  - "_dnsaddr.bootstrap-kldr.cess.cloud"  
+  # test network
+  - "_dnsaddr.boot-kldr-testnet.cess.cloud"
 # Account mnemonic
-Mnemonic: ""
+Mnemonic: "xxx ... xxx"
 # Service workspace
 Workspace: /
 # P2P communication port

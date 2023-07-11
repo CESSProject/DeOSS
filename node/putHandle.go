@@ -8,7 +8,7 @@
 package node
 
 import (
-	"github.com/bytedance/sonic"
+	"encoding/json"
 
 	"fmt"
 	"io"
@@ -293,7 +293,7 @@ func (n *Node) putHandle(c *gin.Context) {
 		Duplicate:   false,
 	}
 
-	b, err := sonic.Marshal(recordInfo)
+	b, err := json.Marshal(recordInfo)
 	if err != nil {
 		n.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, err))
 		c.JSON(http.StatusInternalServerError, ERR_InternalServer)
@@ -355,7 +355,7 @@ func (n *Node) deduplication(pkey []byte, segmentInfo []pattern.SegmentDataInfo,
 		}
 		defer f.Close()
 
-		b, err := sonic.Marshal(&record)
+		b, err := json.Marshal(&record)
 		if err != nil {
 			return false, errors.Wrapf(err, "[marshal data]")
 		}
