@@ -153,6 +153,7 @@ func cmd_run_func(cmd *cobra.Command, args []string) {
 	}
 
 	out.Tip(n.GetProtocolPrefix())
+	out.Tip(n.Workspace())
 
 	// run
 	n.Run()
