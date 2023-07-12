@@ -58,7 +58,7 @@ func (n *Node) delHandle(c *gin.Context) {
 		}
 		n.Del("info", fmt.Sprintf("[%v] [DeleteFile] %v", clientIp, txHash))
 		os.RemoveAll(filepath.Join(n.GetDirs().FileDir, account, deleteName))
-		os.Remove(filepath.Join(n.TrackDir, deleteName))
+		os.Remove(filepath.Join(n.trackDir, deleteName))
 		n.Delete([]byte("transfer:" + deleteName))
 		c.JSON(200, txHash)
 		return

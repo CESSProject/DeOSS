@@ -40,6 +40,7 @@ func cmd_run_func(cmd *cobra.Command, args []string) {
 		err            error
 		logDir         string
 		dbDir          string
+		trackDir       string
 		protocolPrefix string
 		syncSt         pattern.SysSyncState
 		n              = node.New()
@@ -130,11 +131,12 @@ func cmd_run_func(cmd *cobra.Command, args []string) {
 		n.RebuildDirs()
 	}
 
-	logDir, dbDir, n.TrackDir, err = buildDir(n.Workspace())
+	logDir, dbDir, trackDir, err = buildDir(n.Workspace())
 	if err != nil {
 		out.Err(err.Error())
 		os.Exit(1)
 	}
+	n.SetTrackDir(trackDir)
 
 	// Build cache
 	n.Cache, err = buildCache(dbDir)

@@ -334,7 +334,7 @@ func (n *Node) deduplication(pkey []byte, segmentInfo []pattern.SegmentDataInfo,
 			return true, nil
 		}
 
-		_, err = os.Stat(filepath.Join(n.TrackDir, roothash))
+		_, err = os.Stat(filepath.Join(n.trackDir, roothash))
 		if err == nil {
 			return false, errors.New(ERR_DuplicateOrder)
 		}
@@ -349,7 +349,7 @@ func (n *Node) deduplication(pkey []byte, segmentInfo []pattern.SegmentDataInfo,
 		record.Count = 0
 		record.Duplicate = true
 
-		f, err := os.Create(filepath.Join(n.TrackDir, roothash))
+		f, err := os.Create(filepath.Join(n.trackDir, roothash))
 		if err != nil {
 			return false, errors.Wrapf(err, "[create file]")
 		}
