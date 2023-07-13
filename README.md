@@ -6,15 +6,25 @@ DeOSS ( Decentralized Object Storage Service ) is a decentralized object-based m
 If you find out any system bugs or you have a better suggestions, please send an email to frode@cess.one or join [CESS discord](https://discord.gg/mYHTMfBwNS) to communicate with us.
 
 ## 📢 Announcement
-**CESS test network rpc endpoints**
+### CESS test network rpc endpoints
 ```
 wss://testnet-rpc0.cess.cloud/ws/
 wss://testnet-rpc1.cess.cloud/ws/
 wss://testnet-rpc2.cess.cloud/ws/
 ```
-**CESS test network bootstrap node**
+### CESS test network bootstrap node
 ```
 _dnsaddr.boot-kldr-testnet.cess.cloud
+```
+
+### CESS test network public gateway
+**Address:**
+```
+https://deoss-pub-gateway.cess.cloud/
+```
+**Account:**
+```
+cXhwBytXqrZLr1qM5NHJhCzEMckSTzNKw17ci2aHft6ETSQm9
 ```
 
 ### 🚰 CESS test network faucet
