@@ -18,14 +18,12 @@ _dnsaddr.boot-kldr-testnet.cess.cloud
 ```
 
 ### CESS test network public gateway
-**Address:**
-```
-https://deoss-pub-gateway.cess.cloud/
-```
-**Account:**
-```
-cXhwBytXqrZLr1qM5NHJhCzEMckSTzNKw17ci2aHft6ETSQm9
-```
+
+| Address | `https://deoss-pub-gateway.cess.cloud/`           |
+| ------- | ------------------------------------------------- |
+
+| Account | `cXhwBytXqrZLr1qM5NHJhCzEMckSTzNKw17ci2aHft6ETSQm9` |
+| ------- | --------------------------------------------------- |
 
 ### 🚰 CESS test network faucet
 ```
