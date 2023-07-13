@@ -140,11 +140,14 @@ The contents of the configuration file template are as follows. The contents ins
 ```yaml
 # The rpc endpoint of the chain node
 Rpc:
+  # test network
   - "wss://testnet-rpc0.cess.cloud/ws/"
   - "wss://testnet-rpc1.cess.cloud/ws/"
+  - "wss://testnet-rpc2.cess.cloud/ws/"
 # Bootstrap Nodes
 Boot:
-  - "_dnsaddr.bootstrap-kldr.cess.cloud"
+  # test network
+  - "_dnsaddr.boot-kldr-testnet.cess.cloud"
 # Account mnemonic
 Mnemonic: "xxx xxx ... xxx"
 # Service workspace

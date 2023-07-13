@@ -21,6 +21,7 @@ import (
 	"github.com/CESSProject/DeOSS/pkg/logger"
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
 	"github.com/CESSProject/cess-go-sdk/core/sdk"
+	"github.com/CESSProject/cess-go-sdk/core/utils"
 	"github.com/CESSProject/p2p-go/out"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -43,7 +44,8 @@ type Node struct {
 	trackLock *sync.RWMutex
 	lock      *sync.RWMutex
 	peers     map[string]peer.AddrInfo
-	TrackDir  string
+	trackDir  string
+	peersPath string
 }
 
 // New is used to build a node instance
@@ -51,12 +53,13 @@ func New() *Node {
 	return &Node{
 		trackLock: new(sync.RWMutex),
 		lock:      new(sync.RWMutex),
-		peers:     make(map[string]peer.AddrInfo, 20),
+		peers:     make(map[string]peer.AddrInfo, 0),
 	}
 }
 
 func (n *Node) Run() {
 	gin.SetMode(gin.ReleaseMode)
+	n.peersPath = filepath.Join(n.Workspace(), "peers")
 	n.Engine = gin.Default()
 	config := cors.DefaultConfig()
 	config.AllowAllOrigins = true
@@ -114,8 +117,35 @@ func (n *Node) GetAllPeerId() []string {
 	return result
 }
 
+func (n *Node) SavePeersToDisk(path string) error {
+	n.lock.RLock()
+	buf, err := json.Marshal(n.peers)
+	if err != nil {
+		n.lock.RUnlock()
+		return err
+	}
+	n.lock.RUnlock()
+	err = utils.WriteBufToFile(buf, n.peersPath)
+	return err
+}
+
+func (n *Node) LoadPeersFromDisk(path string) error {
+	buf, err := os.ReadFile(n.peersPath)
+	if err != nil {
+		return err
+	}
+	n.lock.Lock()
+	err = json.Unmarshal(buf, &n.peers)
+	n.lock.Unlock()
+	return err
+}
+
 func (n *Node) SetSignkey(signkey []byte) {
 	n.signkey = signkey
+}
+
+func (n *Node) SetTrackDir(dir string) {
+	n.trackDir = dir
 }
 
 func (n *Node) WriteTrackFile(filehash string, data []byte) error {
@@ -125,7 +155,7 @@ func (n *Node) WriteTrackFile(filehash string, data []byte) error {
 	if len(filehash) != len(pattern.FileHash{}) {
 		return errors.New("invalid filehash")
 	}
-	fpath := filepath.Join(n.TrackDir, uuid.New().String())
+	fpath := filepath.Join(n.trackDir, uuid.New().String())
 	n.trackLock.Lock()
 	defer n.trackLock.Unlock()
 	os.RemoveAll(fpath)
@@ -146,7 +176,7 @@ func (n *Node) WriteTrackFile(filehash string, data []byte) error {
 		return errors.Wrapf(err, "[f.Sync]")
 	}
 	f.Close()
-	err = os.Rename(fpath, filepath.Join(n.TrackDir, filehash))
+	err = os.Rename(fpath, filepath.Join(n.trackDir, filehash))
 	return err
 }
 
@@ -154,7 +184,7 @@ func (n *Node) ParseTrackFromFile(filehash string) (RecordInfo, error) {
 	var result RecordInfo
 	n.trackLock.RLock()
 	defer n.trackLock.RUnlock()
-	b, err := os.ReadFile(filepath.Join(n.TrackDir, filehash))
+	b, err := os.ReadFile(filepath.Join(n.trackDir, filehash))
 	if err != nil {
 		return result, err
 	}
@@ -165,20 +195,20 @@ func (n *Node) ParseTrackFromFile(filehash string) (RecordInfo, error) {
 func (n *Node) HasTrackFile(filehash string) bool {
 	n.trackLock.RLock()
 	defer n.trackLock.RUnlock()
-	_, err := os.Stat(filepath.Join(n.TrackDir, filehash))
+	_, err := os.Stat(filepath.Join(n.trackDir, filehash))
 	return err == nil
 }
 
 func (n *Node) ListTrackFiles() ([]string, error) {
 	n.trackLock.RLock()
 	defer n.trackLock.RUnlock()
-	return filepath.Glob(fmt.Sprintf("%s/*", n.TrackDir))
+	return filepath.Glob(fmt.Sprintf("%s/*", n.trackDir))
 }
 
 func (n *Node) DeleteTrackFile(filehash string) {
 	n.trackLock.Lock()
 	defer n.trackLock.Unlock()
-	os.Remove(filepath.Join(n.TrackDir, filehash))
+	os.Remove(filepath.Join(n.trackDir, filehash))
 }
 
 func (n *Node) RebuildDirs() {

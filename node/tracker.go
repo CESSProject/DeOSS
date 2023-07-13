@@ -97,17 +97,23 @@ func (n *Node) trackFile(trackfile string) error {
 				if err.Error() != pattern.ERR_Empty {
 					return errors.Wrapf(err, "[%s] [QueryFileMetadata]", roothash)
 				}
-				n.Track("info", fmt.Sprintf("[%s] File has been deleted", roothash))
-				recordFile, err = n.ParseTrackFromFile(roothash)
-				if err == nil {
-					if len(recordFile.SegmentInfo) > 0 {
-						baseDir := filepath.Dir(recordFile.SegmentInfo[0].SegmentHash)
-						os.RemoveAll(baseDir)
-					}
-				}
-				n.DeleteTrackFile(roothash)
 				n.Delete([]byte("transfer:" + roothash))
-				return nil
+				recordFile, err = n.ParseTrackFromFile(roothash)
+				if err != nil {
+					n.DeleteTrackFile(roothash)
+					return errors.Wrapf(err, "[ParseTrackFromFile]")
+				}
+				recordFile.Putflag = false
+				recordFile.Count = 0
+				b, err = json.Marshal(&recordFile)
+				if err != nil {
+					return errors.Wrapf(err, "[%s] [json.Marshal]", roothash)
+				}
+				err = n.WriteTrackFile(roothash, b)
+				if err != nil {
+					return errors.Wrapf(err, "[%s] [WriteTrackFile]", roothash)
+				}
+				n.Delete([]byte("transfer:" + roothash))
 			} else {
 				n.Track("info", fmt.Sprintf("[%s] File storage success", roothash))
 				recordFile, err = n.ParseTrackFromFile(roothash)
