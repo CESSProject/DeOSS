@@ -97,12 +97,14 @@ func (n *Node) trackFile(trackfile string) error {
 				if err.Error() != pattern.ERR_Empty {
 					return errors.Wrapf(err, "[%s] [QueryFileMetadata]", roothash)
 				}
+				n.Delete([]byte("transfer:" + roothash))
 				recordFile, err = n.ParseTrackFromFile(roothash)
 				if err != nil {
 					n.DeleteTrackFile(roothash)
 					return errors.Wrapf(err, "[ParseTrackFromFile]")
 				}
 				recordFile.Putflag = false
+				recordFile.Count = 0
 				b, err = json.Marshal(&recordFile)
 				if err != nil {
 					return errors.Wrapf(err, "[%s] [json.Marshal]", roothash)
