@@ -51,9 +51,15 @@ func (n *Node) putHandle(c *gin.Context) {
 	token := c.Request.Header.Get(HTTPHeader_Authorization)
 	account, pkey, err = n.verifyToken(token, respMsg)
 	if err != nil {
-		n.Upfile("info", fmt.Sprintf("[%v] %v", clientIp, err))
-		c.JSON(respMsg.Code, err.Error())
-		return
+		account = c.Request.Header.Get(HTTPHeader_Account)
+		message := c.Request.Header.Get(HTTPHeader_Message)
+		signature := c.Request.Header.Get(HTTPHeader_Signature)
+		pkey, err = n.verifySignature(account, message, signature)
+		if err != nil {
+			n.Upfile("info", fmt.Sprintf("[%v] %v", clientIp, err))
+			c.JSON(respMsg.Code, err.Error())
+			return
+		}
 	}
 
 	// verify the bucket name

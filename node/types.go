@@ -19,6 +19,8 @@ const (
 	HTTPHeader_Account       = "Account"
 	HTTPHeader_Digest        = "Digest"
 	HTTPHeader_Operation     = "Operation"
+	HTTPHeader_Message       = "Message"
+	HTTPHeader_Signature     = "Signature"
 )
 
 const (
