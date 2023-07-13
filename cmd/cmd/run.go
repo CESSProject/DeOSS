@@ -26,6 +26,7 @@ import (
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
 	sutils "github.com/CESSProject/cess-go-sdk/core/utils"
 	"github.com/CESSProject/p2p-go/config"
+	"github.com/CESSProject/p2p-go/core"
 	"github.com/CESSProject/p2p-go/out"
 	"github.com/howeyc/gopass"
 	"github.com/pkg/errors"
@@ -50,6 +51,11 @@ func cmd_run_func(cmd *cobra.Command, args []string) {
 	n.Confile, err = buildConfigFile(cmd)
 	if err != nil {
 		out.Err(err.Error())
+		os.Exit(1)
+	}
+
+	if !core.FreeLocalPort(uint32(n.GetHttpPort())) {
+		out.Err(fmt.Sprintf("port [%d] is in use", n.GetHttpPort()))
 		os.Exit(1)
 	}
 
