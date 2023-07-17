@@ -127,7 +127,7 @@ func cmd_run_func(cmd *cobra.Command, args []string) {
 		}
 	}
 
-	_, _, err = n.Register(n.GetRoleName(), n.GetPeerPublickey(), "", 0)
+	_, err = n.RegisterOrUpdateDeoss(n.GetPeerPublickey())
 	if err != nil {
 		out.Err(fmt.Sprintf("Register or update err: %v", err))
 		os.Exit(1)
