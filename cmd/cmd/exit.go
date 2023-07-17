@@ -45,7 +45,7 @@ func cmd_exit_func(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
-	txhash, err := n.Exit(n.GetRoleName())
+	txhash, err := n.ExitDeoss()
 	if err != nil || txhash == "" {
 		log.Printf("[err] %v\n", err)
 		os.Exit(1)

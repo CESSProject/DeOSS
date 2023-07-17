@@ -59,7 +59,7 @@ func cmd_stat_func(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 	var tableRows = []table.Row{
-		{"role", n.GetRoleName()},
+		{"role", n.GetSdkName()},
 		{"peer id", base58.Encode(peerPublickey)},
 		{"signature account", n.GetSignatureAcc()},
 	}
