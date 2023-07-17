@@ -178,8 +178,8 @@ func (n *Node) getHandle(c *gin.Context) {
 					return
 				}
 			}
-			n.Query("info", fmt.Sprintf("[%s] Query file [%s] info: Data is being stored", clientIp, queryName))
-			c.JSON(http.StatusOK, "Data is being stored")
+			n.Query("info", fmt.Sprintf("[%s] Query file [%s] info: storage order created", clientIp, queryName))
+			c.JSON(http.StatusOK, "storage order created")
 			return
 		}
 

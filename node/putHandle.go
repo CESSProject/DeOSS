@@ -287,6 +287,10 @@ func (n *Node) putHandle(c *gin.Context) {
 		}
 	}
 
+	if filename == "" {
+		filename = "null"
+	}
+
 	var recordInfo = &RecordInfo{
 		SegmentInfo: segmentInfo,
 		Owner:       pkey,

@@ -222,6 +222,20 @@ func (n *Node) backupFiles(owner []byte, segmentInfo []pattern.SegmentDataInfo, 
 			if err.Error() == pattern.ERR_Empty {
 				_, err = n.GenerateStorageOrder(roothash, segmentInfo, owner, filename, bucketname, filesize)
 				if err != nil {
+					// verify the space is authorized
+					authAcc, err := n.QuaryAuthorizedAccount(owner)
+					if err != nil {
+						if err.Error() != pattern.ERR_Empty {
+							return 0, errors.Wrapf(err, "[QuaryAuthorizedAccount]")
+						}
+					}
+					if n.GetSignatureAcc() != authAcc {
+						baseDir := filepath.Dir(segmentInfo[0].SegmentHash)
+						os.RemoveAll(baseDir)
+						n.DeleteTrackFile(roothash)
+						n.Delete([]byte("transfer:" + roothash))
+						return 0, errors.New("user deauthorization")
+					}
 					return 0, errors.Wrapf(err, "[GenerateStorageOrder]")
 				}
 			}
