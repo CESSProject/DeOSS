@@ -212,12 +212,21 @@ func (n *Node) putHandle(c *gin.Context) {
 		f.Close()
 	}
 
+	if filename == "" {
+		filename = "null"
+	}
+
+	if len(filename) < 3 {
+		filename += ".ces"
+	}
+
 	fstat, err := os.Stat(fpath)
 	if err != nil {
 		n.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, err))
 		c.JSON(http.StatusInternalServerError, ERR_InternalServer)
 		return
 	}
+
 	if fstat.Size() == 0 {
 		n.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, ERR_BodyEmptyFile))
 		c.JSON(http.StatusBadRequest, ERR_BodyEmptyFile)
@@ -285,10 +294,6 @@ func (n *Node) putHandle(c *gin.Context) {
 		for j := 0; j < len(segmentInfo[i].FragmentHash); j++ {
 			segmentInfo[i].FragmentHash[j] = filepath.Join(roothashDir, filepath.Base(segmentInfo[i].FragmentHash[j]))
 		}
-	}
-
-	if filename == "" {
-		filename = "null"
 	}
 
 	var recordInfo = &RecordInfo{

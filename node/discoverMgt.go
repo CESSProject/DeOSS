@@ -24,7 +24,7 @@ func (n *Node) discoverMgt(ch chan<- bool) {
 	}()
 
 	n.Discover("info", ">>>>> start discoverMgt <<<<<")
-	tickDiscover := time.NewTicker(time.Minute * 3)
+	tickDiscover := time.NewTicker(time.Minute * 10)
 	defer tickDiscover.Stop()
 
 	var r1 = rate.Every(time.Second * 5)
@@ -45,7 +45,7 @@ func (n *Node) discoverMgt(ch chan<- bool) {
 		case peer, _ := <-n.GetDiscoveredPeers():
 			if limit.Allow() {
 				n.Discover("info", "reset")
-				tickDiscover.Reset(time.Minute * 3)
+				tickDiscover.Reset(time.Minute * 10)
 			}
 			if len(peer.Responses) == 0 {
 				break
