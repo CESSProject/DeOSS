@@ -19,14 +19,16 @@ import (
 	"github.com/CESSProject/DeOSS/pkg/confile"
 	"github.com/CESSProject/DeOSS/pkg/db"
 	"github.com/CESSProject/DeOSS/pkg/logger"
+	"github.com/CESSProject/DeOSS/pkg/utils"
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
 	"github.com/CESSProject/cess-go-sdk/core/sdk"
-	"github.com/CESSProject/cess-go-sdk/core/utils"
+	sutils "github.com/CESSProject/cess-go-sdk/core/utils"
 	"github.com/CESSProject/p2p-go/out"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/libp2p/go-libp2p/core/peer"
+	"github.com/multiformats/go-multiaddr"
 	"github.com/pkg/errors"
 )
 
@@ -91,6 +93,10 @@ func (n *Node) SavePeer(peerid string, addr peer.AddrInfo) {
 	}
 }
 
+func (n *Node) SaveOrUpdatePeerUnSafe(peerid string, addr peer.AddrInfo) {
+	n.peers[peerid] = addr
+}
+
 func (n *Node) HasPeer(peerid string) bool {
 	n.lock.RLock()
 	defer n.lock.RUnlock()
@@ -125,12 +131,37 @@ func (n *Node) SavePeersToDisk(path string) error {
 		return err
 	}
 	n.lock.RUnlock()
-	err = utils.WriteBufToFile(buf, n.peersPath)
+	err = sutils.WriteBufToFile(buf, path)
 	return err
 }
 
+func (n *Node) RemovePeerIntranetAddr() {
+	n.lock.Lock()
+	defer n.lock.Unlock()
+	for k, v := range n.peers {
+		var addrInfo peer.AddrInfo
+		var addrs []multiaddr.Multiaddr
+		for _, addr := range v.Addrs {
+			if ipv4, ok := utils.FildIpv4([]byte(addr.String())); ok {
+				if ok, err := utils.IsIntranetIpv4(ipv4); err == nil {
+					if !ok {
+						addrs = append(addrs, addr)
+					}
+				}
+			}
+		}
+		if len(addrs) > 0 {
+			addrInfo.ID = v.ID
+			addrInfo.Addrs = utils.RemoveRepeatedAddr(addrs)
+			n.SaveOrUpdatePeerUnSafe(v.ID.Pretty(), addrInfo)
+		} else {
+			delete(n.peers, k)
+		}
+	}
+}
+
 func (n *Node) LoadPeersFromDisk(path string) error {
-	buf, err := os.ReadFile(n.peersPath)
+	buf, err := os.ReadFile(path)
 	if err != nil {
 		return err
 	}

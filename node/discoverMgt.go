@@ -39,6 +39,8 @@ func (n *Node) discoverMgt(ch chan<- bool) {
 	err := n.LoadPeersFromDisk(n.peersPath)
 	if err != nil {
 		n.Discover("err", err.Error())
+	} else {
+		n.RemovePeerIntranetAddr()
 	}
 
 	n.RouteTableFindPeers(0)
@@ -54,12 +56,11 @@ func (n *Node) discoverMgt(ch chan<- bool) {
 				break
 			}
 			for _, v := range discoveredPeer.Responses {
-				//n.SavePeer(v.ID.Pretty(), *v)
 				var addrInfo peer.AddrInfo
 				var addrs []multiaddr.Multiaddr
 				for _, addr := range v.Addrs {
 					if !reflect.ValueOf(addr).IsNil() {
-						if ipv4, ok := utils.FildIpv4(addr.Bytes()); ok {
+						if ipv4, ok := utils.FildIpv4([]byte(addr.String())); ok {
 							if ok, err := utils.IsIntranetIpv4(ipv4); err == nil {
 								if !ok {
 									addrs = append(addrs, addr)
@@ -70,7 +71,7 @@ func (n *Node) discoverMgt(ch chan<- bool) {
 				}
 				if len(addrs) > 0 {
 					addrInfo.ID = v.ID
-					addrInfo.Addrs = addrs
+					addrInfo.Addrs = utils.RemoveRepeatedAddr(addrs)
 					n.SavePeer(v.ID.Pretty(), addrInfo)
 				}
 			}
@@ -80,6 +81,7 @@ func (n *Node) discoverMgt(ch chan<- bool) {
 				for _, v := range allpeer {
 					n.Discover("info", fmt.Sprintf("found %s", v))
 				}
+				n.RemovePeerIntranetAddr()
 				err = n.SavePeersToDisk(n.peersPath)
 				if err != nil {
 					n.Discover("err", err.Error())

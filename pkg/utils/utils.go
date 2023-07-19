@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+
+	"github.com/multiformats/go-multiaddr"
 )
 
 func Ternary(a, b int64) int64 {
@@ -25,6 +27,7 @@ func FindFile(dir, name string) string {
 		}
 		if info.Name() == name {
 			result = path
+			return nil
 		}
 		return nil
 	})
@@ -55,4 +58,21 @@ func IsIntranetIpv4(ipv4 string) (bool, error) {
 		return true, nil
 	}
 	return false, nil
+}
+
+func RemoveRepeatedAddr(arr []multiaddr.Multiaddr) (newArr []multiaddr.Multiaddr) {
+	newArr = make([]multiaddr.Multiaddr, 0)
+	for i := 0; i < len(arr); i++ {
+		repeat := false
+		for j := i + 1; j < len(arr); j++ {
+			if arr[i].Equal(arr[j]) {
+				repeat = true
+				break
+			}
+		}
+		if !repeat {
+			newArr = append(newArr, arr[i])
+		}
+	}
+	return newArr
 }
