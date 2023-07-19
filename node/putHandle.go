@@ -164,10 +164,12 @@ func (n *Node) putHandle(c *gin.Context) {
 	if err != nil {
 		n.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, err.Error()))
 		if strings.Contains(err.Error(), "no space left on device") {
+			n.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, err.Error()))
 			c.JSON(http.StatusForbidden, ERR_DeviceSpaceNoLeft)
 			return
 		}
 		if err.Error() != http.ErrNotMultipart.ErrorString {
+			n.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, err.Error()))
 			c.JSON(http.StatusBadRequest, err.Error())
 			return
 		}

@@ -9,9 +9,12 @@ package node
 
 import (
 	"fmt"
+	"reflect"
 	"time"
 
 	"github.com/CESSProject/DeOSS/pkg/utils"
+	"github.com/libp2p/go-libp2p/core/peer"
+	"github.com/multiformats/go-multiaddr"
 	"golang.org/x/time/rate"
 )
 
@@ -42,16 +45,34 @@ func (n *Node) discoverMgt(ch chan<- bool) {
 
 	for {
 		select {
-		case peer, _ := <-n.GetDiscoveredPeers():
+		case discoveredPeer, _ := <-n.GetDiscoveredPeers():
 			if limit.Allow() {
 				n.Discover("info", "reset")
 				tickDiscover.Reset(time.Minute * 10)
 			}
-			if len(peer.Responses) == 0 {
+			if len(discoveredPeer.Responses) == 0 {
 				break
 			}
-			for _, v := range peer.Responses {
-				n.SavePeer(v.ID.Pretty(), *v)
+			for _, v := range discoveredPeer.Responses {
+				//n.SavePeer(v.ID.Pretty(), *v)
+				var addrInfo peer.AddrInfo
+				var addrs []multiaddr.Multiaddr
+				for _, addr := range v.Addrs {
+					if !reflect.ValueOf(addr).IsNil() {
+						if ipv4, ok := utils.FildIpv4(addr.Bytes()); ok {
+							if ok, err := utils.IsIntranetIpv4(ipv4); err == nil {
+								if !ok {
+									addrs = append(addrs, addr)
+								}
+							}
+						}
+					}
+				}
+				if len(addrs) > 0 {
+					addrInfo.ID = v.ID
+					addrInfo.Addrs = addrs
+					n.SavePeer(v.ID.Pretty(), addrInfo)
+				}
 			}
 		case <-tickDiscover.C:
 			if printLimit.Allow() {
