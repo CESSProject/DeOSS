@@ -43,6 +43,7 @@ func cmd_run_func(cmd *cobra.Command, args []string) {
 		dbDir          string
 		trackDir       string
 		protocolPrefix string
+		bootEnv        string
 		syncSt         pattern.SysSyncState
 		n              = node.New()
 	)
@@ -70,19 +71,19 @@ func cmd_run_func(cmd *cobra.Command, args []string) {
 	boots := n.GetBootNodes()
 	for _, v := range boots {
 		if strings.Contains(v, "testnet") {
-			out.Tip("Test network")
+			bootEnv = "cess-testnet"
 			protocolPrefix = config.TestnetProtocolPrefix
 			break
 		} else if strings.Contains(v, "mainnet") {
-			out.Tip("Main network")
+			bootEnv = "cess-mainnet"
 			protocolPrefix = config.MainnetProtocolPrefix
 			break
 		} else if strings.Contains(v, "devnet") {
-			out.Tip("Dev network")
+			bootEnv = "cess-devnet"
 			protocolPrefix = config.DevnetProtocolPrefix
 			break
 		} else {
-			out.Tip("Unknown network")
+			bootEnv = "unknown"
 		}
 	}
 
@@ -101,6 +102,26 @@ func cmd_run_func(cmd *cobra.Command, args []string) {
 	if err != nil {
 		out.Err(err.Error())
 		os.Exit(1)
+	}
+
+	out.Tip(fmt.Sprintf("chain network: %s", n.GetNetworkEnv()))
+	out.Tip(fmt.Sprintf("p2p network: %s", bootEnv))
+	if strings.Contains(bootEnv, "test") {
+		if !strings.Contains(n.GetNetworkEnv(), "test") {
+			out.Warn("chain and p2p are not in the same network")
+		}
+	}
+
+	if strings.Contains(bootEnv, "main") {
+		if !strings.Contains(n.GetNetworkEnv(), "main") {
+			out.Warn("chain and p2p are not in the same network")
+		}
+	}
+
+	if strings.Contains(bootEnv, "dev") {
+		if !strings.Contains(n.GetNetworkEnv(), "dev") {
+			out.Warn("chain and p2p are not in the same network")
+		}
 	}
 
 	for {
