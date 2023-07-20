@@ -21,6 +21,7 @@ const (
 	HTTPHeader_Operation     = "Operation"
 	HTTPHeader_Message       = "Message"
 	HTTPHeader_Signature     = "Signature"
+	HTTPHeader_Fid           = "Fid"
 )
 
 const (

@@ -89,6 +89,23 @@ func (n *Node) getHandle(c *gin.Context) {
 		return
 	}
 
+	if queryName == "file" {
+		fid := c.Request.Header.Get(HTTPHeader_Fid)
+		if fid == "" || len(fid) != len(pattern.FileHash{}) {
+			n.Query("err", fmt.Sprintf("[%s] invalid fid: %s", clientIp, fid))
+			c.JSON(http.StatusBadRequest, "invalid fid")
+			return
+		}
+		path := utils.FindFile(n.GetDirs().FileDir, fid)
+		if path == "" {
+			n.Query("err", fmt.Sprintf("[%s] not found: %s", clientIp, fid))
+			c.JSON(http.StatusNotFound, ERR_NotFound)
+			return
+		}
+		c.JSON(http.StatusOK, nil)
+		return
+	}
+
 	if len(queryName) != len(pattern.FileHash{}) {
 		account := c.Request.Header.Get(HTTPHeader_Account)
 		if account == "" {
@@ -233,9 +250,8 @@ func (n *Node) getHandle(c *gin.Context) {
 	if operation == "download" {
 		var err error
 		var size uint64
-		dir := n.GetDirs().FileDir
 		n.Query("info", fmt.Sprintf("[%s] Download file [%s]", clientIp, queryName))
-		fpath := utils.FindFile(dir, queryName)
+		fpath := utils.FindFile(n.GetDirs().FileDir, queryName)
 		fstat, err := os.Stat(fpath)
 		if err == nil {
 			if fstat.Size() > 0 {
@@ -296,7 +312,7 @@ func (n *Node) getHandle(c *gin.Context) {
 		}
 
 		// download from miner
-		fpath, err = n.fetchFiles(queryName, dir)
+		fpath, err = n.fetchFiles(queryName, n.GetDirs().FileDir)
 		if err != nil {
 			n.Query("err", fmt.Sprintf("[%s] Download file [%s] : %v", clientIp, queryName, err))
 			c.JSON(http.StatusInternalServerError, "File download failed, please try again later.")
