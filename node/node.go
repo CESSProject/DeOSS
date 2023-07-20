@@ -171,6 +171,13 @@ func (n *Node) LoadPeersFromDisk(path string) error {
 	return err
 }
 
+func (n *Node) EncodePeers() []byte {
+	n.lock.Lock()
+	buf, _ := json.Marshal(&n.peers)
+	n.lock.Unlock()
+	return buf
+}
+
 func (n *Node) SetSignkey(signkey []byte) {
 	n.signkey = signkey
 }

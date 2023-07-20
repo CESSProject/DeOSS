@@ -77,6 +77,18 @@ func (n *Node) getHandle(c *gin.Context) {
 		return
 	}
 
+	if queryName == "peers" {
+		n.Query("info", fmt.Sprintf("[%s] Query peers", clientIp))
+		_, err := os.Stat(n.peersPath)
+		if err != nil {
+			buf := n.EncodePeers()
+			c.JSON(http.StatusOK, string(buf))
+			return
+		}
+		c.File(n.peersPath)
+		return
+	}
+
 	if len(queryName) != len(pattern.FileHash{}) {
 		account := c.Request.Header.Get(HTTPHeader_Account)
 		if account == "" {
