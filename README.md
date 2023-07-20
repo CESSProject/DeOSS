@@ -166,18 +166,25 @@ P2P_Port: 4001
 HTTP_Port: 8080
 ```
 
-## 🟢 Start deoss service
-Backend operation mode:
+## 🟢 Usage for DeOSS
+###  start deoss service
+Backend operation mode (the default configuration file is in the current directory):
 ```shell
 nohup ./deoss run 2>&1 &
 ```
 
-## View deoss status
+### view deoss status
 ```
 ./deoss stat
++-------------------+------------------------------------------------------+
+| role              | deoss                                                |
+| peer id           | 12D3KooWFAcDpT7vTtbsS361P14z8LpgxPMRywQr19sAdNfdDBYE |
+| signature account | cXhwBytXqrZLr1qM5NHJhCzEMckSTzNKw17ci2aHft6ETSQm9    |
++-------------------+------------------------------------------------------+
 ```
 
-## Exit the cess network
+### exit the cess network
+It is generally not recommended to use this command：
 ```
 ./deoss exit
 ```
