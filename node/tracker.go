@@ -70,7 +70,7 @@ func (n *Node) tracker(ch chan<- bool) {
 				}
 			}
 		}
-		time.Sleep(pattern.BlockInterval)
+		time.Sleep(time.Minute)
 	}
 }
 
@@ -277,6 +277,7 @@ func (n *Node) storageData(roothash string, segment []pattern.SegmentDataInfo, m
 				continue
 			}
 		}
+
 		err = n.Connect(n.GetCtxQueryFromCtxCancel(), addr)
 		if err != nil {
 			failed = true

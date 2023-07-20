@@ -1,9 +1,15 @@
 package utils
 
 import (
+	"errors"
 	"fmt"
+	"net"
 	"os"
 	"path/filepath"
+	"regexp"
+	"strings"
+
+	"github.com/multiformats/go-multiaddr"
 )
 
 func Ternary(a, b int64) int64 {
@@ -21,6 +27,7 @@ func FindFile(dir, name string) string {
 		}
 		if info.Name() == name {
 			result = path
+			return nil
 		}
 		return nil
 	})
@@ -29,4 +36,43 @@ func FindFile(dir, name string) string {
 		fmt.Println(err)
 	}
 	return result
+}
+
+var regstr = `\d+\.\d+\.\d+\.\d+`
+var reg = regexp.MustCompile(regstr)
+
+func FildIpv4(data []byte) (string, bool) {
+	result := reg.Find(data)
+	return string(result), len(result) > 0
+}
+
+func IsIntranetIpv4(ipv4 string) (bool, error) {
+	ip := net.ParseIP(ipv4)
+	if ip == nil || !strings.Contains(ipv4, ".") {
+		return false, errors.New("invalid ipv4")
+	}
+	if ip.IsLoopback() {
+		return true, nil
+	}
+	if ip.IsPrivate() {
+		return true, nil
+	}
+	return false, nil
+}
+
+func RemoveRepeatedAddr(arr []multiaddr.Multiaddr) (newArr []multiaddr.Multiaddr) {
+	newArr = make([]multiaddr.Multiaddr, 0)
+	for i := 0; i < len(arr); i++ {
+		repeat := false
+		for j := i + 1; j < len(arr); j++ {
+			if arr[i].Equal(arr[j]) {
+				repeat = true
+				break
+			}
+		}
+		if !repeat {
+			newArr = append(newArr, arr[i])
+		}
+	}
+	return newArr
 }

@@ -223,13 +223,32 @@ func (n *Node) getHandle(c *gin.Context) {
 		dir := n.GetDirs().FileDir
 		n.Query("info", fmt.Sprintf("[%s] Download file [%s]", clientIp, queryName))
 		fpath := utils.FindFile(dir, queryName)
-		if fpath != "" {
-			n.Query("info", fmt.Sprintf("[%s] Download file [%s] from cache", clientIp, queryName))
-			c.File(fpath)
-			return
+		fstat, err := os.Stat(fpath)
+		if err == nil {
+			if fstat.Size() > 0 {
+				n.Query("info", fmt.Sprintf("[%s] Download file [%s] from cache", clientIp, queryName))
+				c.File(fpath)
+				return
+			} else {
+				os.Remove(fpath)
+			}
 		}
 
-		//Download from miner
+		// peerList, _ := n.QueryDeossPeerIdList()
+		// if len(peerList) > 0 {
+		// 	for _, v := range peerList {
+		// 		addr, ok := n.GetPeer(v)
+		// 		if !ok {
+		// 			continue
+		// 		}
+		// 		err = n.Connect(n.GetCtxQueryFromCtxCancel(), addr)
+		// 		if err != nil {
+		// 			continue
+		// 		}
+		// 	}
+		// }
+
+		// download from miner
 		fpath, err = n.fetchFiles(queryName, dir)
 		if err != nil {
 			n.Query("err", fmt.Sprintf("[%s] Download file [%s] : %v", clientIp, queryName, err))
