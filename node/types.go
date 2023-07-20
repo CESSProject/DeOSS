@@ -21,6 +21,7 @@ const (
 	HTTPHeader_Operation     = "Operation"
 	HTTPHeader_Message       = "Message"
 	HTTPHeader_Signature     = "Signature"
+	HTTPHeader_Fid           = "Fid"
 )
 
 const (
@@ -73,6 +74,8 @@ const (
 	ERR_Authorization = "HeaderErr_Invalid_Authorization"
 
 	ERR_HeadOperation = "HeaderErr_Invalid_Operation"
+
+	ERR_NotFound = "Not found"
 
 	ERR_BodyFormat         = "BodyErr_InvalidDataFormat"
 	ERR_BodyFieldAccount   = "BodyErr_InvalidField_account"
