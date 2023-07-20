@@ -74,6 +74,8 @@ const (
 
 	ERR_HeadOperation = "HeaderErr_Invalid_Operation"
 
+	ERR_NotFound = "Not found"
+
 	ERR_BodyFormat         = "BodyErr_InvalidDataFormat"
 	ERR_BodyFieldAccount   = "BodyErr_InvalidField_account"
 	ERR_BodyFieldMessage   = "BodyErr_InvalidField_message"
