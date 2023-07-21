@@ -17,6 +17,7 @@ import (
 	"github.com/CESSProject/DeOSS/pkg/utils"
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
 	sutils "github.com/CESSProject/cess-go-sdk/core/utils"
+	"github.com/centrifuge/go-substrate-rpc-client/v4/types"
 	"github.com/mr-tron/base58"
 	"github.com/pkg/errors"
 )
@@ -249,17 +250,18 @@ func (n *Node) backupFiles(owner []byte, segmentInfo []pattern.SegmentDataInfo, 
 	}
 
 	// store fragment to storage
-	err = n.storageData(roothash, segmentInfo, storageOrder.AssignedMiner)
+	err = n.storageData(roothash, segmentInfo, storageOrder.AssignedMiner, storageOrder.CompleteList)
 	if err != nil {
 		return 0, errors.Wrapf(err, "[storageData]")
 	}
 	return uint8(storageOrder.Count), nil
 }
 
-func (n *Node) storageData(roothash string, segment []pattern.SegmentDataInfo, minerTaskList []pattern.MinerTaskList) error {
+func (n *Node) storageData(roothash string, segment []pattern.SegmentDataInfo, minerTaskList []pattern.MinerTaskList, completeList []types.AccountID) error {
 	var err error
 	var fpath string
 	var failed bool
+	var complete bool
 	// query all assigned miner multiaddr
 	peerids, accs, err := n.QueryAssignedMiner(minerTaskList)
 	if err != nil {
@@ -268,6 +270,7 @@ func (n *Node) storageData(roothash string, segment []pattern.SegmentDataInfo, m
 
 	basedir := filepath.Dir(segment[0].FragmentHash[0])
 	for i := 0; i < len(peerids); i++ {
+		complete = false
 		addr, ok := n.GetPeer(peerids[i])
 		if !ok {
 			addr, err = n.DHTFindPeer(peerids[i])
@@ -286,6 +289,15 @@ func (n *Node) storageData(roothash string, segment []pattern.SegmentDataInfo, m
 		}
 
 		for j := 0; j < len(minerTaskList[i].Hash); j++ {
+			for k := 0; k < len(completeList); k++ {
+				if sutils.CompareSlice(minerTaskList[i].Account[:], completeList[k][:]) {
+					complete = true
+					break
+				}
+			}
+			if complete {
+				break
+			}
 			fpath = filepath.Join(basedir, string(minerTaskList[i].Hash[j][:]))
 			_, err = os.Stat(fpath)
 			if err != nil {
