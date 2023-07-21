@@ -262,7 +262,7 @@ func (n *Node) getHandle(c *gin.Context) {
 				os.Remove(fpath)
 			}
 		}
-
+		var completion bool
 		fmeta, err := n.QueryFileMetadata(queryName)
 		if err != nil {
 			if err.Error() != pattern.ERR_Empty {
@@ -284,6 +284,7 @@ func (n *Node) getHandle(c *gin.Context) {
 				size = order.FileSize.Uint64()
 			}
 		} else {
+			completion = true
 			size = fmeta.FileSize.Uint64()
 		}
 
@@ -309,6 +310,12 @@ func (n *Node) getHandle(c *gin.Context) {
 				c.File(fpath)
 				return
 			}
+		}
+
+		if !completion {
+			n.Query("err", fmt.Sprintf("[%s] Download file [%s] : %v", clientIp, queryName, "During the order transaction, please go to the original deoss to download the file."))
+			c.JSON(http.StatusInternalServerError, "During the order transaction, please go to the original deoss to download the file.")
+			return
 		}
 
 		// download from miner
