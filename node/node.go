@@ -13,7 +13,9 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"sort"
 	"sync"
+	"syscall"
 
 	"github.com/CESSProject/DeOSS/configs"
 	"github.com/CESSProject/DeOSS/pkg/confile"
@@ -239,8 +241,30 @@ func (n *Node) HasTrackFile(filehash string) bool {
 
 func (n *Node) ListTrackFiles() ([]string, error) {
 	n.trackLock.RLock()
-	defer n.trackLock.RUnlock()
-	return filepath.Glob(fmt.Sprintf("%s/*", n.trackDir))
+	result, err := filepath.Glob(fmt.Sprintf("%s/*", n.trackDir))
+	if err != nil {
+		n.trackLock.RUnlock()
+		return nil, err
+	}
+	n.trackLock.RUnlock()
+
+	var linuxFileAttr *syscall.Stat_t
+	var keys = make([]int, 0)
+	var resultMap = make(map[int64]string, 0)
+	for _, v := range result {
+		fs, err := os.Stat(v)
+		if err == nil {
+			linuxFileAttr = fs.Sys().(*syscall.Stat_t)
+			resultMap[linuxFileAttr.Ctim.Sec] = v
+			keys = append(keys, int(linuxFileAttr.Ctim.Sec))
+		}
+	}
+	sort.Ints(keys)
+	var resultFile = make([]string, len(keys))
+	for k, v := range keys {
+		resultFile[k] = resultMap[int64(v)]
+	}
+	return resultFile, nil
 }
 
 func (n *Node) DeleteTrackFile(filehash string) {

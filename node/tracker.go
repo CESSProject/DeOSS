@@ -62,16 +62,21 @@ func (n *Node) tracker(ch chan<- bool) {
 			time.Sleep(pattern.BlockInterval)
 			continue
 		}
-		for _, v := range trackFiles {
-			err = n.trackFile(v)
+		if len(trackFiles) == 0 {
+			time.Sleep(time.Minute)
+			continue
+		}
+		for i := 0; i < len(trackFiles); {
+			err = n.trackFile(trackFiles[i])
 			if err != nil {
 				if err.Error() != recordErr {
 					n.Track("err", err.Error())
 					recordErr = err.Error()
 				}
+				continue
 			}
+			i++
 		}
-		time.Sleep(time.Minute)
 	}
 }
 
@@ -185,10 +190,13 @@ func (n *Node) trackFile(trackfile string) error {
 		}
 		return nil
 	}
-
-	count, err = n.backupFiles(recordFile.Owner, recordFile.SegmentInfo, roothash, recordFile.Filename, recordFile.Buckname, recordFile.Filesize)
-	if err != nil {
-		return errors.Wrapf(err, "[%s] [backupFiles]", roothash)
+	for {
+		count, err = n.backupFiles(recordFile.Owner, recordFile.SegmentInfo, roothash, recordFile.Filename, recordFile.Buckname, recordFile.Filesize)
+		if err != nil {
+			n.Track("err", fmt.Sprintf("[%s] [backupFiles]", roothash))
+			time.Sleep(pattern.BlockInterval)
+		}
+		break
 	}
 
 	n.Track("info", fmt.Sprintf("[%s] File successfully transferred to all allocated storage nodes", roothash))
@@ -217,35 +225,28 @@ func (n *Node) backupFiles(owner []byte, segmentInfo []pattern.SegmentDataInfo, 
 		return 0, nil
 	}
 
-	for i := 0; i < 3; i++ {
-		storageOrder, err = n.QueryStorageOrder(roothash)
-		if err != nil {
-			if err.Error() == pattern.ERR_Empty {
-				_, err = n.GenerateStorageOrder(roothash, segmentInfo, owner, filename, bucketname, filesize)
-				if err != nil {
-					// verify the space is authorized
-					authAcc, err := n.QuaryAuthorizedAccount(owner)
-					if err != nil {
-						if err.Error() != pattern.ERR_Empty {
-							return 0, errors.Wrapf(err, "[QuaryAuthorizedAccount]")
-						}
-					}
-					if n.GetSignatureAcc() != authAcc {
-						baseDir := filepath.Dir(segmentInfo[0].SegmentHash)
-						os.RemoveAll(baseDir)
-						n.DeleteTrackFile(roothash)
-						n.Delete([]byte("transfer:" + roothash))
-						return 0, errors.New("user deauthorization")
-					}
-					return 0, errors.Wrapf(err, "[GenerateStorageOrder]")
-				}
-			}
-			time.Sleep(pattern.BlockInterval)
-			continue
-		}
-		break
-	}
+	storageOrder, err = n.QueryStorageOrder(roothash)
 	if err != nil {
+		if err.Error() == pattern.ERR_Empty {
+			_, err = n.GenerateStorageOrder(roothash, segmentInfo, owner, filename, bucketname, filesize)
+			if err != nil {
+				// verify the space is authorized
+				authAcc, err := n.QuaryAuthorizedAccount(owner)
+				if err != nil {
+					if err.Error() != pattern.ERR_Empty {
+						return 0, errors.Wrapf(err, "[QuaryAuthorizedAccount]")
+					}
+				}
+				if n.GetSignatureAcc() != authAcc {
+					baseDir := filepath.Dir(segmentInfo[0].SegmentHash)
+					os.RemoveAll(baseDir)
+					n.DeleteTrackFile(roothash)
+					n.Delete([]byte("transfer:" + roothash))
+					return 0, errors.New("user deauthorization")
+				}
+				return 0, errors.Wrapf(err, "[GenerateStorageOrder]")
+			}
+		}
 		return 0, errors.Wrapf(err, "[QueryStorageOrder]")
 	}
 
