@@ -272,6 +272,15 @@ func (n *Node) storageData(roothash string, segment []pattern.SegmentDataInfo, m
 	basedir := filepath.Dir(segment[0].FragmentHash[0])
 	for i := 0; i < len(peerids); i++ {
 		complete = false
+		t, ok := n.HasBlacklist(peerids[i])
+		if ok {
+			if time.Since(time.Unix(t, 0)).Hours() >= 1 {
+				n.DelFromBlacklist(peerids[i])
+			} else {
+				continue
+			}
+		}
+
 		addr, ok := n.GetPeer(peerids[i])
 		if !ok {
 			addr, err = n.DHTFindPeer(peerids[i])
@@ -285,6 +294,7 @@ func (n *Node) storageData(roothash string, segment []pattern.SegmentDataInfo, m
 		err = n.Connect(n.GetCtxQueryFromCtxCancel(), addr)
 		if err != nil {
 			failed = true
+			n.AddToBlacklist(peerids[i])
 			n.Track("err", fmt.Sprintf("[%s] Connect to miner [%s] failed: [%s]", roothash, accs[i], err))
 			continue
 		}
@@ -316,6 +326,7 @@ func (n *Node) storageData(roothash string, segment []pattern.SegmentDataInfo, m
 			err = n.WriteFileAction(addr.ID, roothash, fpath)
 			if err != nil {
 				failed = true
+				n.AddToBlacklist(peerids[i])
 				n.Track("err", fmt.Sprintf("[%s] [WriteFileAction] [%s] [%s] err: %v", roothash, accs[i], peerids[i], err))
 				break
 			}

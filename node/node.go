@@ -16,6 +16,7 @@ import (
 	"sort"
 	"sync"
 	"syscall"
+	"time"
 
 	"github.com/CESSProject/DeOSS/configs"
 	"github.com/CESSProject/DeOSS/pkg/confile"
@@ -44,20 +45,24 @@ type Node struct {
 	db.Cache
 	sdk.SDK
 	*gin.Engine
-	signkey   []byte
-	trackLock *sync.RWMutex
-	lock      *sync.RWMutex
-	peers     map[string]peer.AddrInfo
-	trackDir  string
-	peersPath string
+	signkey       []byte
+	trackLock     *sync.RWMutex
+	lock          *sync.RWMutex
+	blacklistLock *sync.RWMutex
+	peers         map[string]peer.AddrInfo
+	blacklist     map[string]int64
+	trackDir      string
+	peersPath     string
 }
 
 // New is used to build a node instance
 func New() *Node {
 	return &Node{
-		trackLock: new(sync.RWMutex),
-		lock:      new(sync.RWMutex),
-		peers:     make(map[string]peer.AddrInfo, 0),
+		trackLock:     new(sync.RWMutex),
+		lock:          new(sync.RWMutex),
+		blacklistLock: new(sync.RWMutex),
+		peers:         make(map[string]peer.AddrInfo, 0),
+		blacklist:     make(map[string]int64, 0),
 	}
 }
 
@@ -271,6 +276,27 @@ func (n *Node) DeleteTrackFile(filehash string) {
 	n.trackLock.Lock()
 	defer n.trackLock.Unlock()
 	os.Remove(filepath.Join(n.trackDir, filehash))
+}
+
+func (n *Node) HasBlacklist(peerid string) (int64, bool) {
+	n.blacklistLock.RLock()
+	t, ok := n.blacklist[peerid]
+	n.blacklistLock.RUnlock()
+	return t, ok
+}
+
+func (n *Node) AddToBlacklist(peerid string) {
+	n.blacklistLock.Lock()
+	if _, ok := n.blacklist[peerid]; !ok {
+		n.blacklist[peerid] = time.Now().Unix()
+	}
+	n.blacklistLock.Unlock()
+}
+
+func (n *Node) DelFromBlacklist(peerid string) {
+	n.blacklistLock.Lock()
+	delete(n.blacklist, peerid)
+	n.blacklistLock.Unlock()
 }
 
 func (n *Node) RebuildDirs() {
