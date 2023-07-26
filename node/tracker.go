@@ -291,11 +291,20 @@ func (n *Node) storageData(roothash string, segment []pattern.SegmentDataInfo, m
 			}
 		}
 
-		err = n.Connect(n.GetCtxQueryFromCtxCancel(), addr)
-		if err != nil {
-			failed = true
+		for i := 0; i < 3; i++ {
+			err = n.Connect(n.GetCtxQueryFromCtxCancel(), addr)
+			if err != nil {
+				failed = true
+				n.Track("err", fmt.Sprintf("[%s] Connect to miner [%s] failed: [%s]", roothash, accs[i], err))
+				time.Sleep(pattern.BlockInterval)
+				continue
+			}
+			failed = false
+			break
+		}
+
+		if failed {
 			n.AddToBlacklist(peerids[i])
-			n.Track("err", fmt.Sprintf("[%s] Connect to miner [%s] failed: [%s]", roothash, accs[i], err))
 			continue
 		}
 
