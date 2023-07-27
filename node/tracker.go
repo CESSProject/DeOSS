@@ -82,58 +82,83 @@ func (n *Node) tracker(ch chan<- bool) {
 
 func (n *Node) trackFile(trackfile string) error {
 	var (
-		err          error
-		count        uint8
-		roothash     string
-		b            []byte
-		recordFile   RecordInfo
-		storageorder pattern.StorageOrder
+		err        error
+		roothash   string
+		b          []byte
+		recordFile RecordInfo
+		//storageorder pattern.StorageOrder
 	)
-
 	roothash = filepath.Base(trackfile)
-	b, err = n.Get([]byte("transfer:" + roothash))
-	if err == nil {
-		storageorder, err = n.QueryStorageOrder(roothash)
+	_, err = n.QueryFileMetadata(roothash)
+	if err != nil {
+		if err.Error() != pattern.ERR_Empty {
+			return errors.Wrapf(err, "[%s] [QueryFileMetadata]", roothash)
+		}
+	} else {
+		n.Track("info", fmt.Sprintf("[%s] File storage success", roothash))
+		recordFile, err = n.ParseTrackFromFile(roothash)
+		if err == nil {
+			if len(recordFile.SegmentInfo) > 0 {
+				baseDir := filepath.Dir(recordFile.SegmentInfo[0].SegmentHash)
+				os.Rename(filepath.Join(baseDir, roothash), filepath.Join(n.GetDirs().FileDir, roothash))
+				os.RemoveAll(baseDir)
+			}
+		}
+		n.DeleteTrackFile(roothash)
+		return nil
+	}
+
+	_, err = n.QueryStorageOrder(roothash)
+	if err != nil {
+		if err.Error() != pattern.ERR_Empty {
+			return errors.Wrapf(err, "[%s] [QueryStorageOrder]", roothash)
+		}
+
+		recordFile, err = n.ParseTrackFromFile(roothash)
+		if err != nil {
+			n.DeleteTrackFile(roothash)
+			file := utils.FindFile(n.GetDirs().FileDir, roothash)
+			if file != "" {
+				os.RemoveAll(filepath.Dir(file))
+			}
+			return errors.Wrapf(err, "[ParseTrackFromFile]")
+		}
+		recordFile.Putflag = false
+		recordFile.Count = 0
+		b, err = json.Marshal(&recordFile)
+		if err != nil {
+			return errors.Wrapf(err, "[%s] [json.Marshal]", roothash)
+		}
+		err = n.WriteTrackFile(roothash, b)
+		if err != nil {
+			return errors.Wrapf(err, "[%s] [WriteTrackFile]", roothash)
+		}
+
+		// verify the space is authorized
+		authAcc, err := n.QuaryAuthorizedAccount(recordFile.Owner)
 		if err != nil {
 			if err.Error() != pattern.ERR_Empty {
-				return errors.Wrapf(err, "[%s] [QueryStorageOrder]", roothash)
+				return errors.Wrapf(err, "[%s] [QuaryAuthorizedAccount]", roothash)
 			}
-			_, err = n.QueryFileMetadata(roothash)
-			if err != nil {
-				if err.Error() != pattern.ERR_Empty {
-					return errors.Wrapf(err, "[%s] [QueryFileMetadata]", roothash)
-				}
-				n.Delete([]byte("transfer:" + roothash))
-				recordFile, err = n.ParseTrackFromFile(roothash)
-				if err != nil {
-					n.DeleteTrackFile(roothash)
-					return errors.Wrapf(err, "[ParseTrackFromFile]")
-				}
-				recordFile.Putflag = false
-				recordFile.Count = 0
-				b, err = json.Marshal(&recordFile)
-				if err != nil {
-					return errors.Wrapf(err, "[%s] [json.Marshal]", roothash)
-				}
-				err = n.WriteTrackFile(roothash, b)
-				if err != nil {
-					return errors.Wrapf(err, "[%s] [WriteTrackFile]", roothash)
-				}
-				n.Delete([]byte("transfer:" + roothash))
-			} else {
-				n.Track("info", fmt.Sprintf("[%s] File storage success", roothash))
-				recordFile, err = n.ParseTrackFromFile(roothash)
-				if err == nil {
-					if len(recordFile.SegmentInfo) > 0 {
-						baseDir := filepath.Dir(recordFile.SegmentInfo[0].SegmentHash)
-						os.Rename(filepath.Join(baseDir, roothash), filepath.Join(n.GetDirs().FileDir, roothash))
-						os.RemoveAll(baseDir)
-					}
-				}
-				n.DeleteTrackFile(roothash)
-				n.Delete([]byte("transfer:" + roothash))
-			}
-			return nil
+		}
+		if n.GetSignatureAcc() != authAcc {
+			baseDir := filepath.Dir(recordFile.SegmentInfo[0].SegmentHash)
+			os.RemoveAll(baseDir)
+			n.DeleteTrackFile(roothash)
+			user, _ := sutils.EncodePublicKeyAsCessAccount(recordFile.Owner)
+			return errors.Errorf("[%s] user [%s] deauthorization", roothash, user)
+		}
+
+		_, err = n.GenerateStorageOrder(
+			roothash,
+			recordFile.SegmentInfo,
+			recordFile.Owner,
+			recordFile.Filename,
+			recordFile.Buckname,
+			recordFile.Filesize,
+		)
+		if err != nil {
+			return errors.Wrapf(err, "[%s] [GenerateStorageOrder]", roothash)
 		}
 	}
 
@@ -147,13 +172,13 @@ func (n *Node) trackFile(trackfile string) error {
 		return errors.Errorf("[%s] Recorded filehash [%s] error", roothash, recordFile.Roothash)
 	}
 
-	if recordFile.Putflag {
-		if storageorder.AssignedMiner != nil {
-			if uint8(storageorder.Count) == recordFile.Count {
-				return nil
-			}
-		}
-	}
+	// if recordFile.Putflag {
+	// 	if storageorder.AssignedMiner != nil {
+	// 		if uint8(storageorder.Count) == recordFile.Count {
+	// 			return nil
+	// 		}
+	// 	}
+	// }
 
 	if recordFile.Duplicate {
 		_, err = n.QueryFileMetadata(roothash)
@@ -191,29 +216,29 @@ func (n *Node) trackFile(trackfile string) error {
 		return nil
 	}
 	for {
-		count, err = n.backupFiles(recordFile.Owner, recordFile.SegmentInfo, roothash, recordFile.Filename, recordFile.Buckname, recordFile.Filesize)
+		_, err = n.backupFiles(recordFile.Owner, recordFile.SegmentInfo, roothash, recordFile.Filename, recordFile.Buckname, recordFile.Filesize)
 		if err != nil {
-			n.Track("err", fmt.Sprintf("[%s] [backupFiles]", roothash))
-			time.Sleep(pattern.BlockInterval)
+			n.Track("err", fmt.Sprintf("[%s] [backupFiles] %v", roothash, err))
+			time.Sleep(time.Second * 20)
 		}
 		break
 	}
 
-	n.Track("info", fmt.Sprintf("[%s] File successfully transferred to all allocated storage nodes", roothash))
+	//n.Track("info", fmt.Sprintf("[%s] File successfully transferred to all allocated storage nodes", roothash))
 
-	recordFile.Putflag = true
-	recordFile.Count = count
-	b, err = json.Marshal(&recordFile)
-	if err != nil {
-		return errors.Wrapf(err, "[%s] [json.Marshal]", roothash)
-	}
+	// recordFile.Putflag = true
+	// recordFile.Count = count
+	// b, err = json.Marshal(&recordFile)
+	// if err != nil {
+	// 	return errors.Wrapf(err, "[%s] [json.Marshal]", roothash)
+	// }
 
-	err = n.WriteTrackFile(roothash, b)
-	if err != nil {
-		return errors.Wrapf(err, "[%s] [WriteTrackFile]", roothash)
-	}
-	n.Cache.Put([]byte("transfer:"+roothash), []byte(fmt.Sprintf("%v", count)))
-	return nil
+	// err = n.WriteTrackFile(roothash, b)
+	// if err != nil {
+	// 	return errors.Wrapf(err, "[%s] [WriteTrackFile]", roothash)
+	// }
+	// n.Cache.Put([]byte("transfer:"+roothash), []byte(fmt.Sprintf("%v", count)))
+	return errors.New(fmt.Sprintf("[%s] File successfully transferred to all allocated storage nodes", roothash))
 }
 
 func (n *Node) backupFiles(owner []byte, segmentInfo []pattern.SegmentDataInfo, roothash, filename, bucketname string, filesize uint64) (uint8, error) {
