@@ -13,7 +13,10 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"sort"
 	"sync"
+	"syscall"
+	"time"
 
 	"github.com/CESSProject/DeOSS/configs"
 	"github.com/CESSProject/DeOSS/pkg/confile"
@@ -42,20 +45,24 @@ type Node struct {
 	db.Cache
 	sdk.SDK
 	*gin.Engine
-	signkey   []byte
-	trackLock *sync.RWMutex
-	lock      *sync.RWMutex
-	peers     map[string]peer.AddrInfo
-	trackDir  string
-	peersPath string
+	signkey       []byte
+	trackLock     *sync.RWMutex
+	lock          *sync.RWMutex
+	blacklistLock *sync.RWMutex
+	peers         map[string]peer.AddrInfo
+	blacklist     map[string]int64
+	trackDir      string
+	peersPath     string
 }
 
 // New is used to build a node instance
 func New() *Node {
 	return &Node{
-		trackLock: new(sync.RWMutex),
-		lock:      new(sync.RWMutex),
-		peers:     make(map[string]peer.AddrInfo, 0),
+		trackLock:     new(sync.RWMutex),
+		lock:          new(sync.RWMutex),
+		blacklistLock: new(sync.RWMutex),
+		peers:         make(map[string]peer.AddrInfo, 0),
+		blacklist:     make(map[string]int64, 0),
 	}
 }
 
@@ -239,14 +246,57 @@ func (n *Node) HasTrackFile(filehash string) bool {
 
 func (n *Node) ListTrackFiles() ([]string, error) {
 	n.trackLock.RLock()
-	defer n.trackLock.RUnlock()
-	return filepath.Glob(fmt.Sprintf("%s/*", n.trackDir))
+	result, err := filepath.Glob(fmt.Sprintf("%s/*", n.trackDir))
+	if err != nil {
+		n.trackLock.RUnlock()
+		return nil, err
+	}
+	n.trackLock.RUnlock()
+
+	var linuxFileAttr *syscall.Stat_t
+	var keys = make([]int, 0)
+	var resultMap = make(map[int64]string, 0)
+	for _, v := range result {
+		fs, err := os.Stat(v)
+		if err == nil {
+			linuxFileAttr = fs.Sys().(*syscall.Stat_t)
+			resultMap[linuxFileAttr.Ctim.Sec] = v
+			keys = append(keys, int(linuxFileAttr.Ctim.Sec))
+		}
+	}
+	sort.Ints(keys)
+	var resultFile = make([]string, len(keys))
+	for k, v := range keys {
+		resultFile[k] = resultMap[int64(v)]
+	}
+	return resultFile, nil
 }
 
 func (n *Node) DeleteTrackFile(filehash string) {
 	n.trackLock.Lock()
 	defer n.trackLock.Unlock()
 	os.Remove(filepath.Join(n.trackDir, filehash))
+}
+
+func (n *Node) HasBlacklist(peerid string) (int64, bool) {
+	n.blacklistLock.RLock()
+	t, ok := n.blacklist[peerid]
+	n.blacklistLock.RUnlock()
+	return t, ok
+}
+
+func (n *Node) AddToBlacklist(peerid string) {
+	n.blacklistLock.Lock()
+	if _, ok := n.blacklist[peerid]; !ok {
+		n.blacklist[peerid] = time.Now().Unix()
+	}
+	n.blacklistLock.Unlock()
+}
+
+func (n *Node) DelFromBlacklist(peerid string) {
+	n.blacklistLock.Lock()
+	delete(n.blacklist, peerid)
+	n.blacklistLock.Unlock()
 }
 
 func (n *Node) RebuildDirs() {
