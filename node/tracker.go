@@ -69,10 +69,13 @@ func (n *Node) tracker(ch chan<- bool) {
 		for i := 0; i < len(trackFiles); {
 			err = n.trackFile(trackFiles[i])
 			if err != nil {
-				if err.Error() != recordErr {
-					n.Track("err", err.Error())
-					recordErr = err.Error()
+				if !n.HasTrackFile(filepath.Base(trackFiles[i])) {
+					i++
+					n.Track("err", fmt.Sprintf("[%s] not found", trackFiles[i]))
+					continue
 				}
+				n.Track("err", err.Error())
+				time.Sleep(time.Second * 20)
 				continue
 			}
 			i++
@@ -86,7 +89,6 @@ func (n *Node) trackFile(trackfile string) error {
 		roothash   string
 		b          []byte
 		recordFile RecordInfo
-		//storageorder pattern.StorageOrder
 	)
 	roothash = filepath.Base(trackfile)
 	_, err = n.QueryFileMetadata(roothash)
