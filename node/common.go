@@ -2,6 +2,7 @@ package node
 
 import (
 	"net/http"
+	"strings"
 
 	sutils "github.com/CESSProject/cess-go-sdk/core/utils"
 	"github.com/CESSProject/go-keyring"
@@ -73,11 +74,14 @@ func (n *Node) verifySignature(account, message, signature string) ([]byte, erro
 
 	sign_bytes, err := base58.Decode(signature)
 	if err != nil {
-		return nil, err
+		if strings.Contains(err.Error(), "zero length") {
+			return nil, errors.New("empty signature")
+		}
+		return nil, errors.New("signature not encoded with base58")
 	}
 
 	if len(sign_bytes) != 64 {
-		return nil, errors.New("invalid signature")
+		return nil, errors.New("wrong signature length")
 	}
 
 	var sign_array [64]byte
@@ -90,5 +94,5 @@ func (n *Node) verifySignature(account, message, signature string) ([]byte, erro
 	if ok {
 		return pkey, nil
 	}
-	return nil, errors.New("false")
+	return nil, errors.New("signature verification failed")
 }

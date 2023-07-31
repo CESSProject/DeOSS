@@ -86,7 +86,6 @@ func (n *Node) trackFile(trackfile string) error {
 		roothash   string
 		b          []byte
 		recordFile RecordInfo
-		//storageorder pattern.StorageOrder
 	)
 	roothash = filepath.Base(trackfile)
 	_, err = n.QueryFileMetadata(roothash)
