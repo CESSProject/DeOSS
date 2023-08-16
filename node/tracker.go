@@ -37,6 +37,8 @@ type RecordInfo struct {
 // MinRecordInfoLength = len(json.Marshal(RecordInfo{}))
 const MinRecordInfoLength = 132
 
+var processingFiles []string
+
 // tracker
 func (n *Node) tracker(ch chan<- bool) {
 	defer func() {
@@ -49,38 +51,54 @@ func (n *Node) tracker(ch chan<- bool) {
 	n.Track("info", ">>>>> start tracker <<<<<")
 
 	var err error
-	var recordErr string
 	var trackFiles []string
 
 	for {
 		trackFiles, err = n.ListTrackFiles()
 		if err != nil {
-			if err.Error() != recordErr {
-				n.Track("err", err.Error())
-				recordErr = err.Error()
-			}
+			n.Track("err", err.Error())
 			time.Sleep(pattern.BlockInterval)
 			continue
-		}
-		if len(trackFiles) == 0 {
+		} else if len(trackFiles) == 0 {
 			time.Sleep(time.Minute)
 			continue
 		}
-		for i := 0; i < len(trackFiles); {
-			err = n.trackFile(trackFiles[i])
-			if err != nil {
-				if !n.HasTrackFile(filepath.Base(trackFiles[i])) {
-					i++
-					n.Track("err", fmt.Sprintf("[%s] not found", trackFiles[i]))
-					continue
-				}
-				n.Track("err", err.Error())
-				time.Sleep(time.Second * 20)
-				continue
+
+		for _, v := range trackFiles {
+			if !n.contains(processingFiles, v) {
+				processingFiles = append(processingFiles, v)
+				go n.trackFileThread(v)
 			}
-			i++
 		}
 	}
+}
+
+func (n *Node) contains(s []string, str string) bool {
+	for _, v := range s {
+		if v == str {
+			return true
+		}
+	}
+	return false
+}
+
+func (n *Node) remove(s []string, r string) []string {
+	for i, v := range s {
+		if v == r {
+			return append(s[:i], s[i+1:]...)
+		}
+	}
+	return s
+}
+
+func (n *Node) trackFileThread(trackFile string) {
+	fmt.Println("Processing File:", trackFile)
+	err := n.trackFile(trackFile)
+	if err != nil {
+		n.Track("err", err.Error())
+		fmt.Println("recordErr:", err.Error())
+	}
+	processingFiles = n.remove(processingFiles, trackFile)
 }
 
 func (n *Node) trackFile(trackfile string) error {
@@ -226,7 +244,7 @@ func (n *Node) trackFile(trackfile string) error {
 		break
 	}
 
-	//n.Track("info", fmt.Sprintf("[%s] File successfully transferred to all allocated storage nodes", roothash))
+	n.Track("info", fmt.Sprintf("[%s] File successfully transferred to all allocated storage nodes", roothash))
 
 	// recordFile.Putflag = true
 	// recordFile.Count = count
@@ -240,7 +258,7 @@ func (n *Node) trackFile(trackfile string) error {
 	// 	return errors.Wrapf(err, "[%s] [WriteTrackFile]", roothash)
 	// }
 	// n.Cache.Put([]byte("transfer:"+roothash), []byte(fmt.Sprintf("%v", count)))
-	return errors.New(fmt.Sprintf("[%s] File successfully transferred to all allocated storage nodes", roothash))
+	return nil
 }
 
 func (n *Node) backupFiles(owner []byte, segmentInfo []pattern.SegmentDataInfo, roothash, filename, bucketname string, filesize uint64) (uint8, error) {
@@ -318,7 +336,7 @@ func (n *Node) storageData(roothash string, segment []pattern.SegmentDataInfo, m
 			}
 		}
 
-		for i := 0; i < 3; i++ {
+		for i := 0; i < len(accs); i++ {
 			err = n.Connect(n.GetCtxQueryFromCtxCancel(), addr)
 			if err != nil {
 				failed = true
