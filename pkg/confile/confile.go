@@ -116,6 +116,7 @@ func (c *confile) Parse(fpath string) error {
 		if err != nil {
 			return err
 		}
+		return nil
 	}
 
 	if !fstat.IsDir() {
