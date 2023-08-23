@@ -71,8 +71,15 @@ func (n *Node) putHandle(c *gin.Context) {
 	}
 
 	// verify the space is authorized
-	authAcc, _ := n.QuaryAuthorizedAccount(pkey)
-	if n.GetSignatureAcc() != authAcc {
+	var flag bool
+	authAccs, _ := n.QuaryAuthorizedAccounts(pkey)
+	for _, v := range authAccs {
+		if n.GetSignatureAcc() == v {
+			flag = true
+			break
+		}
+	}
+	if !flag {
 		n.Upfile("info", fmt.Sprintf("[%v] %v", clientIp, ERR_SpaceNotAuth))
 		c.JSON(http.StatusForbidden, ERR_SpaceNotAuth)
 		return
