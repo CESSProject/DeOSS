@@ -155,13 +155,20 @@ func (n *Node) trackFile(trackfile string) error {
 		}
 
 		// verify the space is authorized
-		authAcc, err := n.QuaryAuthorizedAccount(recordFile.Owner)
+		authAccs, err := n.QuaryAuthorizedAccounts(recordFile.Owner)
 		if err != nil {
 			if err.Error() != pattern.ERR_Empty {
 				return errors.Wrapf(err, "[%s] [QuaryAuthorizedAccount]", roothash)
 			}
 		}
-		if n.GetSignatureAcc() != authAcc {
+		var flag bool
+		for _, v := range authAccs {
+			if n.GetSignatureAcc() == v {
+				flag = true
+				break
+			}
+		}
+		if !flag {
 			baseDir := filepath.Dir(recordFile.SegmentInfo[0].SegmentHash)
 			os.RemoveAll(baseDir)
 			n.DeleteTrackFile(roothash)
@@ -276,13 +283,20 @@ func (n *Node) backupFiles(owner []byte, segmentInfo []pattern.SegmentDataInfo, 
 			_, err = n.GenerateStorageOrder(roothash, segmentInfo, owner, filename, bucketname, filesize)
 			if err != nil {
 				// verify the space is authorized
-				authAcc, err := n.QuaryAuthorizedAccount(owner)
+				authAccs, err := n.QuaryAuthorizedAccounts(owner)
 				if err != nil {
 					if err.Error() != pattern.ERR_Empty {
 						return 0, errors.Wrapf(err, "[QuaryAuthorizedAccount]")
 					}
 				}
-				if n.GetSignatureAcc() != authAcc {
+				var flag bool
+				for _, v := range authAccs {
+					if n.GetSignatureAcc() == v {
+						flag = true
+						break
+					}
+				}
+				if !flag {
 					baseDir := filepath.Dir(segmentInfo[0].SegmentHash)
 					os.RemoveAll(baseDir)
 					n.DeleteTrackFile(roothash)
