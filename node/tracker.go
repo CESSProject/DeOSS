@@ -365,7 +365,7 @@ func (n *Node) storageData(roothash string, segment []pattern.SegmentDataInfo, m
 			}
 		}
 
-		for i := 0; i < len(accs); i++ {
+		for j := 0; j < 3; j++ {
 			err = n.Connect(n.GetCtxQueryFromCtxCancel(), addr)
 			if err != nil {
 				failed = true
