@@ -305,9 +305,6 @@ func (n *Node) DelFromBlacklist(peerid string) {
 
 func (n *Node) RebuildDirs() {
 	os.RemoveAll(n.GetDirs().FileDir)
-	os.RemoveAll(n.GetDirs().IdleDataDir)
-	os.RemoveAll(n.GetDirs().IdleTagDir)
-	os.RemoveAll(n.GetDirs().ProofDir)
 	os.RemoveAll(n.GetDirs().ServiceTagDir)
 	os.RemoveAll(n.GetDirs().TmpDir)
 	os.RemoveAll(filepath.Join(n.Workspace(), configs.Db))
@@ -315,4 +312,5 @@ func (n *Node) RebuildDirs() {
 	os.RemoveAll(filepath.Join(n.Workspace(), configs.Track))
 	os.MkdirAll(n.GetDirs().FileDir, pattern.DirMode)
 	os.MkdirAll(n.GetDirs().TmpDir, pattern.DirMode)
+	os.MkdirAll(filepath.Join(n.Workspace(), configs.Track), pattern.DirMode)
 }
