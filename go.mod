@@ -3,9 +3,9 @@ module github.com/CESSProject/DeOSS
 go 1.19
 
 require (
-	github.com/CESSProject/cess-go-sdk v0.3.13-0.20230823082206-6c04f7fb1851
+	github.com/CESSProject/cess-go-sdk v0.3.13
 	github.com/CESSProject/go-keyring v0.0.0-20220614131247-ee3a8da30fde
-	github.com/CESSProject/p2p-go v0.1.12
+	github.com/CESSProject/p2p-go v0.1.13
 	github.com/btcsuite/btcutil v1.0.3-0.20201208143702-a53e38424cce
 	github.com/cbergoon/merkletree v0.2.0
 	github.com/centrifuge/go-substrate-rpc-client/v4 v4.1.0
