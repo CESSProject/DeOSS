@@ -37,7 +37,7 @@ type RecordInfo struct {
 // MinRecordInfoLength = len(json.Marshal(RecordInfo{}))
 const MinRecordInfoLength = 132
 
-var processingFiles []string
+const MaxTrackThread = 50
 
 // tracker
 func (n *Node) tracker(ch chan<- bool) {
@@ -65,16 +65,26 @@ func (n *Node) tracker(ch chan<- bool) {
 		}
 
 		for _, v := range trackFiles {
-			if !n.contains(processingFiles, v) {
-				processingFiles = append(processingFiles, v)
-				go n.trackFileThread(v)
+			if n.processFileNum() <= MaxTrackThread {
+				if !n.contains(v) {
+					n.addProcessFile(v)
+					go n.trackFileThread(v)
+				}
 			}
 		}
 	}
 }
 
-func (n *Node) contains(s []string, str string) bool {
-	for _, v := range s {
+func (n *Node) processFileNum() int {
+	n.processingFileLock.RLock()
+	defer n.processingFileLock.RUnlock()
+	return len(n.processingFiles)
+}
+
+func (n *Node) contains(str string) bool {
+	n.processingFileLock.RLock()
+	defer n.processingFileLock.RUnlock()
+	for _, v := range n.processingFiles {
 		if v == str {
 			return true
 		}
@@ -82,23 +92,28 @@ func (n *Node) contains(s []string, str string) bool {
 	return false
 }
 
-func (n *Node) remove(s []string, r string) []string {
-	for i, v := range s {
+func (n *Node) addProcessFile(str string) {
+	n.processingFileLock.Lock()
+	defer n.processingFileLock.Unlock()
+	n.processingFiles = append(n.processingFiles, str)
+}
+
+func (n *Node) removeProcessFile(r string) {
+	n.processingFileLock.Lock()
+	defer n.processingFileLock.Unlock()
+	for i, v := range n.processingFiles {
 		if v == r {
-			return append(s[:i], s[i+1:]...)
+			n.processingFiles = append(n.processingFiles[:i], n.processingFiles[i+1:]...)
 		}
 	}
-	return s
 }
 
 func (n *Node) trackFileThread(trackFile string) {
-	fmt.Println("Processing File:", trackFile)
 	err := n.trackFile(trackFile)
 	if err != nil {
 		n.Track("err", err.Error())
-		fmt.Println("recordErr:", err.Error())
 	}
-	processingFiles = n.remove(processingFiles, trackFile)
+	n.removeProcessFile(trackFile)
 }
 
 func (n *Node) trackFile(trackfile string) error {

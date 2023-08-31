@@ -45,24 +45,28 @@ type Node struct {
 	db.Cache
 	sdk.SDK
 	*gin.Engine
-	signkey       []byte
-	trackLock     *sync.RWMutex
-	lock          *sync.RWMutex
-	blacklistLock *sync.RWMutex
-	peers         map[string]peer.AddrInfo
-	blacklist     map[string]int64
-	trackDir      string
-	peersPath     string
+	signkey            []byte
+	processingFiles    []string
+	processingFileLock *sync.RWMutex
+	trackLock          *sync.RWMutex
+	lock               *sync.RWMutex
+	blacklistLock      *sync.RWMutex
+	peers              map[string]peer.AddrInfo
+	blacklist          map[string]int64
+	trackDir           string
+	peersPath          string
 }
 
 // New is used to build a node instance
 func New() *Node {
 	return &Node{
-		trackLock:     new(sync.RWMutex),
-		lock:          new(sync.RWMutex),
-		blacklistLock: new(sync.RWMutex),
-		peers:         make(map[string]peer.AddrInfo, 0),
-		blacklist:     make(map[string]int64, 0),
+		processingFileLock: new(sync.RWMutex),
+		trackLock:          new(sync.RWMutex),
+		lock:               new(sync.RWMutex),
+		blacklistLock:      new(sync.RWMutex),
+		processingFiles:    make([]string, 0),
+		peers:              make(map[string]peer.AddrInfo, 0),
+		blacklist:          make(map[string]int64, 0),
 	}
 }
 

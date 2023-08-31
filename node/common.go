@@ -60,6 +60,9 @@ func (n *Node) verifyToken(token string, respmsg *RespMsg) (string, []byte, erro
 
 // VerifyToken is used to parse and verify token
 func (n *Node) verifySignature(account, message, signature string) ([]byte, error) {
+	if account == "" || signature == "" {
+		return nil, errors.New("no identity authentication information")
+	}
 	pkey, err := sutils.ParsingPublickey(account)
 	if err != nil {
 		return nil, err
