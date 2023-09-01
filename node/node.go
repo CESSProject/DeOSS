@@ -54,6 +54,7 @@ type Node struct {
 	peers              map[string]peer.AddrInfo
 	blacklist          map[string]int64
 	trackDir           string
+	fadebackDir        string
 	peersPath          string
 }
 
@@ -195,6 +196,10 @@ func (n *Node) SetSignkey(signkey []byte) {
 
 func (n *Node) SetTrackDir(dir string) {
 	n.trackDir = dir
+}
+
+func (n *Node) SetFadebackDir(dir string) {
+	n.fadebackDir = dir
 }
 
 func (n *Node) WriteTrackFile(filehash string, data []byte) error {
