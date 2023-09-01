@@ -42,6 +42,7 @@ func cmd_run_func(cmd *cobra.Command, args []string) {
 		logDir         string
 		dbDir          string
 		trackDir       string
+		fadebackDir    string
 		protocolPrefix string
 		bootEnv        string
 		syncSt         pattern.SysSyncState
@@ -158,12 +159,13 @@ func cmd_run_func(cmd *cobra.Command, args []string) {
 		n.RebuildDirs()
 	}
 
-	logDir, dbDir, trackDir, err = buildDir(n.Workspace())
+	logDir, dbDir, trackDir, fadebackDir, err = buildDir(n.Workspace())
 	if err != nil {
 		out.Err(err.Error())
 		os.Exit(1)
 	}
 	n.SetTrackDir(trackDir)
+	n.SetFadebackDir(fadebackDir)
 
 	// Build cache
 	n.Cache, err = buildCache(dbDir)
@@ -345,23 +347,28 @@ func buildAuthenticationConfig(cmd *cobra.Command) (confile.Confile, error) {
 	return cfg, nil
 }
 
-func buildDir(workspace string) (string, string, string, error) {
+func buildDir(workspace string) (string, string, string, string, error) {
 	logDir := filepath.Join(workspace, configs.Log)
 	if err := os.MkdirAll(logDir, pattern.DirMode); err != nil {
-		return "", "", "", err
+		return "", "", "", "", err
 	}
 
 	cacheDir := filepath.Join(workspace, configs.Db)
 	if err := os.MkdirAll(cacheDir, pattern.DirMode); err != nil {
-		return "", "", "", err
+		return "", "", "", "", err
 	}
 
 	trackDir := filepath.Join(workspace, configs.Track)
 	if err := os.MkdirAll(trackDir, pattern.DirMode); err != nil {
-		return "", "", "", err
+		return "", "", "", "", err
 	}
 
-	return logDir, cacheDir, trackDir, nil
+	fadebackDir := filepath.Join(workspace, configs.Fadeback)
+	if err := os.MkdirAll(fadebackDir, pattern.DirMode); err != nil {
+		return "", "", "", "", err
+	}
+
+	return logDir, cacheDir, trackDir, fadebackDir, nil
 }
 
 func buildCache(cacheDir string) (db.Cache, error) {
