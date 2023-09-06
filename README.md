@@ -89,7 +89,7 @@ service iptables restart
 ### Method one
 Download the latest release of the binary application directly at：
 ```
-wget https://github.com/CESSProject/DeOSS/releases/download/v0.3.0/deoss
+wget https://github.com/CESSProject/DeOSS/releases/download/v0.3.1/deoss
 ```
 
 ### Method two
