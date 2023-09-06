@@ -9,7 +9,6 @@ package node
 
 import (
 	"fmt"
-	"reflect"
 	"time"
 
 	"github.com/CESSProject/DeOSS/pkg/utils"
@@ -59,7 +58,7 @@ func (n *Node) discoverMgt(ch chan<- bool) {
 				var addrInfo peer.AddrInfo
 				var addrs []multiaddr.Multiaddr
 				for _, addr := range v.Addrs {
-					if !reflect.ValueOf(addr).IsNil() {
+					if !utils.InterfaceIsNIL(addr) {
 						if ipv4, ok := utils.FildIpv4([]byte(addr.String())); ok {
 							if ok, err := utils.IsIntranetIpv4(ipv4); err == nil {
 								if !ok {
