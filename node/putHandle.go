@@ -12,7 +12,6 @@ import (
 
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -180,7 +179,7 @@ func (n *Node) putHandle(c *gin.Context) {
 			c.JSON(http.StatusBadRequest, err.Error())
 			return
 		}
-		buf, _ := ioutil.ReadAll(c.Request.Body)
+		buf, _ := io.ReadAll(c.Request.Body)
 		if len(buf) == 0 {
 			txHash, err := n.CreateBucket(pkey, bucketName)
 			if err != nil {
