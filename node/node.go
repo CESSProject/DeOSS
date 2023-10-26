@@ -26,6 +26,7 @@ import (
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
 	"github.com/CESSProject/cess-go-sdk/core/sdk"
 	sutils "github.com/CESSProject/cess-go-sdk/core/utils"
+	"github.com/CESSProject/p2p-go/core"
 	"github.com/CESSProject/p2p-go/out"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -44,6 +45,7 @@ type Node struct {
 	logger.Logger
 	db.Cache
 	sdk.SDK
+	core.P2P
 	*gin.Engine
 	signkey            []byte
 	processingFiles    []string
@@ -56,6 +58,8 @@ type Node struct {
 	trackDir           string
 	fadebackDir        string
 	peersPath          string
+	ufileDir           string
+	dfileDir           string
 }
 
 // New is used to build a node instance
@@ -200,6 +204,14 @@ func (n *Node) SetTrackDir(dir string) {
 
 func (n *Node) SetFadebackDir(dir string) {
 	n.fadebackDir = dir
+}
+
+func (n *Node) SetUfileDir(dir string) {
+	n.ufileDir = dir
+}
+
+func (n *Node) SetDfileDir(dir string) {
+	n.dfileDir = dir
 }
 
 func (n *Node) WriteTrackFile(filehash string, data []byte) error {

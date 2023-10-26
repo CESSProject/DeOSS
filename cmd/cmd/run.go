@@ -25,6 +25,7 @@ import (
 	sconfig "github.com/CESSProject/cess-go-sdk/config"
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
 	sutils "github.com/CESSProject/cess-go-sdk/core/utils"
+	p2pgo "github.com/CESSProject/p2p-go"
 	"github.com/CESSProject/p2p-go/config"
 	"github.com/CESSProject/p2p-go/core"
 	"github.com/CESSProject/p2p-go/out"
@@ -43,12 +44,14 @@ func cmd_run_func(cmd *cobra.Command, args []string) {
 		dbDir          string
 		trackDir       string
 		fadebackDir    string
+		ufileDir       string
+		dfileDir       string
 		protocolPrefix string
 		bootEnv        string
 		syncSt         pattern.SysSyncState
 		n              = node.New()
 	)
-
+	ctx := context.Background()
 	// Building Profile Instances
 	n.Confile, err = buildConfigFile(cmd)
 	if err != nil {
@@ -90,19 +93,26 @@ func cmd_run_func(cmd *cobra.Command, args []string) {
 
 	// Build sdk
 	n.SDK, err = sdkgo.New(
-		context.Background(),
+		ctx,
 		sconfig.CharacterName_Deoss,
 		sdkgo.ConnectRpcAddrs(n.GetRpcAddr()),
 		sdkgo.Mnemonic(n.GetMnemonic()),
 		sdkgo.TransactionTimeout(configs.TimeOut_WaitBlock),
-		sdkgo.Workspace(n.GetWorkspace()),
-		sdkgo.P2pPort(n.GetP2pPort()),
-		sdkgo.Bootnodes(n.GetBootNodes()),
-		sdkgo.ProtocolPrefix(protocolPrefix),
 	)
 	if err != nil {
 		out.Err(err.Error())
 		os.Exit(1)
+	}
+
+	n.P2P, err = p2pgo.New(
+		ctx,
+		p2pgo.ListenPort(n.GetP2pPort()),
+		p2pgo.Workspace(filepath.Join(n.GetWorkspace(), n.GetSignatureAcc(), n.GetSdkName())),
+		p2pgo.BootPeers(n.GetBootNodes()),
+		p2pgo.ProtocolPrefix(protocolPrefix),
+	)
+	if err != nil {
+		panic(err)
 	}
 
 	out.Tip(fmt.Sprintf("chain network: %s", n.GetNetworkEnv()))
@@ -139,7 +149,7 @@ func cmd_run_func(cmd *cobra.Command, args []string) {
 		time.Sleep(time.Second * time.Duration(utils.Ternary(int64(syncSt.HighestBlock-syncSt.CurrentBlock)*6, 30)))
 	}
 
-	_, err = n.QueryDeossPeerPublickey(n.GetSignatureAccPulickey())
+	ossinfo, err := n.QueryDeossInfo(n.GetSignatureAccPulickey())
 	if err != nil {
 		if err.Error() == pattern.ERR_Empty {
 			registerFlag = true
@@ -149,23 +159,29 @@ func cmd_run_func(cmd *cobra.Command, args []string) {
 		}
 	}
 
-	_, err = n.RegisterOrUpdateDeoss(n.GetPeerPublickey())
-	if err != nil {
-		out.Err(fmt.Sprintf("Register or update err: %v", err))
-		os.Exit(1)
-	}
-
 	if registerFlag {
+		_, err = n.RegisterDeoss(n.GetPeerPublickey(), n.GetDomainName())
+		if err != nil {
+			out.Err(fmt.Sprintf("register deoss failed: %v", err))
+			os.Exit(1)
+		}
 		n.RebuildDirs()
+	} else {
+		newPeerid := n.GetPeerPublickey()
+		if sutils.CompareSlice([]byte(string(ossinfo.Peerid[:])), newPeerid) {
+			n.UpdateDeoss(string(newPeerid), n.GetDomainName())
+		}
 	}
 
-	logDir, dbDir, trackDir, fadebackDir, err = buildDir(n.Workspace())
+	logDir, dbDir, trackDir, fadebackDir, ufileDir, dfileDir, err = buildDir(n.Workspace())
 	if err != nil {
 		out.Err(err.Error())
 		os.Exit(1)
 	}
 	n.SetTrackDir(trackDir)
 	n.SetFadebackDir(fadebackDir)
+	n.SetUfileDir(ufileDir)
+	n.SetDfileDir(dfileDir)
 
 	// Build cache
 	n.Cache, err = buildCache(dbDir)
@@ -347,28 +363,36 @@ func buildAuthenticationConfig(cmd *cobra.Command) (confile.Confile, error) {
 	return cfg, nil
 }
 
-func buildDir(workspace string) (string, string, string, string, error) {
+func buildDir(workspace string) (string, string, string, string, string, string, error) {
 	logDir := filepath.Join(workspace, configs.Log)
 	if err := os.MkdirAll(logDir, pattern.DirMode); err != nil {
-		return "", "", "", "", err
+		return "", "", "", "", "", "", err
 	}
 
 	cacheDir := filepath.Join(workspace, configs.Db)
 	if err := os.MkdirAll(cacheDir, pattern.DirMode); err != nil {
-		return "", "", "", "", err
+		return "", "", "", "", "", "", err
 	}
 
 	trackDir := filepath.Join(workspace, configs.Track)
 	if err := os.MkdirAll(trackDir, pattern.DirMode); err != nil {
-		return "", "", "", "", err
+		return "", "", "", "", "", "", err
 	}
 
 	fadebackDir := filepath.Join(workspace, configs.Fadeback)
 	if err := os.MkdirAll(fadebackDir, pattern.DirMode); err != nil {
-		return "", "", "", "", err
+		return "", "", "", "", "", "", err
 	}
 
-	return logDir, cacheDir, trackDir, fadebackDir, nil
+	ufileDir := filepath.Join(workspace, configs.Ufile)
+	if err := os.MkdirAll(ufileDir, pattern.DirMode); err != nil {
+		return "", "", "", "", "", "", err
+	}
+	dfileDir := filepath.Join(workspace, configs.Dfile)
+	if err := os.MkdirAll(dfileDir, pattern.DirMode); err != nil {
+		return "", "", "", "", "", "", err
+	}
+	return logDir, cacheDir, trackDir, fadebackDir, ufileDir, dfileDir, nil
 }
 
 func buildCache(cacheDir string) (db.Cache, error) {

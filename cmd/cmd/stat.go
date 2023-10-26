@@ -17,6 +17,7 @@ import (
 	"github.com/CESSProject/DeOSS/node"
 	sdkgo "github.com/CESSProject/cess-go-sdk"
 	sconfig "github.com/CESSProject/cess-go-sdk/config"
+	"github.com/CESSProject/cess-go-sdk/core/pattern"
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/spf13/cobra"
@@ -53,15 +54,20 @@ func cmd_stat_func(cmd *cobra.Command, args []string) {
 		log.Println(err)
 		os.Exit(1)
 	}
-	peerPublickey, err := n.QueryDeossPeerPublickey(pubkey)
-	if err != nil || peerPublickey == nil {
-		log.Printf("[err] %v\n", err)
+	ossinfo, err := n.QueryDeossInfo(pubkey)
+	if err != nil {
+		if err.Error() == pattern.ERR_Empty {
+			log.Printf("[err] You are not registered as an oss role\n")
+		} else {
+			log.Printf("[err] %v\n", pattern.ERR_RPC_CONNECTION)
+		}
 		os.Exit(1)
 	}
 	var tableRows = []table.Row{
-		{"role", n.GetSdkName()},
-		{"peer id", base58.Encode(peerPublickey)},
+		{"role", "deoss"},
+		{"peer id", base58.Encode([]byte(string(ossinfo.Peerid[:])))},
 		{"signature account", n.GetSignatureAcc()},
+		{"domain name", string(ossinfo.Domain)},
 	}
 	tw := table.NewWriter()
 	tw.AppendRows(tableRows)

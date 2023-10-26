@@ -22,6 +22,7 @@ const (
 	HTTPHeader_Message       = "Message"
 	HTTPHeader_Signature     = "Signature"
 	HTTPHeader_Fid           = "Fid"
+	HTTPHeader_Cipher        = "cipher"
 )
 
 const (
@@ -44,9 +45,11 @@ const MaxMemUsed = 512 << 20
 const (
 	//ERR_ReportProblem = "Sorry, please report this problem to the service provider:"
 
-	INFO_PutRequest = "PutRequest"
-	INFO_GetRequest = "GetRequest"
-	INFO_DelRequest = "DelRequest"
+	INFO_PutRequest         = "PutRequest"
+	INFO_PostRestoreRequest = "PostRestoreRequest"
+	INFO_GetRequest         = "GetRequest"
+	INFO_GetRestoreRequest  = "GetRestoreRequest"
+	INFO_DelRequest         = "DelRequest"
 
 	ERR_DuplicateOrder        = "duplicate order"
 	ERR_MissToken             = "InvalidHead.MissToken"
@@ -94,4 +97,11 @@ const (
 	ERR_SysMemNoLeft = "server unsupported file size"
 
 	ERR_ReceiveFile = "InternalError"
+)
+
+const (
+	Cache_SyncBlock       = "syncblock"
+	Cache_UserFiles       = "userfiles:"
+	Cache_UserDeleteFiles = "userdeletefiles:"
+	Cache_WantFiles       = "wantfiles:"
 )

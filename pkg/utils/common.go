@@ -103,6 +103,30 @@ func DirFiles(path string, count uint32) ([]string, error) {
 	return files, nil
 }
 
+// Get the total size of all files in a directory and subdirectories
+func DirDirs(path string, count uint32) ([]string, error) {
+	var dirs = make([]string, 0)
+	result, err := filepath.Glob(path + "/*")
+	if err != nil {
+		return nil, err
+	}
+	for _, v := range result {
+		f, err := os.Stat(v)
+		if err != nil {
+			continue
+		}
+		if f.IsDir() {
+			dirs = append(dirs, v)
+		}
+		if count > 0 {
+			if len(dirs) >= int(count) {
+				break
+			}
+		}
+	}
+	return dirs, nil
+}
+
 func RenameDir(oldDir, newDir string) error {
 	files, err := DirFiles(oldDir, 0)
 	if err != nil {
