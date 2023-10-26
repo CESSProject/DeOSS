@@ -9,16 +9,103 @@ package node
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 	"time"
 
+	"github.com/CESSProject/DeOSS/pkg/db"
 	"github.com/CESSProject/DeOSS/pkg/utils"
+	"github.com/CESSProject/cess-go-sdk/core/pattern"
 	sutils "github.com/CESSProject/cess-go-sdk/core/utils"
 	"github.com/CESSProject/p2p-go/core"
 	"github.com/ipfs/go-cid"
 	"github.com/ipfs/go-libipfs/blocks"
+	"github.com/mr-tron/base58"
 )
+
+func (n *Node) syncFiles(ch chan<- bool) {
+	defer func() {
+		ch <- true
+	}()
+	var err error
+	var data []byte
+	var pubkey []byte
+	var size int64
+	var wantfiles = make([]wantFile, 0)
+	var ossinfo pattern.OssInfo
+
+	for {
+		data, err = n.Get([]byte(Cache_WantFiles))
+		if err != nil {
+			if !errors.Is(err, db.NotFound) {
+				n.Log("err", err.Error())
+				time.Sleep(pattern.BlockInterval)
+			} else {
+				time.Sleep(time.Minute)
+			}
+			continue
+		}
+		err = json.Unmarshal(data, &wantfiles)
+		if err != nil {
+			n.Log("err", err.Error())
+			time.Sleep(pattern.BlockInterval)
+			continue
+		}
+		for i := 0; i < len(wantfiles); i++ {
+			_, err = os.Stat(filepath.Join(n.GetDirs().FileDir, wantfiles[i].File))
+			if err == nil {
+				continue
+			}
+			pubkey, err = sutils.ParsingPublickey(wantfiles[i].Operator)
+			if err != nil {
+				n.Log("err", err.Error())
+				continue
+			}
+
+			ossinfo, err = n.QueryDeossInfo(pubkey)
+			if err != nil {
+				n.Log("err", err.Error())
+				continue
+			}
+
+			addr, ok := n.GetPeer(base58.Encode([]byte(string(ossinfo.Peerid[:]))))
+			if !ok {
+				continue
+			}
+
+			if n.ID().Pretty() == addr.ID.Pretty() {
+				continue
+			}
+
+			err = n.Connect(n.GetCtxQueryFromCtxCancel(), addr)
+			if err != nil {
+				continue
+			}
+
+			fmeta, err := n.QueryFileMetadata(wantfiles[i].File)
+			if err != nil {
+				n.Log("err", err.Error())
+				sorder, err := n.QueryStorageOrder(wantfiles[i].File)
+				if err != nil {
+					n.Log("err", err.Error())
+					continue
+				} else {
+					size = sorder.FileSize.Int64()
+				}
+			} else {
+				size = fmeta.FileSize.Int64()
+			}
+
+			err = n.ReadDataAction(addr.ID, wantfiles[i].File, wantfiles[i].File, filepath.Join(n.GetDirs().FileDir, wantfiles[i].File), size)
+			if err != nil {
+				n.Log("err", err.Error())
+			}
+		}
+	}
+}
 
 func (n *Node) getBlocks(ch chan<- bool) {
 	defer func() {

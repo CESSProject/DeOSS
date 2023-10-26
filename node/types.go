@@ -101,4 +101,5 @@ const (
 	Cache_SyncBlock       = "syncblock"
 	Cache_UserFiles       = "userfiles:"
 	Cache_UserDeleteFiles = "userdeletefiles:"
+	Cache_WantFiles       = "wantfiles:"
 )

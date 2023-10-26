@@ -23,13 +23,15 @@ func (n *Node) TaskMgt() {
 		ch_findPeers = make(chan bool, 1)
 		ch_recvPeers = make(chan bool, 1)
 
-		ch_trackFile = make(chan bool, 1)
-		//ch_discoverMgt = make(chan bool, 1)
-		ch_sdkMgt    = make(chan bool, 1)
 		ch_syncBlock = make(chan bool, 1)
+		ch_syncFile  = make(chan bool, 1)
+
+		ch_trackFile = make(chan bool, 1)
+		ch_sdkMgt    = make(chan bool, 1)
 
 		//ch_notifyBlocks = make(chan bool, 1)
 		//ch_getBlock1 = make(chan bool, 1)
+		//ch_discoverMgt = make(chan bool, 1)
 	)
 
 	go n.findPeers(ch_findPeers)
@@ -39,6 +41,8 @@ func (n *Node) TaskMgt() {
 	// go n.noticyBlocks(ch_notifyBlocks)
 
 	go n.syncBlock(ch_syncBlock)
+	go n.syncFiles(ch_syncFile)
+
 	go n.tracker(ch_trackFile)
 	go n.sdkMgt(ch_sdkMgt)
 
@@ -107,14 +111,17 @@ func (n *Node) TaskMgt() {
 		case <-ch_recvPeers:
 			go n.recvPeers(ch_recvPeers)
 
+		case <-ch_syncBlock:
+			go n.syncBlock(ch_syncBlock)
+
+		case <-ch_syncFile:
+			go n.syncFiles(ch_syncFile)
+
 		case <-ch_trackFile:
 			go n.tracker(ch_trackFile)
 
 		case <-ch_sdkMgt:
 			go n.sdkMgt(ch_sdkMgt)
-
-		case <-ch_syncBlock:
-			go n.syncBlock(ch_syncBlock)
 
 			// case <-ch_notifyBlocks:
 			// 	go n.noticyBlocks(ch_notifyBlocks)

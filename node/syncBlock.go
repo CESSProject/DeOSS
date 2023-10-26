@@ -27,6 +27,11 @@ type userFiles struct {
 	Files []string `json:"files"`
 }
 
+type wantFile struct {
+	Operator string `json:"operator"`
+	File     string `json:"file"`
+}
+
 func (n *Node) syncBlock(ch chan<- bool) {
 	defer func() {
 		ch <- true
@@ -114,7 +119,12 @@ func (n *Node) syncBlock(ch chan<- bool) {
 		n.Block("err", fmt.Sprintf("Start retrieving blocks: %v", retrievedBlock))
 		uploadDeclaration, _ := n.RetrieveAllEvent_FileBank_UploadDeclaration(blockhash)
 		if len(uploadDeclaration) > 0 {
+			var wantfiles = make([]wantFile, 0)
 			for i := 0; i < len(uploadDeclaration); i++ {
+				wantfiles = append(wantfiles, wantFile{
+					Operator: uploadDeclaration[i].Operator,
+					File:     uploadDeclaration[i].Filehash,
+				})
 				data, err := n.Get([]byte(Cache_UserFiles + uploadDeclaration[i].Owner))
 				if err != nil {
 					if errors.Is(err, db.NotFound) {
@@ -161,6 +171,40 @@ func (n *Node) syncBlock(ch chan<- bool) {
 					err = n.saveUserFileToFile(uploadDeclaration[i].Owner, uploadDeclaration[i].Filehash)
 					if err != nil {
 						n.Block("err", fmt.Sprintf("[saveUserFileToFile] %v", err))
+					}
+				}
+			}
+
+			if len(wantfiles) > 0 {
+				data, err := n.Get([]byte(Cache_WantFiles))
+				if err != nil {
+					if errors.Is(err, db.NotFound) {
+						data, err = json.Marshal(&wantfiles)
+						if err != nil {
+							n.Block("err", fmt.Sprintf("[Put] %v", err))
+						} else {
+							n.Put([]byte(Cache_WantFiles), data)
+						}
+					}
+				} else {
+					var wantfiles_old = make([]wantFile, 0)
+					err = json.Unmarshal(data, &wantfiles_old)
+					if err != nil {
+						n.Block("err", fmt.Sprintf("[Unmarshal] %v", err))
+						data, err = json.Marshal(&wantfiles)
+						if err != nil {
+							n.Block("err", fmt.Sprintf("[Put] %v", err))
+						} else {
+							n.Put([]byte(Cache_WantFiles), data)
+						}
+					} else {
+						wantfiles_old = append(wantfiles_old, wantfiles...)
+						data, err = json.Marshal(&wantfiles_old)
+						if err != nil {
+							n.Block("err", fmt.Sprintf("[Put] %v", err))
+						} else {
+							n.Put([]byte(Cache_WantFiles), data)
+						}
 					}
 				}
 			}
