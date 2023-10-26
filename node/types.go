@@ -45,9 +45,10 @@ const MaxMemUsed = 512 << 20
 const (
 	//ERR_ReportProblem = "Sorry, please report this problem to the service provider:"
 
-	INFO_PutRequest = "PutRequest"
-	INFO_GetRequest = "GetRequest"
-	INFO_DelRequest = "DelRequest"
+	INFO_PutRequest        = "PutRequest"
+	INFO_GetRequest        = "GetRequest"
+	INFO_GetRestoreRequest = "GetRestoreRequest"
+	INFO_DelRequest        = "DelRequest"
 
 	ERR_DuplicateOrder        = "duplicate order"
 	ERR_MissToken             = "InvalidHead.MissToken"

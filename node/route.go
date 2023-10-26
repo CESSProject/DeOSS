@@ -16,6 +16,8 @@ func (n *Node) addRoute() {
 
 	n.Engine.GET(fmt.Sprintf("/:%s", HTTP_ParameterName), n.getHandle)
 
+	n.Engine.GET("/restore/list", n.getRestoreHandle)
+
 	n.Engine.PUT("/", n.putHandle)
 
 	n.Engine.DELETE(fmt.Sprintf("/:%s", HTTP_ParameterName), n.delHandle)
