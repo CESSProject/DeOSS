@@ -14,9 +14,11 @@ func (n *Node) addRoute() {
 
 	n.Engine.POST("/feedback/log", n.fadebackHandle)
 
+	n.Engine.POST("/restore", n.postRestoreHandle)
+
 	n.Engine.GET(fmt.Sprintf("/:%s", HTTP_ParameterName), n.getHandle)
 
-	n.Engine.GET("/restore/list", n.getRestoreHandle)
+	n.Engine.GET("/restore", n.getRestoreHandle)
 
 	n.Engine.PUT("/", n.putHandle)
 

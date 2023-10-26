@@ -46,8 +46,8 @@ git.apache.org/thrift.git v0.0.0-20180902110319-2566ecd5d999/go.mod h1:fPE2ZNJGy
 github.com/BurntSushi/toml v0.3.1 h1:WXkYYl6Yr3qBf1K79EBnL4mak0OimBfB0XUf9Vl28OQ=
 github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03qcyfWMU=
 github.com/BurntSushi/xgb v0.0.0-20160522181843-27f122750802/go.mod h1:IVnqGOEym/WlBOVXweHU+Q+/VP0lqqI8lqeDx9IjBqo=
-github.com/CESSProject/cess-go-sdk v0.3.18-0.20231026034331-b137099a12c6 h1:kus58qSZiN+UzETGP9nvym1ntb61rsn7zBWnztdQa4I=
-github.com/CESSProject/cess-go-sdk v0.3.18-0.20231026034331-b137099a12c6/go.mod h1:x37J5WrzBYwFK3c2BkU9oLvhTmN0hrGwFV6NczTHrkM=
+github.com/CESSProject/cess-go-sdk v0.3.18-0.20231026073030-7bdf70164352 h1:YCFmfKzSE+aFbqCA4BYNg5WYhcavSt19VHS375wa21o=
+github.com/CESSProject/cess-go-sdk v0.3.18-0.20231026073030-7bdf70164352/go.mod h1:x37J5WrzBYwFK3c2BkU9oLvhTmN0hrGwFV6NczTHrkM=
 github.com/CESSProject/go-keyring v0.0.0-20220614131247-ee3a8da30fde h1:5MDRjjtg6PEhqyVjupwaapN96cOZiddOGAYwKQeaTu0=
 github.com/CESSProject/go-keyring v0.0.0-20220614131247-ee3a8da30fde/go.mod h1:RUXBd3ROP98MYepEEa0Y0l/T0vQlIKqFJxI/ocdnRLM=
 github.com/CESSProject/p2p-go v0.2.2-0.20231025024331-3764eba8a85a h1:7eMcDYbqupidqwjIw8IbOwyts3Qc6LcrQP/HupHy5bg=

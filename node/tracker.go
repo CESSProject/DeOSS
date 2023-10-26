@@ -292,6 +292,17 @@ func (n *Node) backupFiles(owner []byte, segmentInfo []pattern.SegmentDataInfo, 
 		return 0, nil
 	}
 
+	if segmentInfo == nil {
+		resegmentInfo, reHash, err := n.ShardedEncryptionProcessing(filepath.Join(n.GetDirs().FileDir, roothash), "")
+		if err != nil {
+			return 0, errors.Wrapf(err, "[ShardedEncryptionProcessing]")
+		}
+		if reHash != reHash {
+			return 0, errors.Wrapf(err, "The re-stored file hash is not consistent, please store it separately and specify the original encryption key.")
+		}
+		segmentInfo = resegmentInfo
+	}
+
 	storageOrder, err = n.QueryStorageOrder(roothash)
 	if err != nil {
 		if err.Error() == pattern.ERR_Empty {
