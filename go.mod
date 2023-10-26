@@ -3,9 +3,9 @@ module github.com/CESSProject/DeOSS
 go 1.20
 
 require (
-	github.com/CESSProject/cess-go-sdk v0.3.17
+	github.com/CESSProject/cess-go-sdk v0.3.18-0.20231026034331-b137099a12c6
 	github.com/CESSProject/go-keyring v0.0.0-20220614131247-ee3a8da30fde
-	github.com/CESSProject/p2p-go v0.2.1
+	github.com/CESSProject/p2p-go v0.2.2-0.20231025024331-3764eba8a85a
 	github.com/btcsuite/btcutil v1.0.3-0.20201208143702-a53e38424cce
 	github.com/cbergoon/merkletree v0.2.0
 	github.com/centrifuge/go-substrate-rpc-client/v4 v4.1.0
@@ -14,6 +14,8 @@ require (
 	github.com/gin-gonic/gin v1.9.0
 	github.com/google/uuid v1.3.0
 	github.com/howeyc/gopass v0.0.0-20210920133722-c8aef6fb66ef
+	github.com/ipfs/go-cid v0.4.1
+	github.com/ipfs/go-libipfs v0.4.0
 	github.com/jedib0t/go-pretty/v6 v6.4.6
 	github.com/libp2p/go-libp2p v0.30.0
 	github.com/mr-tron/base58 v1.2.0
@@ -85,7 +87,6 @@ require (
 	github.com/ipfs/bbloom v0.0.4 // indirect
 	github.com/ipfs/boxo v0.12.0 // indirect
 	github.com/ipfs/go-block-format v0.1.2 // indirect
-	github.com/ipfs/go-cid v0.4.1 // indirect
 	github.com/ipfs/go-datastore v0.6.0 // indirect
 	github.com/ipfs/go-ipfs-blockstore v1.3.0 // indirect
 	github.com/ipfs/go-ipfs-delay v0.0.1 // indirect
@@ -93,7 +94,6 @@ require (
 	github.com/ipfs/go-ipfs-pq v0.0.3 // indirect
 	github.com/ipfs/go-ipfs-util v0.0.2 // indirect
 	github.com/ipfs/go-ipld-format v0.5.0 // indirect
-	github.com/ipfs/go-libipfs v0.4.0 // indirect
 	github.com/ipfs/go-log v1.0.5 // indirect
 	github.com/ipfs/go-log/v2 v2.5.1 // indirect
 	github.com/ipfs/go-metrics-interface v0.0.1 // indirect
@@ -156,7 +156,6 @@ require (
 	github.com/prometheus/common v0.44.0 // indirect
 	github.com/prometheus/procfs v0.11.1 // indirect
 	github.com/quic-go/qpack v0.4.0 // indirect
-	github.com/quic-go/qtls-go1-19 v0.2.1 // indirect
 	github.com/quic-go/qtls-go1-20 v0.3.2 // indirect
 	github.com/quic-go/quic-go v0.38.0 // indirect
 	github.com/quic-go/webtransport-go v0.5.3 // indirect
@@ -201,5 +200,4 @@ require (
 	gopkg.in/natefinch/npipe.v2 v2.0.0-20160621034901-c1b8fa8bdcce // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	lukechampine.com/blake3 v1.2.1 // indirect
-	nhooyr.io/websocket v1.8.7 // indirect
 )

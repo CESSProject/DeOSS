@@ -28,4 +28,8 @@ const (
 	Track = "track"
 	//
 	Fadeback = "fadeback"
+	//
+	Ufile = "ufile"
+	//
+	Dfile = "dfile"
 )

@@ -22,6 +22,7 @@ const (
 	HTTPHeader_Message       = "Message"
 	HTTPHeader_Signature     = "Signature"
 	HTTPHeader_Fid           = "Fid"
+	HTTPHeader_Cipher        = "cipher"
 )
 
 const (
@@ -94,4 +95,10 @@ const (
 	ERR_SysMemNoLeft = "server unsupported file size"
 
 	ERR_ReceiveFile = "InternalError"
+)
+
+const (
+	Cache_SyncBlock       = "syncblock"
+	Cache_UserFiles       = "userfiles:"
+	Cache_UserDeleteFiles = "userdeletefiles:"
 )

@@ -33,12 +33,10 @@ func (n *Node) putHandle(c *gin.Context) {
 		ok       bool
 		err      error
 		clientIp string
-		account  string
 		fpath    string
 		roothash string
 		savedir  string
 		filename string
-		pkey     []byte
 		respMsg  = &RespMsg{}
 	)
 
@@ -48,17 +46,32 @@ func (n *Node) putHandle(c *gin.Context) {
 
 	// verify the authorization
 	token := c.Request.Header.Get(HTTPHeader_Authorization)
-	account, pkey, err = n.verifyToken(token, respMsg)
+	account := c.Request.Header.Get(HTTPHeader_Account)
+	message := c.Request.Header.Get(HTTPHeader_Message)
+	signature := c.Request.Header.Get(HTTPHeader_Signature)
+	cipher := c.Request.Header.Get(HTTPHeader_Cipher)
+	if len(cipher) > 32 {
+		n.Upfile("err", fmt.Sprintf("[%v] The length of cipher cannot exceed 32", clientIp))
+		c.JSON(http.StatusBadRequest, "The length of cipher cannot exceed 32")
+		return
+	}
+
+	userAccount, pkey, err := n.verifyToken(token, respMsg)
 	if err != nil {
-		account = c.Request.Header.Get(HTTPHeader_Account)
-		message := c.Request.Header.Get(HTTPHeader_Message)
-		signature := c.Request.Header.Get(HTTPHeader_Signature)
-		pkey, err = n.verifySignature(account, message, signature)
-		if err != nil {
+		if account != "" && signature != "" {
+			pkey, err = n.verifySignature(account, message, signature)
+			if err != nil {
+				n.Upfile("info", fmt.Sprintf("[%v] %v", clientIp, err))
+				c.JSON(respMsg.Code, err.Error())
+				return
+			}
+		} else {
 			n.Upfile("info", fmt.Sprintf("[%v] %v", clientIp, err))
 			c.JSON(respMsg.Code, err.Error())
 			return
 		}
+	} else {
+		account = userAccount
 	}
 
 	// verify the bucket name
@@ -221,7 +234,7 @@ func (n *Node) putHandle(c *gin.Context) {
 	}
 
 	if filename == "" {
-		filename = "null"
+		filename = fmt.Sprintf("%v.ces", time.Now().Unix())
 	}
 
 	if len(filename) < 3 {
@@ -241,12 +254,40 @@ func (n *Node) putHandle(c *gin.Context) {
 		return
 	}
 
-	segmentInfo, roothash, err := n.ProcessingData(fpath)
+	segmentInfo, roothash, err := n.ShardedEncryptionProcessing(fpath, cipher)
 	if err != nil {
 		n.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, err))
 		c.JSON(http.StatusInternalServerError, err.Error())
 		return
 	}
+
+	// for i := 0; i < len(segmentInfo); i++ {
+	// 	for j := 0; j < len(segmentInfo[i].FragmentHash); j++ {
+	// 		mycid, err := n.FidToCid(filepath.Base(segmentInfo[i].FragmentHash[j]))
+	// 		n.Upfile("info", fmt.Sprintf("[%v] my cid from hash-1: %v ,%v", clientIp, mycid, err))
+	// 	}
+	// }
+
+	// n.Upfile("info", fmt.Sprintf("[%v] segmentInfo: %v", clientIp, segmentInfo))
+	// savedCid, err := n.saveToBlockStore(segmentInfo)
+	// if err != nil {
+	// 	n.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, err))
+	// 	c.JSON(http.StatusInternalServerError, err.Error())
+	// 	return
+	// }
+
+	// n.Upfile("info", fmt.Sprintf("[%v] save successed cids: %v", clientIp, savedCid))
+
+	// for i := 0; i < len(savedCid); i++ {
+	// 	buf, err := n.GetDataFromBlock(savedCid[i])
+	// 	if err != nil {
+	// 		n.Upfile("err", fmt.Sprintf("[%v] get data from %v failed", clientIp, savedCid[i]))
+	// 	} else {
+	// 		n.Upfile("info", fmt.Sprintf("[%v] get data from %v suc", clientIp, savedCid[i]))
+	// 		myhash, err := sutils.CalcSHA256(buf)
+	// 		n.Upfile("info", fmt.Sprintf("[%v] get data and calc hash: %v , %v", clientIp, myhash, err))
+	// 	}
+	// }
 
 	ok, err = n.deduplication(pkey, segmentInfo, roothash, filename, bucketName, uint64(fstat.Size()))
 	if err != nil {
@@ -394,4 +435,26 @@ func (n *Node) deduplication(pkey []byte, segmentInfo []pattern.SegmentDataInfo,
 	}
 
 	return false, nil
+}
+
+func (n *Node) saveToBlockStore(segmentInfo []pattern.SegmentDataInfo) ([]string, error) {
+	var err error
+	var buf []byte
+	var savedCid = make([]string, 0)
+	for _, segment := range segmentInfo {
+		for _, fragment := range segment.FragmentHash {
+			buf, err = os.ReadFile(fragment)
+			if err != nil {
+				return savedCid, err
+			}
+			aCid, err := n.SaveAndNotifyDataBlock(buf)
+			if err != nil {
+				n.Upfile("err", fmt.Sprintf("save %v to block failed", fragment))
+			} else {
+				n.Upfile("info", fmt.Sprintf("save %v to block suc: %v", fragment, aCid.String()))
+				savedCid = append(savedCid, aCid.String())
+			}
+		}
+	}
+	return savedCid, nil
 }

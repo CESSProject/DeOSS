@@ -8,13 +8,16 @@
 package node
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/CESSProject/DeOSS/configs"
 	"github.com/CESSProject/DeOSS/pkg/utils"
+	"github.com/CESSProject/cess-go-sdk/core/crypte"
 	"github.com/CESSProject/cess-go-sdk/core/erasure"
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
 	sutils "github.com/CESSProject/cess-go-sdk/core/utils"
@@ -70,6 +73,8 @@ func (n *Node) getHandle(c *gin.Context) {
 
 	clientIp = c.ClientIP()
 	n.Query("info", fmt.Sprintf("[%s] %s", clientIp, INFO_GetRequest))
+
+	cipher := c.Request.Header.Get(HTTPHeader_Cipher)
 
 	queryName := c.Param(HTTP_ParameterName)
 	if queryName == "version" {
@@ -263,6 +268,7 @@ func (n *Node) getHandle(c *gin.Context) {
 				os.Remove(fpath)
 			}
 		}
+
 		var completion bool
 		fmeta, err := n.QueryFileMetadata(queryName)
 		if err != nil {
@@ -283,6 +289,16 @@ func (n *Node) getHandle(c *gin.Context) {
 				return
 			} else {
 				size = order.FileSize.Uint64()
+				// segments, err := n.downloadFromBlock(order.NeededList)
+				// if err != nil {
+				// 	n.Query("err", fmt.Sprintf("[%s] downloadFromBlock [%s] info: Not found", clientIp, queryName))
+				// 	c.JSON(404, "failed")
+				// } else {
+				// 	n.Query("info", fmt.Sprintf("[%s] Download file [%s] suc", clientIp, queryName))
+				// 	c.JSON(200, "suc")
+				// }
+				// _ = segments
+				// return
 			}
 		} else {
 			completion = true
@@ -320,7 +336,7 @@ func (n *Node) getHandle(c *gin.Context) {
 		}
 
 		// download from miner
-		fpath, err = n.fetchFiles(queryName, n.GetDirs().FileDir)
+		fpath, err = n.fetchFiles(queryName, n.GetDirs().FileDir, cipher)
 		if err != nil {
 			n.Query("err", fmt.Sprintf("[%s] Download file [%s] : %v", clientIp, queryName, err))
 			c.JSON(http.StatusInternalServerError, "File download failed, please try again later.")
@@ -335,7 +351,7 @@ func (n *Node) getHandle(c *gin.Context) {
 	return
 }
 
-func (n *Node) fetchFiles(roothash, dir string) (string, error) {
+func (n *Node) fetchFiles(roothash, dir, cipher string) (string, error) {
 	var (
 		acc          string
 		segmentspath = make([]string, 0)
@@ -404,7 +420,7 @@ func (n *Node) fetchFiles(roothash, dir string) (string, error) {
 			fragmentpaths = append(fragmentpaths, fragmentpath)
 			segmentpath := filepath.Join(dir, string(segment.Hash[:]))
 			if len(fragmentpaths) >= pattern.DataShards {
-				err = erasure.ReedSolomonRestore(segmentpath, fragmentpaths)
+				err = erasure.RSRestore(segmentpath, fragmentpaths)
 				if err != nil {
 					return "", err
 				}
@@ -425,13 +441,22 @@ func (n *Node) fetchFiles(roothash, dir string) (string, error) {
 				if err != nil {
 					return "", err
 				}
+				if cipher != "" {
+					buf, err = crypte.AesCbcDecrypt(buf, []byte(cipher))
+					if err != nil {
+						return "", err
+					}
+				}
 				if (writecount + 1) >= len(fmeta.SegmentList) {
-					f.Write(buf[:(fmeta.FileSize.Uint64() - uint64(writecount*pattern.SegmentSize))])
+					if cipher != "" {
+						f.Write(buf[:(fmeta.FileSize.Uint64() - uint64(writecount*(pattern.SegmentSize-16)))])
+					} else {
+						f.Write(buf[:(fmeta.FileSize.Uint64() - uint64(writecount*pattern.SegmentSize))])
+					}
 				} else {
 					f.Write(buf)
 				}
 				writecount++
-
 				break
 			}
 		}
@@ -441,4 +466,34 @@ func (n *Node) fetchFiles(roothash, dir string) (string, error) {
 	}
 
 	return userfile, nil
+}
+
+func (n *Node) downloadFromBlock(segmentList []pattern.SegmentList) ([]string, error) {
+	var segmentPaths = make([]string, len(segmentList))
+	var fragmentsData = make([][]byte, len(segmentList[0].FragmentHash))
+	for sk, segment := range segmentList {
+		for fk, fragment := range segment.FragmentHash {
+			fragmentsData[fk] = nil
+			n.Query("info", fmt.Sprintf("Will download fragment %s from block", string(fragment[:])))
+			fragmentCid, err := n.FidToCid(string(fragment[:]))
+			if err != nil {
+				continue
+			}
+			n.Query("info", fmt.Sprintf("Will download fragment's cid is %s", fragmentCid))
+			ctxTout, cancelFunc := context.WithTimeout(n.GetCtxQueryFromCtxCancel(), time.Second*5)
+			defer cancelFunc()
+			fragmentsData[fk], err = n.GetDataFromBlock(ctxTout, fragmentCid)
+			if err != nil {
+				continue
+			}
+			n.Query("info", fmt.Sprintf("Download fragment %s suc", string(fragment[:])))
+		}
+		var segmentPath = filepath.Join(n.Workspace(), "file", string(segment.SegmentHash[:]))
+		err := erasure.RSRestoreData(segmentPath, fragmentsData)
+		if err != nil {
+			return segmentPaths, err
+		}
+		segmentPaths[sk] = segmentPath
+	}
+	return segmentPaths, nil
 }
