@@ -437,24 +437,24 @@ func (n *Node) deduplication(pkey []byte, segmentInfo []pattern.SegmentDataInfo,
 	return false, nil
 }
 
-func (n *Node) saveToBlockStore(segmentInfo []pattern.SegmentDataInfo) ([]string, error) {
-	var err error
-	var buf []byte
-	var savedCid = make([]string, 0)
-	for _, segment := range segmentInfo {
-		for _, fragment := range segment.FragmentHash {
-			buf, err = os.ReadFile(fragment)
-			if err != nil {
-				return savedCid, err
-			}
-			aCid, err := n.SaveAndNotifyDataBlock(buf)
-			if err != nil {
-				n.Upfile("err", fmt.Sprintf("save %v to block failed", fragment))
-			} else {
-				n.Upfile("info", fmt.Sprintf("save %v to block suc: %v", fragment, aCid.String()))
-				savedCid = append(savedCid, aCid.String())
-			}
-		}
-	}
-	return savedCid, nil
-}
+// func (n *Node) saveToBlockStore(segmentInfo []pattern.SegmentDataInfo) ([]string, error) {
+// 	var err error
+// 	var buf []byte
+// 	var savedCid = make([]string, 0)
+// 	for _, segment := range segmentInfo {
+// 		for _, fragment := range segment.FragmentHash {
+// 			buf, err = os.ReadFile(fragment)
+// 			if err != nil {
+// 				return savedCid, err
+// 			}
+// 			aCid, err := n.SaveAndNotifyDataBlock(buf)
+// 			if err != nil {
+// 				n.Upfile("err", fmt.Sprintf("save %v to block failed", fragment))
+// 			} else {
+// 				n.Upfile("info", fmt.Sprintf("save %v to block suc: %v", fragment, aCid.String()))
+// 				savedCid = append(savedCid, aCid.String())
+// 			}
+// 		}
+// 	}
+// 	return savedCid, nil
+// }

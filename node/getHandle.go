@@ -8,12 +8,10 @@
 package node
 
 import (
-	"context"
 	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
-	"time"
 
 	"github.com/CESSProject/DeOSS/configs"
 	"github.com/CESSProject/DeOSS/pkg/utils"
@@ -468,32 +466,32 @@ func (n *Node) fetchFiles(roothash, dir, cipher string) (string, error) {
 	return userfile, nil
 }
 
-func (n *Node) downloadFromBlock(segmentList []pattern.SegmentList) ([]string, error) {
-	var segmentPaths = make([]string, len(segmentList))
-	var fragmentsData = make([][]byte, len(segmentList[0].FragmentHash))
-	for sk, segment := range segmentList {
-		for fk, fragment := range segment.FragmentHash {
-			fragmentsData[fk] = nil
-			n.Query("info", fmt.Sprintf("Will download fragment %s from block", string(fragment[:])))
-			fragmentCid, err := n.FidToCid(string(fragment[:]))
-			if err != nil {
-				continue
-			}
-			n.Query("info", fmt.Sprintf("Will download fragment's cid is %s", fragmentCid))
-			ctxTout, cancelFunc := context.WithTimeout(n.GetCtxQueryFromCtxCancel(), time.Second*5)
-			defer cancelFunc()
-			fragmentsData[fk], err = n.GetDataFromBlock(ctxTout, fragmentCid)
-			if err != nil {
-				continue
-			}
-			n.Query("info", fmt.Sprintf("Download fragment %s suc", string(fragment[:])))
-		}
-		var segmentPath = filepath.Join(n.Workspace(), "file", string(segment.SegmentHash[:]))
-		err := erasure.RSRestoreData(segmentPath, fragmentsData)
-		if err != nil {
-			return segmentPaths, err
-		}
-		segmentPaths[sk] = segmentPath
-	}
-	return segmentPaths, nil
-}
+// func (n *Node) downloadFromBlock(segmentList []pattern.SegmentList) ([]string, error) {
+// 	var segmentPaths = make([]string, len(segmentList))
+// 	var fragmentsData = make([][]byte, len(segmentList[0].FragmentHash))
+// 	for sk, segment := range segmentList {
+// 		for fk, fragment := range segment.FragmentHash {
+// 			fragmentsData[fk] = nil
+// 			n.Query("info", fmt.Sprintf("Will download fragment %s from block", string(fragment[:])))
+// 			fragmentCid, err := n.FidToCid(string(fragment[:]))
+// 			if err != nil {
+// 				continue
+// 			}
+// 			n.Query("info", fmt.Sprintf("Will download fragment's cid is %s", fragmentCid))
+// 			ctxTout, cancelFunc := context.WithTimeout(n.GetCtxQueryFromCtxCancel(), time.Second*5)
+// 			defer cancelFunc()
+// 			fragmentsData[fk], err = n.GetDataFromBlock(ctxTout, fragmentCid)
+// 			if err != nil {
+// 				continue
+// 			}
+// 			n.Query("info", fmt.Sprintf("Download fragment %s suc", string(fragment[:])))
+// 		}
+// 		var segmentPath = filepath.Join(n.Workspace(), "file", string(segment.SegmentHash[:]))
+// 		err := erasure.RSRestoreData(segmentPath, fragmentsData)
+// 		if err != nil {
+// 			return segmentPaths, err
+// 		}
+// 		segmentPaths[sk] = segmentPath
+// 	}
+// 	return segmentPaths, nil
+// }

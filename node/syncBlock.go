@@ -103,7 +103,6 @@ func (n *Node) syncBlock(ch chan<- bool) {
 				time.Sleep(pattern.BlockInterval)
 				continue
 			}
-			n.Block("info", fmt.Sprintf("latest block: %v", blockheight))
 			if retrievedBlock >= blockheight {
 				time.Sleep(pattern.BlockInterval)
 				continue
@@ -116,7 +115,7 @@ func (n *Node) syncBlock(ch chan<- bool) {
 			time.Sleep(pattern.BlockInterval)
 			continue
 		}
-		n.Block("err", fmt.Sprintf("Start retrieving blocks: %v", retrievedBlock))
+		n.Block("err", fmt.Sprintf("Start retrieving blocks: %d latest block: %d", retrievedBlock, blockheight))
 		uploadDeclaration, _ := n.RetrieveAllEvent_FileBank_UploadDeclaration(blockhash)
 		if len(uploadDeclaration) > 0 {
 			var wantfiles = make([]wantFile, 0)
@@ -264,7 +263,7 @@ func (n *Node) syncBlock(ch chan<- bool) {
 				}
 			}
 		}
-		n.Block("err", fmt.Sprintf("Finish retrieving blocks: %v", err))
+		n.Block("info", fmt.Sprintf("Finish retrieving blocks: %d", retrievedBlock))
 		retrievedBlock++
 		err = n.Put([]byte(Cache_SyncBlock), []byte(fmt.Sprintf("%v", retrievedBlock)))
 		if err != nil {
