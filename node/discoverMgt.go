@@ -29,13 +29,25 @@ func (n *Node) findPeers(ch chan<- bool) {
 	n.Discover("info", ">>>>> start findPeers <<<<<")
 
 	var ok bool
+	var err error
 	var foundPeer peer.AddrInfo
-	var tick = time.NewTicker(time.Minute)
+	var interval time.Duration = 30
+	var findInterval time.Duration = 1
+	var tick = time.NewTicker(time.Second * findInterval)
 	defer tick.Stop()
 
 	for {
 		select {
 		case <-tick.C:
+			findInterval += interval
+			if findInterval > 3600 {
+				findInterval = interval
+				err = n.SavePeersToDisk(n.peersPath)
+				if err != nil {
+					n.Discover("err", err.Error())
+				}
+			}
+			tick.Reset(time.Second * findInterval)
 			peerChan, err := n.GetRoutingTable().FindPeers(n.GetCtxQueryFromCtxCancel(), n.GetRendezvousVersion())
 			if err != nil {
 				continue
@@ -52,13 +64,15 @@ func (n *Node) findPeers(ch chan<- bool) {
 					}
 					err := n.Connect(n.GetCtxQueryFromCtxCancel(), foundPeer)
 					if err != nil {
-						//fmt.Println("xx Failed connecting to ", foundPeer.ID.Pretty(), ", err:", err)
 						n.Peerstore().RemovePeer(foundPeer.ID)
 					} else {
 						for _, addr := range foundPeer.Addrs {
 							n.Peerstore().AddAddr(foundPeer.ID, addr, peerstore.AddressTTL)
 						}
-						//fmt.Println("++ Connected to:", foundPeer.ID.Pretty())
+						n.SavePeer(foundPeer.ID.Pretty(), peer.AddrInfo{
+							ID:    foundPeer.ID,
+							Addrs: foundPeer.Addrs,
+						})
 					}
 				}
 			}
@@ -83,6 +97,10 @@ func (n *Node) recvPeers(ch chan<- bool) {
 				if v != nil {
 					if len(v.Addrs) > 0 {
 						n.Peerstore().AddAddrs(v.ID, v.Addrs, peerstore.AddressTTL)
+						n.SavePeer(v.ID.Pretty(), peer.AddrInfo{
+							ID:    v.ID,
+							Addrs: v.Addrs,
+						})
 					}
 				}
 			}
