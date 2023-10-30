@@ -302,7 +302,7 @@ Response schema: `application/json`
 | ---------- |
 
 The put file interface is used to upload files to the cess system. You need to submit the file as form data and use provide the specific field.
-If the upload is successful, you will get the fid of the file.
+If the upload is successful, you will get the fid of the file. If you want to encrypt your file, you can specify the `cipher` field in the header and enter your password (the length cannot exceed 32 characters), and the system will automatically encrypt it.
 
 - Request Header
 
@@ -310,7 +310,7 @@ If the upload is successful, you will get the fid of the file.
 | ------------- | ------------------ |
 | Authorization | token              |
 | BucketName    | stored bucket name |
-
+| cipher        | your cipher        |
 
 
 - Request Body
