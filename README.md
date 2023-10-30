@@ -89,7 +89,7 @@ service iptables restart
 ### Method one
 Download the latest release of the binary application directly at：
 ```
-wget https://github.com/CESSProject/DeOSS/releases/download/v0.3.1/deoss
+wget https://github.com/CESSProject/DeOSS/releases/download/v0.3.2/DeOSS0.3.2.linux-amd64.tar.gz
 ```
 
 ### Method two
@@ -97,7 +97,7 @@ Compile the binary program from the DeOSS source code and follow the process as 
 
 **1) install go**
 
-DeOSS requires [Go 1.19](https://golang.org/dl/) or higher, See the [official Golang installation instructions](https://golang.org/doc/install).
+DeOSS requires [Go 1.20](https://golang.org/dl/) or higher, See the [official Golang installation instructions](https://golang.org/doc/install).
 
 Open go mod mode:
 ```
