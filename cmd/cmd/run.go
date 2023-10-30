@@ -112,7 +112,8 @@ func cmd_run_func(cmd *cobra.Command, args []string) {
 		p2pgo.ProtocolPrefix(protocolPrefix),
 	)
 	if err != nil {
-		panic(err)
+		out.Err(err.Error())
+		os.Exit(1)
 	}
 
 	out.Tip(fmt.Sprintf("chain network: %s", n.GetNetworkEnv()))
@@ -162,14 +163,19 @@ func cmd_run_func(cmd *cobra.Command, args []string) {
 	if registerFlag {
 		_, err = n.RegisterDeoss(n.GetPeerPublickey(), n.GetDomainName())
 		if err != nil {
-			out.Err(fmt.Sprintf("register deoss failed: %v", err))
+			out.Err(fmt.Sprintf("register deoss err: %v", err))
 			os.Exit(1)
 		}
 		n.RebuildDirs()
 	} else {
 		newPeerid := n.GetPeerPublickey()
-		if sutils.CompareSlice([]byte(string(ossinfo.Peerid[:])), newPeerid) {
-			n.UpdateDeoss(string(newPeerid), n.GetDomainName())
+		if !sutils.CompareSlice([]byte(string(ossinfo.Peerid[:])), newPeerid) ||
+			n.GetDomainName() != string(ossinfo.Domain) {
+			txhash, err := n.UpdateDeoss(string(newPeerid), n.GetDomainName())
+			if err != nil {
+				out.Err(fmt.Sprintf("[%s] update deoss err: %v", txhash, err))
+				os.Exit(1)
+			}
 		}
 	}
 

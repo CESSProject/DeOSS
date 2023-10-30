@@ -10,13 +10,13 @@ package configs
 // system
 const (
 	// name
-	Name = "deoss"
+	Name = "DeOSS"
 	// Name space
 	NameSpace = Name
 	// version
-	Version = Name + " " + "v0.3.2 dev"
+	Version = Name + " " + "v0.3.2"
 	// description
-	Description = "Object storage service based on cess network"
+	Description = "Object storage service based on CESS network"
 )
 
 const (
