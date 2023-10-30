@@ -23,6 +23,7 @@
 main
 oss*
 deoss*
+DeOSS*
 *.exe
 *.dll
 *.so
