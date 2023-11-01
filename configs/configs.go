@@ -27,14 +27,14 @@ const (
 	TokenDated        = 60 * 60 * 24 * 30
 )
 
-const (
-	//
-	FileCacheExpirationTime = 720
-)
+const FileCacheExpirationTime = 720
+
+// Time out waiting for transaction completion
+const TimeOut_WaitBlock = time.Duration(time.Second * 15)
+
+const DefaultConfig = "conf.yaml"
 
 const (
-	// Time out waiting for transaction completion
-	TimeOut_WaitBlock = time.Duration(time.Second * 15)
-	//
-	DefaultConfig = "conf.yaml"
+	Access_Public  = "public"
+	Access_Private = "private"
 )
