@@ -73,6 +73,13 @@ func (n *Node) getHandle(c *gin.Context) {
 	n.Query("info", fmt.Sprintf("[%s] %s", clientIp, INFO_GetRequest))
 
 	cipher := c.Request.Header.Get(HTTPHeader_Cipher)
+	account := c.Request.Header.Get(HTTPHeader_Account)
+
+	if !n.AccessControl(account) {
+		n.Query("info", fmt.Sprintf("[%v] %v", c.ClientIP(), ERR_Forbidden))
+		c.JSON(http.StatusForbidden, ERR_Forbidden)
+		return
+	}
 
 	queryName := c.Param(HTTP_ParameterName)
 	if queryName == "version" {
@@ -111,7 +118,6 @@ func (n *Node) getHandle(c *gin.Context) {
 	}
 
 	if len(queryName) != len(pattern.FileHash{}) {
-		account := c.Request.Header.Get(HTTPHeader_Account)
 		if account == "" {
 			n.Query("err", fmt.Sprintf("[%s] %s", clientIp, ERR_MissAccount))
 			c.JSON(http.StatusBadRequest, ERR_MissAccount)

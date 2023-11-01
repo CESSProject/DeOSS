@@ -37,17 +37,23 @@ func (n *Node) postRestoreHandle(c *gin.Context) {
 		if account != "" && signature != "" {
 			pkey, err = n.verifySignature(account, message, signature)
 			if err != nil {
-				n.Upfile("info", fmt.Sprintf("[%v] %v", clientIp, err))
+				n.Log("info", fmt.Sprintf("[%v] %v", clientIp, err))
 				c.JSON(respMsg.Code, err.Error())
 				return
 			}
 		} else {
-			n.Upfile("info", fmt.Sprintf("[%v] %v", clientIp, err))
+			n.Log("info", fmt.Sprintf("[%v] %v", clientIp, err))
 			c.JSON(respMsg.Code, err.Error())
 			return
 		}
 	} else {
 		account = userAccount
+	}
+
+	if !n.AccessControl(account) {
+		n.Log("info", fmt.Sprintf("[%v] %v", clientIp, ERR_Forbidden))
+		c.JSON(http.StatusForbidden, ERR_Forbidden)
+		return
 	}
 
 	var restoreList RestoreList
@@ -69,7 +75,7 @@ func (n *Node) postRestoreHandle(c *gin.Context) {
 	// verify the bucket name
 	bucketName := c.Request.Header.Get(HTTPHeader_BucketName)
 	if !sutils.CheckBucketName(bucketName) {
-		n.Upfile("info", fmt.Sprintf("[%v] %v", clientIp, ERR_HeaderFieldBucketName))
+		n.Log("info", fmt.Sprintf("[%v] %v", clientIp, ERR_HeaderFieldBucketName))
 		c.JSON(http.StatusBadRequest, ERR_HeaderFieldBucketName)
 		return
 	}
@@ -84,7 +90,7 @@ func (n *Node) postRestoreHandle(c *gin.Context) {
 		}
 	}
 	if !flag {
-		n.Upfile("info", fmt.Sprintf("[%v] %v", clientIp, ERR_SpaceNotAuth))
+		n.Log("info", fmt.Sprintf("[%v] %v", clientIp, ERR_SpaceNotAuth))
 		c.JSON(http.StatusForbidden, ERR_SpaceNotAuth)
 		return
 	}
@@ -93,24 +99,24 @@ func (n *Node) postRestoreHandle(c *gin.Context) {
 	userInfo, err := n.QueryUserSpaceSt(pkey)
 	if err != nil {
 		if err.Error() == pattern.ERR_Empty {
-			n.Upfile("info", fmt.Sprintf("[%v] %v", clientIp, ERR_AccountNotExist))
+			n.Log("info", fmt.Sprintf("[%v] %v", clientIp, ERR_AccountNotExist))
 			c.JSON(http.StatusForbidden, ERR_AccountNotExist)
 			return
 		}
-		n.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, err))
+		n.Log("err", fmt.Sprintf("[%v] %v", clientIp, err))
 		c.JSON(http.StatusForbidden, ERR_RpcFailed)
 		return
 	}
 
 	blockheight, err := n.QueryBlockHeight("")
 	if err != nil {
-		n.Upfile("info", fmt.Sprintf("[%v] %v", clientIp, err))
+		n.Log("info", fmt.Sprintf("[%v] %v", clientIp, err))
 		c.JSON(http.StatusForbidden, ERR_RpcFailed)
 		return
 	}
 
 	if userInfo.Deadline < (blockheight + 100) {
-		n.Upfile("info", fmt.Sprintf("[%v] %v [%d] [%d]", clientIp, ERR_SpaceExpiresSoon, userInfo.Deadline, blockheight))
+		n.Log("info", fmt.Sprintf("[%v] %v [%d] [%d]", clientIp, ERR_SpaceExpiresSoon, userInfo.Deadline, blockheight))
 		c.JSON(http.StatusForbidden, ERR_SpaceExpiresSoon)
 		return
 	}
@@ -133,13 +139,13 @@ func (n *Node) postRestoreHandle(c *gin.Context) {
 	usedSpace := allUsedSpace * 15 / 10
 	remainingSpace, err := strconv.ParseUint(userInfo.RemainingSpace, 10, 64)
 	if err != nil {
-		n.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, err))
+		n.Log("err", fmt.Sprintf("[%v] %v", clientIp, err))
 		c.JSON(http.StatusInternalServerError, ERR_InternalServer)
 		return
 	}
 
 	if usedSpace > int64(remainingSpace) {
-		n.Upfile("info", fmt.Sprintf("[%v] %v", clientIp, ERR_NotEnoughSpace))
+		n.Log("info", fmt.Sprintf("[%v] %v", clientIp, ERR_NotEnoughSpace))
 		c.JSON(http.StatusForbidden, ERR_NotEnoughSpace)
 		return
 	}
@@ -163,14 +169,14 @@ func (n *Node) postRestoreHandle(c *gin.Context) {
 
 		b, err := json.Marshal(recordInfo)
 		if err != nil {
-			n.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, err))
+			n.Log("err", fmt.Sprintf("[%v] %v", clientIp, err))
 			c.JSON(http.StatusInternalServerError, ERR_InternalServer)
 			continue
 		}
 
 		err = n.WriteTrackFile(restoreList.Files[i], b)
 		if err != nil {
-			n.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, err))
+			n.Log("err", fmt.Sprintf("[%v] %v", clientIp, err))
 			c.JSON(http.StatusInternalServerError, ERR_InternalServer)
 			continue
 		}

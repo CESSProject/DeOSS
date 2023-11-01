@@ -74,6 +74,12 @@ func (n *Node) putHandle(c *gin.Context) {
 		account = userAccount
 	}
 
+	if !n.AccessControl(account) {
+		n.Upfile("info", fmt.Sprintf("[%v] %v", c.ClientIP(), ERR_Forbidden))
+		c.JSON(http.StatusForbidden, ERR_Forbidden)
+		return
+	}
+
 	// verify the bucket name
 	bucketName := c.Request.Header.Get(HTTPHeader_BucketName)
 	if !sutils.CheckBucketName(bucketName) {
