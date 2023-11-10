@@ -12,10 +12,10 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/libp2p/go-libp2p/core/host"
-	"github.com/libp2p/go-libp2p/core/peer"
-	peerstore "github.com/libp2p/go-libp2p/core/peerstore"
-	drouting "github.com/libp2p/go-libp2p/p2p/discovery/routing"
+	"github.com/AstaFrode/go-libp2p/core/host"
+	"github.com/AstaFrode/go-libp2p/core/peer"
+	peerstore "github.com/AstaFrode/go-libp2p/core/peerstore"
+	drouting "github.com/AstaFrode/go-libp2p/p2p/discovery/routing"
 )
 
 func (n *Node) TaskMgt() {
