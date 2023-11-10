@@ -14,5 +14,13 @@ Workspace: /
 P2P_Port: 4001
 # Service listening port
 HTTP_Port: 8080
+# Access mode: public / private
+# In public mode, only users in accounts can't access it. 
+# In private mode, only users in accounts can access it.
+Access: public
+# Account black/white list
+accounts:
+  - cXjeCHQW3totBGhQXdAUAqjCNqk1NhiR3UK37czSeUak2pqGV
+  - cXgaee2N8E77JJv9gdsGAckv1Qsf3hqWYf7NL4q6ZuQzuAUtB
 # If you want to expose your oss service, please configure its domain name
 Domain: "http://deoss-pub-gateway.cess.cloud"

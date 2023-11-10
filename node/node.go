@@ -246,7 +246,7 @@ func (n *Node) WriteTrackFile(filehash string, data []byte) error {
 	return err
 }
 
-func (n *Node) ParseTrackFromFile(filehash string) (RecordInfo, error) {
+func (n *Node) ParseTrackFile(filehash string) (RecordInfo, error) {
 	var result RecordInfo
 	n.trackLock.RLock()
 	defer n.trackLock.RUnlock()

@@ -44,6 +44,12 @@ func (n *Node) getRestoreHandle(c *gin.Context) {
 		account = userAccount
 	}
 
+	if !n.AccessControl(account) {
+		n.Upfile("info", fmt.Sprintf("[%v] %v", c.ClientIP(), ERR_Forbidden))
+		c.JSON(http.StatusForbidden, ERR_Forbidden)
+		return
+	}
+
 	var userfils_cache userFiles
 	data, err := n.Get([]byte(Cache_UserFiles + account))
 	if err == nil {

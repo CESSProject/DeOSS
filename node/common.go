@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/CESSProject/DeOSS/configs"
 	sutils "github.com/CESSProject/cess-go-sdk/core/utils"
 	"github.com/CESSProject/go-keyring"
 	jwt "github.com/dgrijalva/jwt-go"
@@ -105,4 +106,35 @@ func (n *Node) verifySignature(account, message, signature string) ([]byte, erro
 		return pkey, nil
 	}
 	return nil, errors.New("signature verification failed")
+}
+
+func (n *Node) AccessControl(account string) bool {
+	if account == "" {
+		return false
+	}
+	err := sutils.VerityAddress(account, sutils.CessPrefix)
+	if err != nil {
+		return false
+	}
+
+	bwlist := n.GetAccounts()
+
+	if n.GetAccess() == configs.Access_Public {
+		for _, v := range bwlist {
+			if v == account {
+				return false
+			}
+		}
+		return true
+	}
+
+	if n.GetAccess() == configs.Access_Private {
+		for _, v := range bwlist {
+			if v == account {
+				return true
+			}
+		}
+	}
+
+	return false
 }

@@ -78,7 +78,8 @@ const (
 
 	ERR_HeadOperation = "HeaderErr_Invalid_Operation"
 
-	ERR_NotFound = "Not found"
+	ERR_NotFound  = "Not found"
+	ERR_Forbidden = "no permission"
 
 	ERR_BodyFormat         = "BodyErr_InvalidDataFormat"
 	ERR_BodyFieldAccount   = "BodyErr_InvalidField_account"

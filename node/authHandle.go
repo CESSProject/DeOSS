@@ -9,6 +9,7 @@ package node
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -39,6 +40,12 @@ func (n *Node) authHandle(c *gin.Context) {
 
 	if err = c.ShouldBind(&req); err != nil {
 		c.JSON(400, ERR_BodyFormat)
+		return
+	}
+
+	if !n.AccessControl(req.Account) {
+		n.Log("info", fmt.Sprintf("[%v] %v", c.ClientIP(), ERR_Forbidden))
+		c.JSON(http.StatusForbidden, ERR_Forbidden)
 		return
 	}
 

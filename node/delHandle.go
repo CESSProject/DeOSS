@@ -103,6 +103,13 @@ func (n *Node) delFilesHandle(c *gin.Context) {
 		c.JSON(respMsg.Code, err.Error())
 		return
 	}
+
+	if !n.AccessControl(account) {
+		n.Del("info", fmt.Sprintf("[%v] %v", c.ClientIP(), ERR_Forbidden))
+		c.JSON(http.StatusForbidden, ERR_Forbidden)
+		return
+	}
+
 	n.Del("info", fmt.Sprintf("[%v] %v", clientIp, account))
 
 	var delList DelList
