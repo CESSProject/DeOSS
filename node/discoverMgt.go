@@ -11,9 +11,9 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/AstaFrode/go-libp2p/core/peer"
+	peerstore "github.com/AstaFrode/go-libp2p/core/peerstore"
 	"github.com/CESSProject/DeOSS/pkg/utils"
-	"github.com/libp2p/go-libp2p/core/peer"
-	peerstore "github.com/libp2p/go-libp2p/core/peerstore"
 	"github.com/multiformats/go-multiaddr"
 	"golang.org/x/time/rate"
 )

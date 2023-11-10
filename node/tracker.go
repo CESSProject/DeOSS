@@ -17,7 +17,6 @@ import (
 	"github.com/CESSProject/DeOSS/pkg/utils"
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
 	sutils "github.com/CESSProject/cess-go-sdk/core/utils"
-	"github.com/centrifuge/go-substrate-rpc-client/v4/types"
 	"github.com/pkg/errors"
 )
 
@@ -196,6 +195,11 @@ func (n *Node) trackFile(trackfile string) error {
 			if err != nil {
 				return errors.Wrapf(err, "[%s] [GenerateStorageOrder]", roothash)
 			}
+			time.Sleep(pattern.BlockInterval)
+			storageOrder, err = n.QueryStorageOrder(roothash)
+			if err != nil {
+				return errors.Wrapf(err, "[%s] [QueryStorageOrder]", roothash)
+			}
 		}
 
 		if roothash != recordFile.Roothash {
@@ -258,14 +262,15 @@ func (n *Node) trackFile(trackfile string) error {
 			recordFile.SegmentInfo = resegmentInfo
 		}
 
-		n.storageData(recordFile.Roothash, recordFile.SegmentInfo, storageOrder.CompleteList)
+		n.storageData(recordFile.Roothash, recordFile.SegmentInfo, storageOrder.CompleteInfo)
 		time.Sleep(time.Minute)
 	}
 }
 
-func (n *Node) storageData(roothash string, segment []pattern.SegmentDataInfo, completeList []types.AccountID) error {
+func (n *Node) storageData(roothash string, segment []pattern.SegmentDataInfo, completeList []pattern.CompleteInfo) error {
 	var err error
 	var failed bool
+	var completed bool
 	var dataGroup = make(map[uint8][]string, len(segment[0].FragmentHash))
 	for index := 0; index < len(segment[0].FragmentHash); index++ {
 		dataGroup[uint8(index+1)] = make([]string, len(segment[0].FragmentHash))
@@ -281,6 +286,18 @@ func (n *Node) storageData(roothash string, segment []pattern.SegmentDataInfo, c
 
 	allpeers := n.GetAllPeerId()
 	for index, v := range dataGroup {
+		completed = false
+		for _, value := range completeList {
+			if uint8(value.Index) == index {
+				completed = true
+				break
+			}
+		}
+
+		if completed {
+			continue
+		}
+
 		n.Track("info", fmt.Sprintf("[%s] Prepare to store the %d batch of fragments", roothash, index))
 		failed = false
 		for i := 0; i < len(allpeers); i++ {
