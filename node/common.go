@@ -17,6 +17,7 @@ import (
 	jwt "github.com/dgrijalva/jwt-go"
 	"github.com/mr-tron/base58"
 	"github.com/pkg/errors"
+	"github.com/vedhavyas/go-subkey/v2/sr25519"
 )
 
 // VerifyToken is used to parse and verify token
@@ -106,6 +107,74 @@ func (n *Node) verifySignature(account, message, signature string) ([]byte, erro
 		return pkey, nil
 	}
 	return nil, errors.New("signature verification failed")
+}
+
+// VerifyToken is used to parse and verify token
+func (n *Node) verifyJsSignature(account, message, signature string) ([]byte, error) {
+	if account == "" || signature == "" {
+		return nil, errors.New("no identity authentication information")
+	}
+	pkey, err := sutils.ParsingPublickey(account)
+	if err != nil {
+		return nil, err
+	}
+
+	ss58, err := sutils.EncodePublicKeyAsSubstrateAccount(pkey)
+	if err != nil {
+		return nil, err
+	}
+
+	verkr, _ := keyring.FromURI(ss58, keyring.NetSubstrate{})
+
+	sign_bytes, err := base58.Decode(signature)
+	if err != nil {
+		if strings.Contains(err.Error(), "zero length") {
+			return nil, errors.New("empty signature")
+		}
+		return nil, errors.New("signature not encoded with base58")
+	}
+
+	if len(sign_bytes) != 64 {
+		return nil, errors.New("wrong signature length")
+	}
+
+	var sign_array [64]byte
+	for i := 0; i < 64; i++ {
+		sign_array[i] = sign_bytes[i]
+	}
+
+	// Verify signature
+	ok := verkr.Verify(verkr.SigningContext([]byte("<Bytes>"+message+"</Bytes>")), sign_array)
+	if ok {
+		return pkey, nil
+	}
+	return nil, errors.New("signature verification failed")
+}
+
+// VerifyToken is used to parse and verify token
+func (n *Node) verifySR25519Signature(account, message, signature string) ([]byte, error) {
+	if account == "" || signature == "" {
+		return nil, errors.New("no identity authentication information")
+	}
+
+	pkey, err := sutils.ParsingPublickey(account)
+	if err != nil {
+		return nil, err
+	}
+
+	pub, err := sr25519.Scheme{}.FromPublicKey(pkey)
+	if err != nil {
+		return pkey, err
+	}
+	sign_bytes, err := base58.Decode(signature)
+	if err != nil {
+		return pkey, err
+	}
+	ok := pub.Verify([]byte(message), sign_bytes)
+	if !ok {
+		return pkey, errors.New("signature verification failed")
+	}
+	return pkey, nil
 }
 
 func (n *Node) AccessControl(account string) bool {

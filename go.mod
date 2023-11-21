@@ -3,10 +3,10 @@ module github.com/CESSProject/DeOSS
 go 1.20
 
 require (
-	github.com/AstaFrode/go-libp2p v0.26.4-0.20231025094835-732a19c0bd0b
-	github.com/CESSProject/cess-go-sdk v0.3.21-0.20231110033426-453245bdc270
+	github.com/AstaFrode/go-libp2p v0.26.4-0.20231113143058-912296254d44
+	github.com/CESSProject/cess-go-sdk v0.3.21-0.20231114061951-fc77d8141ff0
 	github.com/CESSProject/go-keyring v0.0.0-20220614131247-ee3a8da30fde
-	github.com/CESSProject/p2p-go v0.2.6-0.20231110024714-6f709106eff6
+	github.com/CESSProject/p2p-go v0.2.6-0.20231117060004-cbb4a2e1792e
 	github.com/btcsuite/btcutil v1.0.3-0.20201208143702-a53e38424cce
 	github.com/cbergoon/merkletree v0.2.0
 	github.com/centrifuge/go-substrate-rpc-client/v4 v4.1.0
@@ -15,6 +15,8 @@ require (
 	github.com/gin-gonic/gin v1.9.0
 	github.com/google/uuid v1.3.1
 	github.com/howeyc/gopass v0.0.0-20210920133722-c8aef6fb66ef
+	github.com/ipfs/go-block-format v0.1.2
+	github.com/ipfs/go-cid v0.4.1
 	github.com/jedib0t/go-pretty/v6 v6.4.6
 	github.com/mr-tron/base58 v1.2.0
 	github.com/multiformats/go-multiaddr v0.11.0
@@ -25,17 +27,17 @@ require (
 	github.com/spf13/viper v1.15.0
 	github.com/stretchr/testify v1.8.4
 	github.com/syndtr/goleveldb v1.0.1-0.20220614013038-64ee5596c38a
+	github.com/vedhavyas/go-subkey/v2 v2.0.0
 	go.uber.org/zap v1.25.0
 	golang.org/x/crypto v0.14.0
 	golang.org/x/time v0.1.0
 )
 
 require (
-	github.com/AstaFrode/boxo v0.12.1-0.20231109082032-75fa153a39f3 // indirect
-	github.com/AstaFrode/go-libp2p-gostream v0.5.1-0.20231109095351-8050802a5d8b // indirect
-	github.com/AstaFrode/go-libp2p-grpc v0.1.1-0.20231109100113-0af9e902e45f // indirect
-	github.com/AstaFrode/go-libp2p-kad-dht v0.23.1-0.20231109074947-0279c8612966 // indirect
-	github.com/AstaFrode/go-libp2p-kbucket v0.5.1-0.20231109065217-dde6a45fa7ce // indirect
+	github.com/AstaFrode/boxo v0.12.1-0.20231117024608-7d5a75b69cdd // indirect
+	github.com/AstaFrode/go-libp2p-kad-dht v0.23.1-0.20231117020818-8d3fc0a486ad // indirect
+	github.com/AstaFrode/go-libp2p-kbucket v0.5.1-0.20231113151623-a45fff026283 // indirect
+	github.com/AstaFrode/go-libp2p-record v0.2.1-0.20231113144445-2b6ba1a2d403 // indirect
 	github.com/AstaFrode/go-peertaskqueue v0.8.2-0.20231108073729-990e433425a4 // indirect
 	github.com/ChainSafe/go-schnorrkel v1.0.0 // indirect
 	github.com/StackExchange/wmi v0.0.0-20180116203802-5d049714c4a6 // indirect
@@ -88,9 +90,6 @@ require (
 	github.com/huin/goupnp v1.2.0 // indirect
 	github.com/inconshreveable/mousetrap v1.0.1 // indirect
 	github.com/ipfs/bbloom v0.0.4 // indirect
-	github.com/ipfs/boxo v0.12.0 // indirect
-	github.com/ipfs/go-block-format v0.1.2 // indirect
-	github.com/ipfs/go-cid v0.4.1 // indirect
 	github.com/ipfs/go-datastore v0.6.0 // indirect
 	github.com/ipfs/go-ipfs-delay v0.0.1 // indirect
 	github.com/ipfs/go-ipfs-pq v0.0.3 // indirect
@@ -112,9 +111,7 @@ require (
 	github.com/libp2p/go-buffer-pool v0.1.0 // indirect
 	github.com/libp2p/go-cidranger v1.1.0 // indirect
 	github.com/libp2p/go-flow-metrics v0.1.0 // indirect
-	github.com/libp2p/go-libp2p v0.26.4 // indirect
 	github.com/libp2p/go-libp2p-asn-util v0.3.0 // indirect
-	github.com/libp2p/go-libp2p-record v0.2.0 // indirect
 	github.com/libp2p/go-msgio v0.3.0 // indirect
 	github.com/libp2p/go-nat v0.1.0 // indirect
 	github.com/libp2p/go-netroute v0.2.1 // indirect
