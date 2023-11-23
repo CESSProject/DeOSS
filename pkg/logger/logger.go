@@ -41,15 +41,15 @@ type logs struct {
 // log file
 var (
 	LogFiles = []string{
-		"log",      //General log
-		"panic",    //Panic log
-		"upfile",   //Upload file log
-		"downfile", //Download log
-		"delete",
-		"track",
-		"query",
-		"discover",
-		"syncblock",
+		"log",      // general log
+		"panic",    // panic log
+		"upfile",   // upload file log
+		"downfile", // download log
+		"delete",   // delete log
+		"track",    // track log
+		"query",    // query log
+		"discover", // discover log
+		"blocks",   // blocks log
 	}
 )
 
@@ -182,7 +182,7 @@ func (l *logs) Discover(level, msg string) {
 
 func (l *logs) Block(level, msg string) {
 	_, file, line, _ := runtime.Caller(1)
-	v, ok := l.log["syncblock"]
+	v, ok := l.log["blocks"]
 	if ok {
 		switch level {
 		case "info":

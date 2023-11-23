@@ -64,11 +64,13 @@ func (n *Node) findPeers(ch chan<- bool) {
 					}
 					err := n.Connect(n.GetCtxQueryFromCtxCancel(), foundPeer)
 					if err != nil {
-						n.Peerstore().RemovePeer(foundPeer.ID)
+						// n.Peerstore().RemovePeer(foundPeer.ID)
+						n.GetDht().RoutingTable().RemovePeer(foundPeer.ID)
 					} else {
-						for _, addr := range foundPeer.Addrs {
-							n.Peerstore().AddAddr(foundPeer.ID, addr, peerstore.AddressTTL)
-						}
+						// for _, addr := range foundPeer.Addrs {
+						// 	n.Peerstore().AddAddr(foundPeer.ID, addr, peerstore.AddressTTL)
+						// }
+						n.GetDht().RoutingTable().TryAddPeer(foundPeer.ID, true, true)
 						n.SavePeer(foundPeer.ID.Pretty(), peer.AddrInfo{
 							ID:    foundPeer.ID,
 							Addrs: foundPeer.Addrs,
@@ -96,7 +98,8 @@ func (n *Node) recvPeers(ch chan<- bool) {
 			for _, v := range foundPeer.Responses {
 				if v != nil {
 					if len(v.Addrs) > 0 {
-						n.Peerstore().AddAddrs(v.ID, v.Addrs, peerstore.AddressTTL)
+						// n.Peerstore().AddAddrs(v.ID, v.Addrs, peerstore.AddressTTL)
+						n.GetDht().RoutingTable().TryAddPeer(foundPeer.ID, true, true)
 						n.SavePeer(v.ID.Pretty(), peer.AddrInfo{
 							ID:    v.ID,
 							Addrs: v.Addrs,

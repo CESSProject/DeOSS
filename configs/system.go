@@ -27,7 +27,7 @@ const (
 	// tracked files
 	Track = "track"
 	//
-	Fadeback = "fadeback"
+	Feedback = "feedback"
 	//
 	Ufile = "ufile"
 	//

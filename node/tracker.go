@@ -273,11 +273,11 @@ func (n *Node) storageData(roothash string, segment []pattern.SegmentDataInfo, c
 	var completed bool
 	var dataGroup = make(map[uint8][]string, len(segment[0].FragmentHash))
 	for index := 0; index < len(segment[0].FragmentHash); index++ {
-		dataGroup[uint8(index+1)] = make([]string, len(segment[0].FragmentHash))
+		dataGroup[uint8(index+1)] = make([]string, 0)
 		for i := 0; i < len(segment); i++ {
 			for j := 0; j < len(segment[i].FragmentHash); j++ {
 				if index == j {
-					dataGroup[uint8(index+1)][index] = segment[i].FragmentHash[j]
+					dataGroup[uint8(index+1)] = append(dataGroup[uint8(index+1)], string(segment[i].FragmentHash[j]))
 					break
 				}
 			}
@@ -299,6 +299,7 @@ func (n *Node) storageData(roothash string, segment []pattern.SegmentDataInfo, c
 		}
 
 		n.Track("info", fmt.Sprintf("[%s] Prepare to store the %d batch of fragments", roothash, index))
+		n.Track("info", fmt.Sprintf("[%s] The %d batch of fragments: %v", roothash, index, v))
 		failed = false
 		for i := 0; i < len(allpeers); i++ {
 			t, ok := n.HasBlacklist(allpeers[i])
@@ -320,8 +321,9 @@ func (n *Node) storageData(roothash string, segment []pattern.SegmentDataInfo, c
 				continue
 			}
 			n.Track("info", fmt.Sprintf("[%s] Will transfer to %s", roothash, allpeers[i]))
-			for _, f := range v {
-				err = n.WriteFileAction(addr.ID, roothash, f)
+			for j := 0; j < len(v); j++ {
+				n.Track("info", fmt.Sprintf("[%s] file path: %v", roothash, v[j]))
+				err = n.WriteFileAction(addr.ID, roothash, v[j])
 				if err != nil {
 					failed = true
 					n.AddToBlacklist(allpeers[i])

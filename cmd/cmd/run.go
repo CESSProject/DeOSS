@@ -385,8 +385,8 @@ func buildDir(workspace string) (string, string, string, string, string, string,
 		return "", "", "", "", "", "", err
 	}
 
-	fadebackDir := filepath.Join(workspace, configs.Fadeback)
-	if err := os.MkdirAll(fadebackDir, pattern.DirMode); err != nil {
+	feedbackDir := filepath.Join(workspace, configs.Feedback)
+	if err := os.MkdirAll(feedbackDir, pattern.DirMode); err != nil {
 		return "", "", "", "", "", "", err
 	}
 
@@ -398,7 +398,7 @@ func buildDir(workspace string) (string, string, string, string, string, string,
 	if err := os.MkdirAll(dfileDir, pattern.DirMode); err != nil {
 		return "", "", "", "", "", "", err
 	}
-	return logDir, cacheDir, trackDir, fadebackDir, ufileDir, dfileDir, nil
+	return logDir, cacheDir, trackDir, feedbackDir, ufileDir, dfileDir, nil
 }
 
 func buildCache(cacheDir string) (db.Cache, error) {
