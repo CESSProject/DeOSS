@@ -32,11 +32,11 @@ Rpc:
 # Bootstrap Nodes
 Boot:
   # test network
-  - "_dnsaddr.boot-kldr-testnet.cess.cloud"
+  - "_dnsaddr.boot-bucket-testnet.cess.cloud"
 # Account mnemonic
 Mnemonic: "xxx ... xxx"
 # Service workspace
-Workspace: /
+Workspace: "/"
 # P2P communication port
 P2P_Port: 4001
 # Service listening port
