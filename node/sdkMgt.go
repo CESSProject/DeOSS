@@ -15,6 +15,7 @@ import (
 	"github.com/AstaFrode/go-libp2p/core/peer"
 	"github.com/CESSProject/DeOSS/pkg/utils"
 	"github.com/CESSProject/p2p-go/core"
+	"github.com/mr-tron/base58/base58"
 
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
 	ma "github.com/multiformats/go-multiaddr"
@@ -35,7 +36,6 @@ func (n *Node) sdkMgt(ch chan<- bool) {
 	var maAddr ma.Multiaddr
 	var addrInfo *peer.AddrInfo
 	var bootstrap []string
-	//var linuxFileAttr *syscall.Stat_t
 
 	tick_BlockInterval := time.NewTicker(pattern.BlockInterval * 30)
 	defer tick_BlockInterval.Stop()
@@ -82,23 +82,23 @@ func (n *Node) sdkMgt(ch chan<- bool) {
 				if err != nil {
 					continue
 				}
-				//n.Log("info", fmt.Sprintf("connect to bootnode: %s", addrInfo.ID.Pretty()))
 				n.SavePeer(addrInfo.ID.Pretty(), *addrInfo)
 			}
-			// if !n.GetDiscoverSt() {
-			// 	n.StartDiscover()
-			// }
-			// Delete files that have not been accessed for more than 30 days
-			// files, _ = filepath.Glob(filepath.Join(n.GetDirs().FileDir, "/*"))
-			// for _, v := range files {
-			// 	fs, err := os.Stat(v)
-			// 	if err == nil {
-			// 		linuxFileAttr = fs.Sys().(*syscall.Stat_t)
-			// 		if time.Since(time.Unix(linuxFileAttr.Atim.Sec, 0)).Hours() > configs.FileCacheExpirationTime {
-			// 			os.Remove(v)
-			// 		}
-			// 	}
-			// }
+			sminerList, err := n.QuerySminerList()
+			if err != nil {
+				continue
+			}
+			for i := 0; i < len(sminerList); i++ {
+				minerinfo, err := n.QueryStorageMiner(sminerList[i][:])
+				if err != nil {
+					continue
+				}
+				if minerinfo.IdleSpace.Uint64() >= pattern.FragmentSize {
+					n.SaveStoragePeer(base58.Encode([]byte(string(minerinfo.PeerId[:]))))
+				} else {
+					n.DeleteStoragePeer(base58.Encode([]byte(string(minerinfo.PeerId[:]))))
+				}
+			}
 		}
 	}
 }
