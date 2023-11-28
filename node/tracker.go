@@ -17,6 +17,7 @@ import (
 	"github.com/CESSProject/DeOSS/pkg/utils"
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
 	sutils "github.com/CESSProject/cess-go-sdk/core/utils"
+	"github.com/mr-tron/base58"
 	"github.com/pkg/errors"
 )
 
@@ -263,7 +264,7 @@ func (n *Node) trackFile(trackfile string) error {
 		}
 
 		n.storageData(recordFile.Roothash, recordFile.SegmentInfo, storageOrder.CompleteInfo)
-		time.Sleep(time.Minute)
+		time.Sleep(time.Minute * 2)
 	}
 }
 
@@ -284,12 +285,24 @@ func (n *Node) storageData(roothash string, segment []pattern.SegmentDataInfo, c
 		}
 	}
 
-	allpeers := n.GetAllPeerId()
+	allpeers := n.GetAllStoragePeerId()
+	n.Track("info", fmt.Sprintf("All storage peers: %v", allpeers))
+	var sucPeer = make(map[string]struct{}, pattern.DataShards+pattern.ParShards)
+
+	for _, value := range completeList {
+		minfo, err := n.QueryStorageMiner(value.Miner[:])
+		if err != nil {
+			continue
+		}
+		sucPeer[base58.Encode([]byte(string(minfo.PeerId[:])))] = struct{}{}
+	}
+
 	for index, v := range dataGroup {
 		completed = false
 		for _, value := range completeList {
 			if uint8(value.Index) == index {
 				completed = true
+				n.Track("info", fmt.Sprintf("The %d batch fragments already report", index))
 				break
 			}
 		}
@@ -302,13 +315,16 @@ func (n *Node) storageData(roothash string, segment []pattern.SegmentDataInfo, c
 		n.Track("info", fmt.Sprintf("[%s] The %d batch of fragments: %v", roothash, index, v))
 		failed = false
 		for i := 0; i < len(allpeers); i++ {
-			t, ok := n.HasBlacklist(allpeers[i])
-			if ok {
-				if time.Since(time.Unix(t, 0)).Hours() >= 1 {
-					n.DelFromBlacklist(allpeers[i])
-				}
+			if _, ok := sucPeer[allpeers[i]]; ok {
 				continue
 			}
+			// t, ok := n.HasBlacklist(allpeers[i])
+			// if ok {
+			// 	if time.Since(time.Unix(t, 0)).Hours() >= 1 {
+			// 		n.DelFromBlacklist(allpeers[i])
+			// 	}
+			// 	continue
+			// }
 
 			addr, ok := n.GetPeer(allpeers[i])
 			if !ok {
@@ -320,6 +336,7 @@ func (n *Node) storageData(roothash string, segment []pattern.SegmentDataInfo, c
 				n.AddToBlacklist(allpeers[i])
 				continue
 			}
+
 			n.Track("info", fmt.Sprintf("[%s] Will transfer to %s", roothash, allpeers[i]))
 			for j := 0; j < len(v); j++ {
 				n.Track("info", fmt.Sprintf("[%s] file path: %v", roothash, v[j]))
@@ -332,6 +349,7 @@ func (n *Node) storageData(roothash string, segment []pattern.SegmentDataInfo, c
 				}
 			}
 			if !failed {
+				sucPeer[allpeers[i]] = struct{}{}
 				n.Track("info", fmt.Sprintf("[%s] The %d batch of data transfer was successful", roothash, index))
 				break
 			}

@@ -16,6 +16,8 @@ import (
 	"github.com/AstaFrode/go-libp2p/core/peer"
 	peerstore "github.com/AstaFrode/go-libp2p/core/peerstore"
 	drouting "github.com/AstaFrode/go-libp2p/p2p/discovery/routing"
+	"github.com/CESSProject/cess-go-sdk/core/pattern"
+	"github.com/mr-tron/base58"
 )
 
 func (n *Node) TaskMgt() {
@@ -31,6 +33,21 @@ func (n *Node) TaskMgt() {
 
 		ch_notifyBlocks = make(chan bool, 1)
 	)
+
+	sminerList, err := n.QuerySminerList()
+	if err == nil {
+		for i := 0; i < len(sminerList); i++ {
+			minerinfo, err := n.QueryStorageMiner(sminerList[i][:])
+			if err != nil {
+				continue
+			}
+			if minerinfo.IdleSpace.Uint64() >= pattern.FragmentSize {
+				n.SaveStoragePeer(base58.Encode([]byte(string(minerinfo.PeerId[:]))))
+			} else {
+				n.DeleteStoragePeer(base58.Encode([]byte(string(minerinfo.PeerId[:]))))
+			}
+		}
+	}
 
 	go n.findPeers(ch_findPeers)
 	go n.recvPeers(ch_recvPeers)

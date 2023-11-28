@@ -4,9 +4,9 @@ go 1.20
 
 require (
 	github.com/AstaFrode/go-libp2p v0.26.4-0.20231113143058-912296254d44
-	github.com/CESSProject/cess-go-sdk v0.3.21-0.20231114061951-fc77d8141ff0
+	github.com/CESSProject/cess-go-sdk v0.3.21-0.20231124070841-63bee15bbc25
 	github.com/CESSProject/go-keyring v0.0.0-20220614131247-ee3a8da30fde
-	github.com/CESSProject/p2p-go v0.2.6-0.20231122035207-4ef352825668
+	github.com/CESSProject/p2p-go v0.2.6-0.20231127085809-61bf3338888b
 	github.com/btcsuite/btcutil v1.0.3-0.20201208143702-a53e38424cce
 	github.com/cbergoon/merkletree v0.2.0
 	github.com/centrifuge/go-substrate-rpc-client/v4 v4.1.0
@@ -30,7 +30,6 @@ require (
 	github.com/vedhavyas/go-subkey/v2 v2.0.0
 	go.uber.org/zap v1.25.0
 	golang.org/x/crypto v0.14.0
-	golang.org/x/time v0.1.0
 )
 
 require (

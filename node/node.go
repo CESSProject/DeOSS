@@ -53,7 +53,9 @@ type Node struct {
 	trackLock          *sync.RWMutex
 	lock               *sync.RWMutex
 	blacklistLock      *sync.RWMutex
+	storagePeersLock   *sync.RWMutex
 	peers              map[string]peer.AddrInfo
+	storagePeers       map[string]struct{}
 	blacklist          map[string]int64
 	trackDir           string
 	fadebackDir        string
@@ -69,8 +71,10 @@ func New() *Node {
 		trackLock:          new(sync.RWMutex),
 		lock:               new(sync.RWMutex),
 		blacklistLock:      new(sync.RWMutex),
+		storagePeersLock:   new(sync.RWMutex),
 		processingFiles:    make([]string, 0),
 		peers:              make(map[string]peer.AddrInfo, 0),
+		storagePeers:       make(map[string]struct{}, 0),
 		blacklist:          make(map[string]int64, 0),
 	}
 }
@@ -118,6 +122,37 @@ func (n *Node) HasPeer(peerid string) bool {
 	defer n.lock.RUnlock()
 	_, ok := n.peers[peerid]
 	return ok
+}
+
+func (n *Node) SaveStoragePeer(peerid string) {
+	n.storagePeersLock.Lock()
+	n.storagePeers[peerid] = struct{}{}
+	n.storagePeersLock.Unlock()
+}
+
+func (n *Node) DeleteStoragePeer(peerid string) {
+	n.storagePeersLock.Lock()
+	delete(n.storagePeers, peerid)
+	n.storagePeersLock.Unlock()
+}
+
+func (n *Node) HasStoragePeer(peerid string) bool {
+	n.storagePeersLock.RLock()
+	defer n.storagePeersLock.RUnlock()
+	_, ok := n.storagePeers[peerid]
+	return ok
+}
+
+func (n *Node) GetAllStoragePeerId() []string {
+	n.storagePeersLock.RLock()
+	defer n.storagePeersLock.RUnlock()
+	var result = make([]string, len(n.storagePeers))
+	var i int
+	for k, _ := range n.storagePeers {
+		result[i] = k
+		i++
+	}
+	return result
 }
 
 func (n *Node) GetPeer(peerid string) (peer.AddrInfo, bool) {
