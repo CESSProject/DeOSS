@@ -1,9 +1,9 @@
-# <h1 align="center">DeOSS </br> [![GitHub license](https://img.shields.io/badge/license-Apache2-blue)](#LICENSE) <a href=""><img src="https://img.shields.io/badge/golang-%3E%3D1.19-blue.svg"/></a> [![Go Reference](https://pkg.go.dev/badge/github.com/CESSProject/DeOSS.svg)](https://pkg.go.dev/github.com/CESSProject/DeOSS)  [![build](https://github.com/CESSProject/DeOSS/actions/workflows/build.yml/badge.svg)](https://github.com/CESSProject/DeOSS/actions/workflows/build.yml) [![Go Report Card](https://goreportcard.com/badge/github.com/CESSProject/cess-oss)](https://goreportcard.com/report/github.com/CESSProject/cess-oss)</h1>
+# <h1 align="center">DeOSS </br> [![GitHub license](https://img.shields.io/badge/license-Apache2-blue)](#LICENSE) <a href=""><img src="https://img.shields.io/badge/golang-%3E%3D1.20-blue.svg"/></a> [![Go Reference](https://pkg.go.dev/badge/github.com/CESSProject/DeOSS.svg)](https://pkg.go.dev/github.com/CESSProject/DeOSS)  [![build](https://github.com/CESSProject/DeOSS/actions/workflows/build.yml/badge.svg)](https://github.com/CESSProject/DeOSS/actions/workflows/build.yml) [![Go Report Card](https://goreportcard.com/badge/github.com/CESSProject/cess-oss)](https://goreportcard.com/report/github.com/CESSProject/cess-oss)</h1>
 
 DeOSS ( Decentralized Object Storage Service ) is a decentralized object-based mass storage service that provides low-cost, secure and scalable distributed data storage services for the web3 domain.
 
 ## 📝 Reporting a Vulnerability
-If you find out any system bugs or you have a better suggestions, please send an email to frode@cess.one or join [CESS discord](https://discord.gg/mYHTMfBwNS) to communicate with us.
+If you find any system errors or you have better suggestions, please submit an issue or submit a pull request. You can also join the [CESS discord](https://discord.gg/mYHTMfBwNS) to communicate with us.
 
 ## 📢 Announcement
 ### CESS test network rpc endpoints
@@ -14,7 +14,7 @@ wss://testnet-rpc2.cess.cloud/ws/
 ```
 ### CESS test network bootstrap node
 ```
-_dnsaddr.boot-kldr-testnet.cess.cloud
+_dnsaddr.boot-bucket-testnet.cess.cloud
 ```
 
 ### CESS test network public gateway
@@ -89,7 +89,7 @@ service iptables restart
 ### Method one
 Download the latest release of the binary application directly at：
 ```
-wget https://github.com/CESSProject/DeOSS/releases/download/v0.3.2/DeOSS0.3.2.linux-amd64.tar.gz
+wget https://github.com/CESSProject/DeOSS/releases/download/v0.3.3/DeOSS0.3.3.linux-amd64.tar.gz
 ```
 
 ### Method two
@@ -164,6 +164,16 @@ Workspace: /
 P2P_Port: 4001
 # Service listening port
 HTTP_Port: 8080
+# Access mode: public / private
+# In public mode, only users in Accounts can't access it. 
+# In private mode, only users in Accounts can access it.
+Access: public
+# Account black/white list
+Accounts:
+  - cX...
+  - cX...
+# If you want to expose your oss service, please configure its domain name
+Domain: "http://deoss-pub-gateway.cess.cloud/"
 ```
 
 ## 🟢 Usage for DeOSS
@@ -180,6 +190,7 @@ nohup ./deoss run 2>&1 &
 | role              | deoss                                                |
 | peer id           | 12D3KooWFAcDpT7vTtbsS361P14z8LpgxPMRywQr19sAdNfdDBYE |
 | signature account | cXhwBytXqrZLr1qM5NHJhCzEMckSTzNKw17ci2aHft6ETSQm9    |
+| domain name       | http://deoss-pub-gateway.cess.cloud/                 |
 +-------------------+------------------------------------------------------+
 ```
 
@@ -359,6 +370,7 @@ The get file interface downloads the file in the CESS storage system according t
 | key       | value    |
 | --------- | -------- |
 | Operation | download |
+| Account   | cX...    |
 
 - Responses
 
@@ -563,6 +575,7 @@ This interface is used to view the basic information of a file.
 | key       | value |
 | --------- | ----- |
 | Operation | view  |
+| Account   | cX... |
 
 - Responses
 
