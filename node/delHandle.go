@@ -33,7 +33,7 @@ func (n *Node) delHandle(c *gin.Context) {
 		respMsg  = &RespMsg{}
 	)
 
-	clientIp = c.ClientIP()
+	clientIp = c.Request.Header.Get("X-Forwarded-For")
 	n.Del("info", fmt.Sprintf("[%v] %v", clientIp, INFO_DelRequest))
 
 	// verify token
@@ -92,21 +92,42 @@ func (n *Node) delFilesHandle(c *gin.Context) {
 		respMsg  = &RespMsg{}
 	)
 
-	clientIp = c.ClientIP()
+	clientIp = c.Request.Header.Get("X-Forwarded-For")
 	n.Del("info", fmt.Sprintf("[%v] %v", clientIp, INFO_DelRequest))
 
 	// verify token
 	token := c.Request.Header.Get(HTTPHeader_Authorization)
+	account = c.Request.Header.Get(HTTPHeader_Account)
+	message := c.Request.Header.Get(HTTPHeader_Message)
+	signature := c.Request.Header.Get(HTTPHeader_Signature)
 	account, pkey, err = n.verifyToken(token, respMsg)
 	if err != nil {
-		n.Del("err", fmt.Sprintf("[%v] %v", clientIp, err))
-		c.JSON(respMsg.Code, err.Error())
-		return
+		if account != "" && signature != "" {
+			pkey, err = n.verifySignature(account, message, signature)
+			if err != nil {
+				pkey, err = n.verifySR25519Signature(account, message, signature)
+				if err != nil {
+					pkey, err = n.verifyJsSignatureHex(account, message, signature)
+					if err != nil {
+						pkey, err = n.verifyJsSignatureBase58(account, message, signature)
+						if err != nil {
+							n.Del("err", fmt.Sprintf("[%v] %v", clientIp, err))
+							c.JSON(respMsg.Code, err.Error())
+							return
+						}
+					}
+				}
+			}
+		} else {
+			n.Upfile("info", fmt.Sprintf("[%v] %v", clientIp, err))
+			c.JSON(respMsg.Code, err.Error())
+			return
+		}
 	}
 
-	if !n.AccessControl(account) {
-		n.Del("info", fmt.Sprintf("[%v] %v", c.ClientIP(), ERR_Forbidden))
-		c.JSON(http.StatusForbidden, ERR_Forbidden)
+	if err = n.AccessControl(account); err != nil {
+		n.Upfile("info", fmt.Sprintf("[%v] %v", clientIp, err))
+		c.JSON(http.StatusForbidden, err.Error())
 		return
 	}
 

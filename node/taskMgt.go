@@ -17,6 +17,7 @@ import (
 	peerstore "github.com/AstaFrode/go-libp2p/core/peerstore"
 	drouting "github.com/AstaFrode/go-libp2p/p2p/discovery/routing"
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
+	"github.com/CESSProject/p2p-go/out"
 	"github.com/mr-tron/base58"
 )
 
@@ -59,8 +60,19 @@ func (n *Node) TaskMgt() {
 	go n.tracker(ch_trackFile)
 	go n.sdkMgt(ch_sdkMgt)
 
+	task_10S := time.NewTicker(time.Duration(time.Second * 10))
+	defer task_10S.Stop()
+
 	for {
 		select {
+		case <-task_10S.C:
+			err := n.connectChain()
+			if err != nil {
+				n.Log("err", pattern.ERR_RPC_CONNECTION.Error())
+				out.Err(pattern.ERR_RPC_CONNECTION.Error())
+				break
+			}
+
 		case <-ch_findPeers:
 			go n.findPeers(ch_findPeers)
 
@@ -83,6 +95,22 @@ func (n *Node) TaskMgt() {
 			go n.noticeBlocks(ch_notifyBlocks)
 		}
 	}
+}
+
+func (n *Node) connectChain() error {
+	var err error
+	if !n.GetChainState() {
+		n.Log("err", fmt.Sprintf("[%s] %v", n.GetCurrentRpcAddr(), pattern.ERR_RPC_CONNECTION))
+		out.Err(fmt.Sprintf("[%s] %v", n.GetCurrentRpcAddr(), pattern.ERR_RPC_CONNECTION))
+		err = n.Reconnect()
+		if err != nil {
+			return err
+		}
+		out.Tip(fmt.Sprintf("[%s] rpc reconnection successful", n.GetCurrentRpcAddr()))
+		n.Log("info", fmt.Sprintf("[%s] rpc reconnection successful", n.GetCurrentRpcAddr()))
+		n.SetChainState(true)
+	}
+	return nil
 }
 
 func discoverPeers(ctx context.Context, h host.Host, routingDiscovery *drouting.RoutingDiscovery, rendverse string) {

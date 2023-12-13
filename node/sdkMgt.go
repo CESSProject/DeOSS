@@ -9,7 +9,6 @@ package node
 
 import (
 	"fmt"
-	"log"
 	"time"
 
 	"github.com/AstaFrode/go-libp2p/core/peer"
@@ -37,9 +36,6 @@ func (n *Node) sdkMgt(ch chan<- bool) {
 	var addrInfo *peer.AddrInfo
 	var bootstrap []string
 
-	tick_BlockInterval := time.NewTicker(pattern.BlockInterval * 30)
-	defer tick_BlockInterval.Stop()
-
 	tick_60s := time.NewTicker(time.Minute)
 	defer tick_60s.Stop()
 
@@ -56,18 +52,6 @@ func (n *Node) sdkMgt(ch chan<- bool) {
 
 	for {
 		select {
-		case <-tick_BlockInterval.C:
-			if !n.GetChainState() {
-				n.Log("err", pattern.ERR_RPC_CONNECTION.Error())
-				err = n.Reconnect()
-				if err != nil {
-					log.Println(pattern.ERR_RPC_CONNECTION)
-					n.Log("err", pattern.ERR_RPC_CONNECTION.Error())
-				} else {
-					log.Println("rpc reconnection successful")
-					n.Log("info", "rpc reconnection successfully")
-				}
-			}
 		case <-tick_60s.C:
 			for _, v := range bootstrap {
 				maAddr, err = ma.NewMultiaddr(v)
