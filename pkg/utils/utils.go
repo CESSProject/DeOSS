@@ -3,11 +3,14 @@ package utils
 import (
 	"errors"
 	"fmt"
+	"math/rand"
 	"net"
 	"os"
 	"path/filepath"
+	"reflect"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/multiformats/go-multiaddr"
 )
@@ -75,4 +78,22 @@ func RemoveRepeatedAddr(arr []multiaddr.Multiaddr) (newArr []multiaddr.Multiaddr
 		}
 	}
 	return newArr
+}
+
+func RandSlice(slice interface{}) {
+	rv := reflect.ValueOf(slice)
+	if rv.Type().Kind() != reflect.Slice {
+		return
+	}
+
+	length := rv.Len()
+	if length < 2 {
+		return
+	}
+
+	swap := reflect.Swapper(slice)
+	for i := length - 1; i >= 0; i-- {
+		j := rand.New(rand.NewSource(time.Now().Unix())).Intn(length)
+		swap(i, j)
+	}
 }

@@ -8,6 +8,8 @@
 package node
 
 import (
+	"encoding/hex"
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -106,11 +108,19 @@ func (n *Node) verifySignature(account, message, signature string) ([]byte, erro
 	if ok {
 		return pkey, nil
 	}
+	pkey, err = n.verifyJsSignatureBase58(account, message, signature)
+	if err == nil {
+		return pkey, nil
+	}
+	pkey, err = n.verifyJsSignatureHex(account, message, signature)
+	if err == nil {
+		return pkey, nil
+	}
 	return nil, errors.New("signature verification failed")
 }
 
 // VerifyToken is used to parse and verify token
-func (n *Node) verifyJsSignature(account, message, signature string) ([]byte, error) {
+func (n *Node) verifyJsSignatureBase58(account, message, signature string) ([]byte, error) {
 	if account == "" || signature == "" {
 		return nil, errors.New("no identity authentication information")
 	}
@@ -152,6 +162,45 @@ func (n *Node) verifyJsSignature(account, message, signature string) ([]byte, er
 }
 
 // VerifyToken is used to parse and verify token
+func (n *Node) verifyJsSignatureHex(account, message, signature string) ([]byte, error) {
+	if account == "" || signature == "" {
+		return nil, errors.New("no identity authentication information")
+	}
+	pkey, err := sutils.ParsingPublickey(account)
+	if err != nil {
+		return nil, err
+	}
+
+	ss58, err := sutils.EncodePublicKeyAsSubstrateAccount(pkey)
+	if err != nil {
+		return nil, err
+	}
+
+	verkr, _ := keyring.FromURI(ss58, keyring.NetSubstrate{})
+
+	sign_bytes, err := hex.DecodeString(strings.TrimPrefix(signature, "0x"))
+	if err != nil {
+		return nil, err
+	}
+
+	if len(sign_bytes) != 64 {
+		return nil, errors.New("wrong signature length")
+	}
+
+	var sign_array [64]byte
+	for i := 0; i < 64; i++ {
+		sign_array[i] = sign_bytes[i]
+	}
+
+	// Verify signature
+	ok := verkr.Verify(verkr.SigningContext([]byte("<Bytes>"+message+"</Bytes>")), sign_array)
+	if ok {
+		return pkey, nil
+	}
+	return nil, errors.New("signature verification failed")
+}
+
+// VerifyToken is used to parse and verify token
 func (n *Node) verifySR25519Signature(account, message, signature string) ([]byte, error) {
 	if account == "" || signature == "" {
 		return nil, errors.New("no identity authentication information")
@@ -170,20 +219,20 @@ func (n *Node) verifySR25519Signature(account, message, signature string) ([]byt
 	if err != nil {
 		return pkey, err
 	}
-	ok := pub.Verify([]byte(message), sign_bytes)
+	ok := pub.Verify([]byte("<Bytes>"+message+"</Bytes>"), sign_bytes)
 	if !ok {
 		return pkey, errors.New("signature verification failed")
 	}
 	return pkey, nil
 }
 
-func (n *Node) AccessControl(account string) bool {
+func (n *Node) AccessControl(account string) error {
 	if account == "" {
-		return false
+		return errors.New("missing CESS account")
 	}
 	err := sutils.VerityAddress(account, sutils.CessPrefix)
 	if err != nil {
-		return false
+		return fmt.Errorf("%s is not a CESS account, no permissions", account)
 	}
 
 	bwlist := n.GetAccounts()
@@ -191,19 +240,19 @@ func (n *Node) AccessControl(account string) bool {
 	if n.GetAccess() == configs.Access_Public {
 		for _, v := range bwlist {
 			if v == account {
-				return false
+				return fmt.Errorf("Your account [%s] does not have permissions", account)
 			}
 		}
-		return true
+		return nil
 	}
 
 	if n.GetAccess() == configs.Access_Private {
 		for _, v := range bwlist {
 			if v == account {
-				return true
+				return nil
 			}
 		}
 	}
 
-	return false
+	return fmt.Errorf("Your account [%s] does not have permissions", account)
 }

@@ -69,15 +69,15 @@ func (n *Node) getHandle(c *gin.Context) {
 		clientIp string
 	)
 
-	clientIp = c.ClientIP()
+	clientIp = c.Request.Header.Get("X-Forwarded-For")
 	n.Query("info", fmt.Sprintf("[%s] %s", clientIp, INFO_GetRequest))
 
 	cipher := c.Request.Header.Get(HTTPHeader_Cipher)
 	account := c.Request.Header.Get(HTTPHeader_Account)
 
-	if !n.AccessControl(account) {
-		n.Query("info", fmt.Sprintf("[%v] %v", c.ClientIP(), ERR_Forbidden))
-		c.JSON(http.StatusForbidden, ERR_Forbidden)
+	if err := n.AccessControl(account); err != nil {
+		n.Query("info", fmt.Sprintf("[%v] %v", clientIp, err))
+		c.JSON(http.StatusForbidden, err.Error())
 		return
 	}
 
@@ -261,6 +261,15 @@ func (n *Node) getHandle(c *gin.Context) {
 		var err error
 		var size uint64
 		n.Query("info", fmt.Sprintf("[%s] Download file [%s]", clientIp, queryName))
+		mycid, err := n.FidToCid(queryName)
+		if err == nil {
+			buf, err := n.GetLocalDataFromBlock(mycid)
+			if err == nil {
+				c.Data(200, "application/octet-stream", buf)
+				return
+			}
+		}
+
 		fpath := utils.FindFile(n.GetDirs().FileDir, queryName)
 		fstat, err := os.Stat(fpath)
 		if err == nil {

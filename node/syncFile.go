@@ -186,7 +186,7 @@ func (n *Node) noticeBlocks(ch chan<- bool) {
 			continue
 		}
 
-		n.Block("info", fmt.Sprintf("[NotifyNewBlocks] [%v] ", mycid))
+		n.Block("info", fmt.Sprintf("[NotifyNewBlocks] [%s] [%v] ", hash, mycid))
 	}
 }
 

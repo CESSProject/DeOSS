@@ -24,7 +24,7 @@ func (n *Node) postRestoreHandle(c *gin.Context) {
 		respMsg  = &RespMsg{}
 	)
 
-	clientIp = c.ClientIP()
+	clientIp = c.Request.Header.Get("X-Forwarded-For")
 	n.Query("info", fmt.Sprintf("[%s] %s", clientIp, INFO_PostRestoreRequest))
 
 	token := c.Request.Header.Get(HTTPHeader_Authorization)
@@ -37,12 +37,21 @@ func (n *Node) postRestoreHandle(c *gin.Context) {
 		if account != "" && signature != "" {
 			pkey, err = n.verifySignature(account, message, signature)
 			if err != nil {
-				n.Log("info", fmt.Sprintf("[%v] %v", clientIp, err))
-				c.JSON(respMsg.Code, err.Error())
-				return
+				pkey, err = n.verifySR25519Signature(account, message, signature)
+				if err != nil {
+					pkey, err = n.verifyJsSignatureHex(account, message, signature)
+					if err != nil {
+						pkey, err = n.verifyJsSignatureBase58(account, message, signature)
+						if err != nil {
+							n.Upfile("info", fmt.Sprintf("[%v] %v", clientIp, err))
+							c.JSON(respMsg.Code, err.Error())
+							return
+						}
+					}
+				}
 			}
 		} else {
-			n.Log("info", fmt.Sprintf("[%v] %v", clientIp, err))
+			n.Upfile("info", fmt.Sprintf("[%v] %v", clientIp, err))
 			c.JSON(respMsg.Code, err.Error())
 			return
 		}
@@ -50,9 +59,9 @@ func (n *Node) postRestoreHandle(c *gin.Context) {
 		account = userAccount
 	}
 
-	if !n.AccessControl(account) {
-		n.Log("info", fmt.Sprintf("[%v] %v", clientIp, ERR_Forbidden))
-		c.JSON(http.StatusForbidden, ERR_Forbidden)
+	if err = n.AccessControl(account); err != nil {
+		n.Upfile("info", fmt.Sprintf("[%v] %v", clientIp, err))
+		c.JSON(http.StatusForbidden, err.Error())
 		return
 	}
 

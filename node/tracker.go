@@ -132,6 +132,7 @@ func (n *Node) trackFile(trackfile string) error {
 		_, err = n.QueryFileMetadata(roothash)
 		if err != nil {
 			if err.Error() != pattern.ERR_Empty {
+				time.Sleep(time.Second * pattern.BlockInterval)
 				return errors.Wrapf(err, "[%s] [QueryFileMetadata]", roothash)
 			}
 		} else {
@@ -286,7 +287,8 @@ func (n *Node) storageData(roothash string, segment []pattern.SegmentDataInfo, c
 	}
 
 	allpeers := n.GetAllStoragePeerId()
-	n.Track("info", fmt.Sprintf("All storage peers: %v", allpeers))
+
+	//n.Track("info", fmt.Sprintf("All storage peers: %v", allpeers))
 	var sucPeer = make(map[string]struct{}, pattern.DataShards+pattern.ParShards)
 
 	for _, value := range completeList {
@@ -313,18 +315,20 @@ func (n *Node) storageData(roothash string, segment []pattern.SegmentDataInfo, c
 
 		n.Track("info", fmt.Sprintf("[%s] Prepare to store the %d batch of fragments", roothash, index))
 		n.Track("info", fmt.Sprintf("[%s] The %d batch of fragments: %v", roothash, index, v))
-		failed = false
+		utils.RandSlice(allpeers)
 		for i := 0; i < len(allpeers); i++ {
+			failed = false
 			if _, ok := sucPeer[allpeers[i]]; ok {
 				continue
 			}
-			// t, ok := n.HasBlacklist(allpeers[i])
-			// if ok {
-			// 	if time.Since(time.Unix(t, 0)).Hours() >= 1 {
-			// 		n.DelFromBlacklist(allpeers[i])
-			// 	}
-			// 	continue
-			// }
+
+			t, ok := n.HasBlacklist(allpeers[i])
+			if ok {
+				if time.Since(time.Unix(t, 0)).Hours() >= 1 {
+					n.DelFromBlacklist(allpeers[i])
+				}
+				continue
+			}
 
 			addr, ok := n.GetPeer(allpeers[i])
 			if !ok {
@@ -339,7 +343,6 @@ func (n *Node) storageData(roothash string, segment []pattern.SegmentDataInfo, c
 
 			n.Track("info", fmt.Sprintf("[%s] Will transfer to %s", roothash, allpeers[i]))
 			for j := 0; j < len(v); j++ {
-				n.Track("info", fmt.Sprintf("[%s] file path: %v", roothash, v[j]))
 				err = n.WriteFileAction(addr.ID, roothash, v[j])
 				if err != nil {
 					failed = true
