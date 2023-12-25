@@ -35,7 +35,7 @@ func (n *Node) TaskMgt() {
 		ch_notifyBlocks = make(chan bool, 1)
 	)
 
-	sminerList, err := n.QuerySminerList()
+	sminerList, err := n.QueryAllSminerAccount()
 	if err == nil {
 		for i := 0; i < len(sminerList); i++ {
 			minerinfo, err := n.QueryStorageMiner(sminerList[i][:])
@@ -102,7 +102,7 @@ func (n *Node) connectChain() error {
 	if !n.GetChainState() {
 		n.Log("err", fmt.Sprintf("[%s] %v", n.GetCurrentRpcAddr(), pattern.ERR_RPC_CONNECTION))
 		out.Err(fmt.Sprintf("[%s] %v", n.GetCurrentRpcAddr(), pattern.ERR_RPC_CONNECTION))
-		err = n.Reconnect()
+		err = n.ReconnectRPC()
 		if err != nil {
 			return err
 		}

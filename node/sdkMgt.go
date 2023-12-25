@@ -68,7 +68,7 @@ func (n *Node) sdkMgt(ch chan<- bool) {
 				}
 				n.SavePeer(addrInfo.ID.Pretty(), *addrInfo)
 			}
-			sminerList, err := n.QuerySminerList()
+			sminerList, err := n.QueryAllSminerAccount()
 			if err != nil {
 				continue
 			}

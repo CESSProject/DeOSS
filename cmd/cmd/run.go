@@ -21,7 +21,7 @@ import (
 	"github.com/CESSProject/DeOSS/pkg/db"
 	"github.com/CESSProject/DeOSS/pkg/logger"
 	"github.com/CESSProject/DeOSS/pkg/utils"
-	sdkgo "github.com/CESSProject/cess-go-sdk"
+	cess "github.com/CESSProject/cess-go-sdk"
 	sconfig "github.com/CESSProject/cess-go-sdk/config"
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
 	sutils "github.com/CESSProject/cess-go-sdk/core/utils"
@@ -92,12 +92,12 @@ func cmd_run_func(cmd *cobra.Command, args []string) {
 	}
 
 	// Build sdk
-	n.SDK, err = sdkgo.New(
+	n.SDK, err = cess.New(
 		ctx,
-		sconfig.CharacterName_Deoss,
-		sdkgo.ConnectRpcAddrs(n.GetRpcAddr()),
-		sdkgo.Mnemonic(n.GetMnemonic()),
-		sdkgo.TransactionTimeout(configs.TimeOut_WaitBlock),
+		cess.Name(sconfig.CharacterName_Deoss),
+		cess.ConnectRpcAddrs(n.GetRpcAddr()),
+		cess.Mnemonic(n.GetMnemonic()),
+		cess.TransactionTimeout(configs.TimeOut_WaitBlock),
 	)
 	if err != nil {
 		out.Err(err.Error())
@@ -107,7 +107,7 @@ func cmd_run_func(cmd *cobra.Command, args []string) {
 	n.P2P, err = p2pgo.New(
 		ctx,
 		p2pgo.ListenPort(n.GetP2pPort()),
-		p2pgo.Workspace(filepath.Join(n.GetWorkspace(), n.GetSignatureAcc(), n.GetSdkName())),
+		p2pgo.Workspace(filepath.Join(n.GetWorkspace(), n.GetSignatureAcc(), n.GetSDKName())),
 		p2pgo.BootPeers(n.GetBootNodes()),
 		p2pgo.ProtocolPrefix(protocolPrefix),
 	)
@@ -150,7 +150,7 @@ func cmd_run_func(cmd *cobra.Command, args []string) {
 		time.Sleep(time.Second * time.Duration(utils.Ternary(int64(syncSt.HighestBlock-syncSt.CurrentBlock)*6, 30)))
 	}
 
-	ossinfo, err := n.QueryDeossInfo(n.GetSignatureAccPulickey())
+	ossinfo, err := n.QueryDeOSSInfo(n.GetSignatureAccPulickey())
 	if err != nil {
 		if err.Error() == pattern.ERR_Empty {
 			registerFlag = true
@@ -161,7 +161,7 @@ func cmd_run_func(cmd *cobra.Command, args []string) {
 	}
 
 	if registerFlag {
-		_, err = n.RegisterDeoss(n.GetPeerPublickey(), n.GetDomainName())
+		_, err = n.RegisterDeOSS(n.GetPeerPublickey(), n.GetDomainName())
 		if err != nil {
 			out.Err(fmt.Sprintf("register deoss err: %v", err))
 			os.Exit(1)
@@ -171,7 +171,7 @@ func cmd_run_func(cmd *cobra.Command, args []string) {
 		newPeerid := n.GetPeerPublickey()
 		if !sutils.CompareSlice([]byte(string(ossinfo.Peerid[:])), newPeerid) ||
 			n.GetDomainName() != string(ossinfo.Domain) {
-			txhash, err := n.UpdateDeoss(string(newPeerid), n.GetDomainName())
+			txhash, err := n.UpdateDeOSS(string(newPeerid), n.GetDomainName())
 			if err != nil {
 				out.Err(fmt.Sprintf("[%s] update deoss err: %v", txhash, err))
 				os.Exit(1)

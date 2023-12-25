@@ -15,6 +15,7 @@ import (
 	"path/filepath"
 	"sort"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -62,6 +63,7 @@ type Node struct {
 	peersPath          string
 	ufileDir           string
 	dfileDir           string
+	findPeer           *atomic.Uint32
 }
 
 // New is used to build a node instance
@@ -76,6 +78,7 @@ func New() *Node {
 		peers:              make(map[string]peer.AddrInfo, 0),
 		storagePeers:       make(map[string]struct{}, 0),
 		blacklist:          make(map[string]int64, 0),
+		findPeer:           new(atomic.Uint32),
 	}
 }
 

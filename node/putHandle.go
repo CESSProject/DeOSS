@@ -21,6 +21,7 @@ import (
 
 	"github.com/CESSProject/DeOSS/pkg/utils"
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
+	"github.com/CESSProject/cess-go-sdk/core/process"
 	sutils "github.com/CESSProject/cess-go-sdk/core/utils"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -111,8 +112,13 @@ func (n *Node) putHandle(c *gin.Context) {
 
 	// verify the space is authorized
 	var flag bool
-	authAccs, err := n.QuaryAuthorizedAccounts(pkey)
+	authAccs, err := n.QueryAuthorizedAccounts(pkey)
 	if err != nil {
+		if err.Error() == pattern.ERR_Empty {
+			n.Upfile("info", fmt.Sprintf("[%v] %v", clientIp, ERR_SpaceNotAuth))
+			c.JSON(http.StatusForbidden, ERR_SpaceNotAuth)
+			return
+		}
 		n.Upfile("info", fmt.Sprintf("[%v] %v", clientIp, err))
 		c.JSON(http.StatusInternalServerError, err.Error())
 		return
@@ -138,7 +144,7 @@ func (n *Node) putHandle(c *gin.Context) {
 			return
 		}
 		n.Upfile("info", fmt.Sprintf("[%v] create bucket [%v] successfully: %v", clientIp, bucketName, txHash))
-		if len(txHash) != pattern.FileHashLen {
+		if len(txHash) != (pattern.FileHashLen + 2) {
 			c.JSON(http.StatusOK, "bucket already exists")
 		} else {
 			c.JSON(http.StatusOK, map[string]string{"Block hash:": txHash})
@@ -301,7 +307,7 @@ func (n *Node) putHandle(c *gin.Context) {
 		return
 	}
 
-	segmentInfo, roothash, err := n.ShardedEncryptionProcessing(fpath, cipher)
+	segmentInfo, roothash, err := process.ShardedEncryptionProcessing(fpath, cipher)
 	if err != nil {
 		n.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, err))
 		c.JSON(http.StatusInternalServerError, err.Error())
