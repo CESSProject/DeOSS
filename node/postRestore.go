@@ -91,7 +91,7 @@ func (n *Node) postRestoreHandle(c *gin.Context) {
 
 	// verify the space is authorized
 	var flag bool
-	authAccs, _ := n.QuaryAuthorizedAccounts(pkey)
+	authAccs, _ := n.QueryAuthorizedAccounts(pkey)
 	for _, v := range authAccs {
 		if n.GetSignatureAcc() == v {
 			flag = true

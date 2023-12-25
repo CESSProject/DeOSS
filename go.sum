@@ -58,12 +58,12 @@ github.com/AstaFrode/go-peertaskqueue v0.8.2-0.20231108073729-990e433425a4/go.mo
 github.com/BurntSushi/toml v0.3.1 h1:WXkYYl6Yr3qBf1K79EBnL4mak0OimBfB0XUf9Vl28OQ=
 github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03qcyfWMU=
 github.com/BurntSushi/xgb v0.0.0-20160522181843-27f122750802/go.mod h1:IVnqGOEym/WlBOVXweHU+Q+/VP0lqqI8lqeDx9IjBqo=
-github.com/CESSProject/cess-go-sdk v0.3.21-0.20231124070841-63bee15bbc25 h1:vsGDRpU39knFBI3FcZe2HxEi4YoUiftHU2/JX9O0TcA=
-github.com/CESSProject/cess-go-sdk v0.3.21-0.20231124070841-63bee15bbc25/go.mod h1:KWlHxDKfinyfEI3w7BqMqgo+oi7grsUVayDw/2NYSks=
+github.com/CESSProject/cess-go-sdk v0.4.11 h1:LP9zwF4G5dl8s8nnNshuxF/zo5wOMyujLSR4x2WF7lQ=
+github.com/CESSProject/cess-go-sdk v0.4.11/go.mod h1:0fPeRJ57+WooVOEMwynC4gYjWunXYMYN/+jAMvmCqAk=
 github.com/CESSProject/go-keyring v0.0.0-20220614131247-ee3a8da30fde h1:5MDRjjtg6PEhqyVjupwaapN96cOZiddOGAYwKQeaTu0=
 github.com/CESSProject/go-keyring v0.0.0-20220614131247-ee3a8da30fde/go.mod h1:RUXBd3ROP98MYepEEa0Y0l/T0vQlIKqFJxI/ocdnRLM=
-github.com/CESSProject/p2p-go v0.2.6-0.20231127085809-61bf3338888b h1:mgOe7+QChOVMt360EUIkmSJq2/WcnwJ7G+pG/+bGM5M=
-github.com/CESSProject/p2p-go v0.2.6-0.20231127085809-61bf3338888b/go.mod h1:SMwJt5Zpk98k+d2J5gsN+0Forr7MbqOYWbHLd3mBLrI=
+github.com/CESSProject/p2p-go v0.2.8 h1:gmskWAxkkZlLh+pjBtcdP1iIJZZmup8mXDSPj8Co3i8=
+github.com/CESSProject/p2p-go v0.2.8/go.mod h1:SMwJt5Zpk98k+d2J5gsN+0Forr7MbqOYWbHLd3mBLrI=
 github.com/ChainSafe/go-schnorrkel v1.0.0 h1:3aDA67lAykLaG1y3AOjs88dMxC88PgUuHRrLeDnvGIM=
 github.com/ChainSafe/go-schnorrkel v1.0.0/go.mod h1:dpzHYVxLZcp8pjlV+O+UR8K0Hp/z7vcchBSbMBEhCw4=
 github.com/StackExchange/wmi v0.0.0-20180116203802-5d049714c4a6 h1:fLjPD/aNc3UIOA6tDi6QXUemppXK3P9BI7mr2hd6gx8=

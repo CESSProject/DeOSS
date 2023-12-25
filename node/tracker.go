@@ -16,6 +16,7 @@ import (
 
 	"github.com/CESSProject/DeOSS/pkg/utils"
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
+	"github.com/CESSProject/cess-go-sdk/core/process"
 	sutils "github.com/CESSProject/cess-go-sdk/core/utils"
 	"github.com/mr-tron/base58"
 	"github.com/pkg/errors"
@@ -163,7 +164,7 @@ func (n *Node) trackFile(trackfile string) error {
 			}
 
 			// verify the space is authorized
-			authAccs, err := n.QuaryAuthorizedAccounts(recordFile.Owner)
+			authAccs, err := n.QueryAuthorizedAccounts(recordFile.Owner)
 			if err != nil {
 				if err.Error() != pattern.ERR_Empty {
 					return errors.Wrapf(err, "[%s] [QuaryAuthorizedAccount]", roothash)
@@ -254,7 +255,7 @@ func (n *Node) trackFile(trackfile string) error {
 		}
 
 		if recordFile.SegmentInfo == nil {
-			resegmentInfo, reHash, err := n.ShardedEncryptionProcessing(filepath.Join(n.GetDirs().FileDir, roothash), "")
+			resegmentInfo, reHash, err := process.ShardedEncryptionProcessing(filepath.Join(n.GetDirs().FileDir, roothash), "")
 			if err != nil {
 				return errors.Wrapf(err, "[ShardedEncryptionProcessing]")
 			}
@@ -264,7 +265,7 @@ func (n *Node) trackFile(trackfile string) error {
 			recordFile.SegmentInfo = resegmentInfo
 		}
 
-		n.storageData(recordFile.Roothash, recordFile.SegmentInfo, storageOrder.CompleteInfo)
+		n.storageData(recordFile.Roothash, recordFile.SegmentInfo, storageOrder.CompleteList)
 		time.Sleep(time.Minute * 2)
 	}
 }

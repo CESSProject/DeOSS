@@ -15,7 +15,7 @@ import (
 
 	"github.com/CESSProject/DeOSS/configs"
 	"github.com/CESSProject/DeOSS/node"
-	sdkgo "github.com/CESSProject/cess-go-sdk"
+	cess "github.com/CESSProject/cess-go-sdk"
 	sconfig "github.com/CESSProject/cess-go-sdk/config"
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
 	"github.com/btcsuite/btcutil/base58"
@@ -37,12 +37,12 @@ func cmd_stat_func(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
-	n.SDK, err = sdkgo.New(
+	n.SDK, err = cess.New(
 		context.Background(),
-		sconfig.CharacterName_Deoss,
-		sdkgo.ConnectRpcAddrs(n.Confile.GetRpcAddr()),
-		sdkgo.Mnemonic(n.Confile.GetMnemonic()),
-		sdkgo.TransactionTimeout(configs.TimeOut_WaitBlock),
+		cess.Name(sconfig.CharacterName_Deoss),
+		cess.ConnectRpcAddrs(n.Confile.GetRpcAddr()),
+		cess.Mnemonic(n.Confile.GetMnemonic()),
+		cess.TransactionTimeout(configs.TimeOut_WaitBlock),
 	)
 	if err != nil {
 		log.Println(err)
@@ -54,7 +54,7 @@ func cmd_stat_func(cmd *cobra.Command, args []string) {
 		log.Println(err)
 		os.Exit(1)
 	}
-	ossinfo, err := n.QueryDeossInfo(pubkey)
+	ossinfo, err := n.QueryDeOSSInfo(pubkey)
 	if err != nil {
 		if err.Error() == pattern.ERR_Empty {
 			log.Printf("[err] You are not registered as an oss role\n")

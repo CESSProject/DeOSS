@@ -23,11 +23,13 @@ func (n *Node) findPeers(ch chan<- bool) {
 	}()
 	n.Discover("info", ">>>>> start findPeers <<<<<")
 	for {
-		err := n.findpeer()
-		if err != nil {
-			n.Discover("err", err.Error())
+		if n.findPeer.Load() > 10 {
+			n.findPeer.Store(0)
+			err := n.findpeer()
+			if err != nil {
+				n.Discover("err", err.Error())
+			}
 		}
-		time.Sleep(time.Second)
 	}
 }
 
@@ -55,6 +57,9 @@ func (n *Node) recvPeers(ch chan<- bool) {
 					}
 				}
 			}
+		default:
+			n.findPeer.Add(1)
+			time.Sleep(time.Second)
 		}
 	}
 }

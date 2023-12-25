@@ -169,7 +169,7 @@ func (n *Node) getHandle(c *gin.Context) {
 		}
 		// Query bucket list
 		if queryName == "*" {
-			bucketList, err := n.QueryAllBucketName(pkey)
+			bucketList, err := n.QueryAllBucketString(pkey)
 			if err != nil {
 				if err.Error() == pattern.ERR_Empty {
 					n.Query("err", fmt.Sprintf("[%s] Query [%s] bucket list: NotFount", clientIp, account))
@@ -319,7 +319,7 @@ func (n *Node) getHandle(c *gin.Context) {
 		}
 
 		fpath = filepath.Join(n.GetDirs().FileDir, queryName)
-		peerList, _ := n.QueryDeossPeerIdList()
+		peerList, _ := n.QueryAllDeOSSPeerId()
 		if len(peerList) > 0 {
 			for _, v := range peerList {
 				addr, ok := n.GetPeer(v)

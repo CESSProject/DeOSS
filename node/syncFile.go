@@ -65,7 +65,7 @@ func (n *Node) syncFiles(ch chan<- bool) {
 				continue
 			}
 
-			ossinfo, err = n.QueryDeossInfo(pubkey)
+			ossinfo, err = n.QueryDeOSSInfo(pubkey)
 			if err != nil {
 				n.Log("err", err.Error())
 				continue
@@ -164,6 +164,17 @@ func (n *Node) noticeBlocks(ch chan<- bool) {
 		mycid, err := n.FidToCid(hash)
 		if err != nil {
 			n.Block("err", fmt.Sprintf("[FidToCid] [%v] %v", hash, err))
+			continue
+		}
+
+		acid, err := cid.Parse(mycid)
+		if err != nil {
+			n.Block("err", fmt.Sprintf("[cid.Parse(%s)] %v", mycid, err))
+			continue
+		}
+
+		ok, err := n.GetBlockstore().Has(context.Background(), acid)
+		if err == nil && ok {
 			continue
 		}
 
