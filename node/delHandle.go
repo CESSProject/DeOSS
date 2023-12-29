@@ -14,7 +14,7 @@ import (
 	"path/filepath"
 
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
-	sutils "github.com/CESSProject/cess-go-sdk/core/utils"
+	sutils "github.com/CESSProject/cess-go-sdk/utils"
 	"github.com/gin-gonic/gin"
 )
 

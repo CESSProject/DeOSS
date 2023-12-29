@@ -14,7 +14,7 @@ import (
 	"strings"
 
 	"github.com/CESSProject/DeOSS/configs"
-	sutils "github.com/CESSProject/cess-go-sdk/core/utils"
+	sutils "github.com/CESSProject/cess-go-sdk/utils"
 	"github.com/CESSProject/go-keyring"
 	jwt "github.com/dgrijalva/jwt-go"
 	"github.com/mr-tron/base58"

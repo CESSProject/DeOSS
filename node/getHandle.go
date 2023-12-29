@@ -18,7 +18,7 @@ import (
 	"github.com/CESSProject/cess-go-sdk/core/crypte"
 	"github.com/CESSProject/cess-go-sdk/core/erasure"
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
-	sutils "github.com/CESSProject/cess-go-sdk/core/utils"
+	sutils "github.com/CESSProject/cess-go-sdk/utils"
 	"github.com/gin-gonic/gin"
 	"github.com/mr-tron/base58"
 )

@@ -19,7 +19,7 @@ import (
 	"github.com/CESSProject/DeOSS/pkg/db"
 	"github.com/CESSProject/DeOSS/pkg/utils"
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
-	sutils "github.com/CESSProject/cess-go-sdk/core/utils"
+	sutils "github.com/CESSProject/cess-go-sdk/utils"
 	"github.com/CESSProject/p2p-go/core"
 	blocks "github.com/ipfs/go-block-format"
 	"github.com/ipfs/go-cid"

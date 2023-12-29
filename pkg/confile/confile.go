@@ -14,8 +14,7 @@ import (
 
 	"github.com/CESSProject/DeOSS/configs"
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
-	"github.com/CESSProject/cess-go-sdk/core/utils"
-	sutils "github.com/CESSProject/cess-go-sdk/core/utils"
+	sutils "github.com/CESSProject/cess-go-sdk/utils"
 	"github.com/centrifuge/go-substrate-rpc-client/v4/signature"
 	"github.com/pkg/errors"
 	"github.com/spf13/viper"
@@ -134,7 +133,7 @@ func (c *confile) Parse(fpath string) error {
 
 	var accounts = make(map[string]struct{}, 0)
 	for _, v := range c.Accounts {
-		err = sutils.VerityAddress(v, utils.CessPrefix)
+		err = sutils.VerityAddress(v, sutils.CessPrefix)
 		if err != nil {
 			continue
 		}
