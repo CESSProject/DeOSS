@@ -43,5 +43,4 @@ func (n *Node) fadebackHandle(c *gin.Context) {
 	}
 	f.Close()
 	c.JSON(http.StatusOK, nil)
-	return
 }

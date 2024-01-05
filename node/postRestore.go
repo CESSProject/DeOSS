@@ -2,6 +2,7 @@ package node
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -75,7 +76,7 @@ func (n *Node) postRestoreHandle(c *gin.Context) {
 
 	if len(restoreList.Files) == 0 {
 		n.Log("err", fmt.Sprintf("[%v] The restored file is empty", clientIp))
-		c.JSON(400, fmt.Sprintf("The restored file is empty"))
+		c.JSON(400, errors.New("the restored file is empty"))
 		return
 	}
 

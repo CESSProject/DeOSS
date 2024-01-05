@@ -49,6 +49,11 @@ func (n *Node) verifyToken(token string, respmsg *RespMsg) (string, []byte, erro
 		func(token *jwt.Token) (interface{}, error) {
 			return n.signkey, nil
 		})
+	if err != nil {
+		respmsg.Code = http.StatusForbidden
+		respmsg.Err = errors.New(ERR_Authorization)
+		return account, nil, respmsg.Err
+	}
 
 	if claims, ok = jwttoken.Claims.(*CustomClaims); ok && jwttoken.Valid {
 		account = claims.Account
@@ -240,7 +245,7 @@ func (n *Node) AccessControl(account string) error {
 	if n.GetAccess() == configs.Access_Public {
 		for _, v := range bwlist {
 			if v == account {
-				return fmt.Errorf("Your account [%s] does not have permissions", account)
+				return fmt.Errorf("your account [%s] does not have permissions", account)
 			}
 		}
 		return nil
@@ -254,5 +259,5 @@ func (n *Node) AccessControl(account string) error {
 		}
 	}
 
-	return fmt.Errorf("Your account [%s] does not have permissions", account)
+	return fmt.Errorf("your account [%s] does not have permissions", account)
 }
