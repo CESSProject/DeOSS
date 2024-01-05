@@ -60,7 +60,7 @@ func (n *Node) putHandle(c *gin.Context) {
 	}
 	n.Upfile("info", fmt.Sprintf("[%v] Acc: %s", clientIp, account))
 	n.Upfile("info", fmt.Sprintf("[%v] Message: %s", clientIp, message))
-	n.Upfile("info", fmt.Sprintf("[%v] signature: %s", clientIp, signature))
+	n.Upfile("info", fmt.Sprintf("[%v] Signature: %s", clientIp, signature))
 	userAccount, pkey, err := n.verifyToken(token, respMsg)
 	if err != nil {
 		if account != "" && signature != "" {
@@ -426,7 +426,6 @@ func (n *Node) putHandle(c *gin.Context) {
 
 	n.Upfile("info", fmt.Sprintf("[%v] [%s] uploaded successfully", clientIp, roothash))
 	c.JSON(http.StatusOK, roothash)
-	return
 }
 
 func (n *Node) deduplication(pkey []byte, segmentInfo []pattern.SegmentDataInfo, roothash, filename, bucketname string, filesize uint64) (bool, error) {

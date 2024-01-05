@@ -8,6 +8,7 @@
 package node
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -65,11 +66,7 @@ type FileMetaData struct {
 
 // getHandle
 func (n *Node) getHandle(c *gin.Context) {
-	var (
-		clientIp string
-	)
-
-	clientIp = c.Request.Header.Get("X-Forwarded-For")
+	clientIp := c.Request.Header.Get("X-Forwarded-For")
 	n.Query("info", fmt.Sprintf("[%s] %s", clientIp, INFO_GetRequest))
 
 	cipher := c.Request.Header.Get(HTTPHeader_Cipher)
@@ -361,7 +358,6 @@ func (n *Node) getHandle(c *gin.Context) {
 	}
 	n.Query("err", fmt.Sprintf("[%s] [%s] %s", clientIp, queryName, ERR_HeadOperation))
 	c.JSON(http.StatusBadRequest, ERR_HeadOperation)
-	return
 }
 
 func (n *Node) fetchFiles(roothash, dir, cipher string) (string, error) {
@@ -444,7 +440,7 @@ func (n *Node) fetchFiles(roothash, dir, cipher string) (string, error) {
 	}
 
 	if len(segmentspath) != len(fmeta.SegmentList) {
-		return "", fmt.Errorf("Download failed")
+		return "", errors.New("download failed")
 	}
 	var writecount = 0
 	for i := 0; i < len(fmeta.SegmentList); i++ {
@@ -475,7 +471,7 @@ func (n *Node) fetchFiles(roothash, dir, cipher string) (string, error) {
 		}
 	}
 	if writecount != len(fmeta.SegmentList) {
-		return "", fmt.Errorf("Write failed")
+		return "", errors.New("write failed")
 	}
 
 	return userfile, nil

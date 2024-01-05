@@ -68,7 +68,7 @@ func (n *Node) getRestoreHandle(c *gin.Context) {
 	var userfils_file userFiles
 	data, err = os.ReadFile(filepath.Join(n.ufileDir, account))
 	if err == nil {
-		err = json.Unmarshal(data, &userfils_file)
+		json.Unmarshal(data, &userfils_file)
 	}
 
 	var userDeletedfils_cache userFiles
@@ -80,7 +80,7 @@ func (n *Node) getRestoreHandle(c *gin.Context) {
 	var userDeletedfils_file userFiles
 	data, err = os.ReadFile(filepath.Join(n.dfileDir, account))
 	if err == nil {
-		err = json.Unmarshal(data, &userDeletedfils_file)
+		json.Unmarshal(data, &userDeletedfils_file)
 	}
 
 	var savedFiles []string

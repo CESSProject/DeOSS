@@ -89,7 +89,6 @@ func (n *Node) authHandle(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, map[string]string{HTTPHeader_Authorization: tokenString})
-	return
 }
 
 func VerifySign(pkey, signmsg, sign []byte) (bool, error) {

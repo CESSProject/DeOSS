@@ -50,38 +50,35 @@ func (n *Node) sdkMgt(ch chan<- bool) {
 	}
 	n.Log("info", fmt.Sprintf("bootnode list:  %s", bootstrap))
 
-	for {
-		select {
-		case <-tick_60s.C:
-			for _, v := range bootstrap {
-				maAddr, err = ma.NewMultiaddr(v)
-				if err != nil {
-					continue
-				}
-				addrInfo, err = peer.AddrInfoFromP2pAddr(maAddr)
-				if err != nil {
-					continue
-				}
-				err = n.Connect(n.GetCtxQueryFromCtxCancel(), *addrInfo)
-				if err != nil {
-					continue
-				}
-				n.SavePeer(addrInfo.ID.Pretty(), *addrInfo)
-			}
-			sminerList, err := n.QueryAllSminerAccount()
+	for _ = range tick_60s.C {
+		for _, v := range bootstrap {
+			maAddr, err = ma.NewMultiaddr(v)
 			if err != nil {
 				continue
 			}
-			for i := 0; i < len(sminerList); i++ {
-				minerinfo, err := n.QueryStorageMiner(sminerList[i][:])
-				if err != nil {
-					continue
-				}
-				if minerinfo.IdleSpace.Uint64() >= pattern.FragmentSize {
-					n.SaveStoragePeer(base58.Encode([]byte(string(minerinfo.PeerId[:]))))
-				} else {
-					n.DeleteStoragePeer(base58.Encode([]byte(string(minerinfo.PeerId[:]))))
-				}
+			addrInfo, err = peer.AddrInfoFromP2pAddr(maAddr)
+			if err != nil {
+				continue
+			}
+			err = n.Connect(n.GetCtxQueryFromCtxCancel(), *addrInfo)
+			if err != nil {
+				continue
+			}
+			n.SavePeer(addrInfo.ID.Pretty(), *addrInfo)
+		}
+		sminerList, err := n.QueryAllSminerAccount()
+		if err != nil {
+			continue
+		}
+		for i := 0; i < len(sminerList); i++ {
+			minerinfo, err := n.QueryStorageMiner(sminerList[i][:])
+			if err != nil {
+				continue
+			}
+			if minerinfo.IdleSpace.Uint64() >= pattern.FragmentSize {
+				n.SaveStoragePeer(base58.Encode([]byte(string(minerinfo.PeerId[:]))))
+			} else {
+				n.DeleteStoragePeer(base58.Encode([]byte(string(minerinfo.PeerId[:]))))
 			}
 		}
 	}

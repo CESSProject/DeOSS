@@ -78,7 +78,6 @@ func (n *Node) delHandle(c *gin.Context) {
 
 	n.Del("err", fmt.Sprintf("[%v] invalid parameter: %s", clientIp, deleteName))
 	c.JSON(400, fmt.Sprintf("%v or %v", ERR_InvalidFilehash, ERR_InvalidParaBucketName))
-	return
 }
 
 // delHandle is used to delete buckets or files
@@ -97,11 +96,11 @@ func (n *Node) delFilesHandle(c *gin.Context) {
 
 	// verify token
 	token := c.Request.Header.Get(HTTPHeader_Authorization)
-	account = c.Request.Header.Get(HTTPHeader_Account)
 	message := c.Request.Header.Get(HTTPHeader_Message)
 	signature := c.Request.Header.Get(HTTPHeader_Signature)
 	account, pkey, err = n.verifyToken(token, respMsg)
 	if err != nil {
+		account = c.Request.Header.Get(HTTPHeader_Account)
 		if account != "" && signature != "" {
 			pkey, err = n.verifySignature(account, message, signature)
 			if err != nil {
@@ -143,7 +142,7 @@ func (n *Node) delFilesHandle(c *gin.Context) {
 
 	if len(delList.Files) == 0 {
 		n.Del("err", fmt.Sprintf("[%v] [ShouldBind] empty files", clientIp))
-		c.JSON(400, fmt.Sprintf("empty files"))
+		c.JSON(400, fmt.Sprintf("[%v] empty files", clientIp))
 		return
 	}
 
