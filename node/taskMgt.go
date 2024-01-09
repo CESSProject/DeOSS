@@ -30,20 +30,7 @@ func (n *Node) TaskMgt() {
 		ch_notifyBlocks = make(chan bool, 1)
 	)
 
-	sminerList, err := n.QueryAllSminerAccount()
-	if err == nil {
-		for i := 0; i < len(sminerList); i++ {
-			minerinfo, err := n.QueryStorageMiner(sminerList[i][:])
-			if err != nil {
-				continue
-			}
-			if minerinfo.IdleSpace.Uint64() >= pattern.FragmentSize {
-				n.SaveStoragePeer(base58.Encode([]byte(string(minerinfo.PeerId[:]))))
-			} else {
-				n.DeleteStoragePeer(base58.Encode([]byte(string(minerinfo.PeerId[:]))))
-			}
-		}
-	}
+	go n.refreshMiner()
 
 	go n.findPeers(ch_findPeers)
 	go n.recvPeers(ch_recvPeers)
@@ -105,4 +92,21 @@ func (n *Node) connectChain() error {
 		n.SetChainState(true)
 	}
 	return nil
+}
+
+func (n *Node) refreshMiner() {
+	sminerList, err := n.QueryAllSminerAccount()
+	if err == nil {
+		for i := 0; i < len(sminerList); i++ {
+			minerinfo, err := n.QueryStorageMiner(sminerList[i][:])
+			if err != nil {
+				continue
+			}
+			if minerinfo.IdleSpace.Uint64() >= pattern.FragmentSize {
+				n.SaveStoragePeer(base58.Encode([]byte(string(minerinfo.PeerId[:]))))
+			} else {
+				n.DeleteStoragePeer(base58.Encode([]byte(string(minerinfo.PeerId[:]))))
+			}
+		}
+	}
 }

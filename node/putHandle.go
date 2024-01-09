@@ -155,8 +155,8 @@ func (n *Node) putHandle(c *gin.Context) {
 	userInfo, err := n.QueryUserSpaceSt(pkey)
 	if err != nil {
 		if err.Error() == pattern.ERR_Empty {
-			n.Upfile("info", fmt.Sprintf("[%v] %v", clientIp, ERR_AccountNotExist))
-			c.JSON(http.StatusForbidden, ERR_AccountNotExist)
+			n.Upfile("info", fmt.Sprintf("[%v] %v", clientIp, ERR_NoSpace))
+			c.JSON(http.StatusForbidden, ERR_NoSpace)
 			return
 		}
 		n.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, err))
@@ -267,7 +267,9 @@ func (n *Node) putHandle(c *gin.Context) {
 	} else {
 		filename = fileHeder.Filename
 		if len(filename) > pattern.MaxBucketNameLength {
-			filename = filename[len(filename)-pattern.MaxBucketNameLength:]
+			n.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, ERR_FileNameTooLang))
+			c.JSON(http.StatusBadRequest, ERR_FileNameTooLang)
+			return
 		}
 		f, err := os.Create(fpath)
 		if err != nil {
@@ -287,7 +289,7 @@ func (n *Node) putHandle(c *gin.Context) {
 	}
 
 	if filename == "" {
-		filename = fmt.Sprintf("%v.ces", time.Now().Unix())
+		filename = "null.ces"
 	}
 
 	if len(filename) < 3 {

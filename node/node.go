@@ -13,14 +13,13 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"sort"
 	"sync"
 	"sync/atomic"
-	"syscall"
 	"time"
 
 	"github.com/AstaFrode/go-libp2p/core/peer"
 	"github.com/CESSProject/DeOSS/configs"
+	"github.com/CESSProject/DeOSS/inter"
 	"github.com/CESSProject/DeOSS/pkg/confile"
 	"github.com/CESSProject/DeOSS/pkg/db"
 	"github.com/CESSProject/DeOSS/pkg/logger"
@@ -42,12 +41,6 @@ type Oss interface {
 }
 
 type Node struct {
-	confile.Confile
-	logger.Logger
-	db.Cache
-	sdk.SDK
-	core.P2P
-	*gin.Engine
 	signkey            []byte
 	processingFiles    []string
 	processingFileLock *sync.RWMutex
@@ -55,6 +48,7 @@ type Node struct {
 	lock               *sync.RWMutex
 	blacklistLock      *sync.RWMutex
 	storagePeersLock   *sync.RWMutex
+	findPeer           *atomic.Uint32
 	peers              map[string]peer.AddrInfo
 	storagePeers       map[string]struct{}
 	blacklist          map[string]int64
@@ -63,7 +57,13 @@ type Node struct {
 	peersPath          string
 	ufileDir           string
 	dfileDir           string
-	findPeer           *atomic.Uint32
+	inter.TrackFile
+	confile.Confile
+	logger.Logger
+	db.Cache
+	sdk.SDK
+	core.P2P
+	*gin.Engine
 }
 
 // New is used to build a node instance
@@ -74,6 +74,7 @@ func New() *Node {
 		lock:               new(sync.RWMutex),
 		blacklistLock:      new(sync.RWMutex),
 		storagePeersLock:   new(sync.RWMutex),
+		TrackFile:          inter.NewTeeRecord(),
 		processingFiles:    make([]string, 0),
 		peers:              make(map[string]peer.AddrInfo, 0),
 		storagePeers:       make(map[string]struct{}, 0),
@@ -305,30 +306,13 @@ func (n *Node) HasTrackFile(filehash string) bool {
 
 func (n *Node) ListTrackFiles() ([]string, error) {
 	n.trackLock.RLock()
-	result, err := filepath.Glob(fmt.Sprintf("%s/*", n.trackDir))
+	result, err := filepath.Glob(filepath.Join(n.trackDir, "*"))
 	if err != nil {
 		n.trackLock.RUnlock()
 		return nil, err
 	}
 	n.trackLock.RUnlock()
-
-	var linuxFileAttr *syscall.Stat_t
-	var keys = make([]int, 0)
-	var resultMap = make(map[int64]string, 0)
-	for _, v := range result {
-		fs, err := os.Stat(v)
-		if err == nil {
-			linuxFileAttr = fs.Sys().(*syscall.Stat_t)
-			resultMap[linuxFileAttr.Ctim.Sec] = v
-			keys = append(keys, int(linuxFileAttr.Ctim.Sec))
-		}
-	}
-	sort.Ints(keys)
-	var resultFile = make([]string, len(keys))
-	for k, v := range keys {
-		resultFile[k] = resultMap[int64(v)]
-	}
-	return resultFile, nil
+	return result, nil
 }
 
 func (n *Node) DeleteTrackFile(filehash string) {

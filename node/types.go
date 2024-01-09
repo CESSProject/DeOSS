@@ -70,7 +70,9 @@ const (
 	//ERR_SpaceExpired          = "space expired"
 	ERR_NotEnoughSpace = "not enough account space"
 
-	ERR_InternalServer = "InternalError"
+	ERR_InternalServer  = "InternalError"
+	ERR_FileNameTooLang = "The file name length cannot exceed 63 characters"
+	ERR_NoSpace         = "please purchase space first"
 )
 
 const (
