@@ -38,8 +38,6 @@ type RecordInfo struct {
 // MinRecordInfoLength = len(json.Marshal(RecordInfo{}))
 const MinRecordInfoLength = 132
 
-const MaxTrackThread = 50
-
 // tracker
 func (n *Node) tracker(ch chan<- bool) {
 	defer func() {

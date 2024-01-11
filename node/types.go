@@ -7,11 +7,6 @@
 
 package node
 
-type RespMsg struct {
-	Code int
-	Err  error
-}
-
 // HTTP HEADER
 const (
 	HTTPHeader_Authorization = "Authorization"
@@ -54,7 +49,7 @@ const (
 	ERR_DuplicateOrder        = "duplicate order"
 	ERR_MissToken             = "InvalidHead.MissToken"
 	ERR_EmptySeed             = "InvalidProfile.EmptySeed"
-	ERR_MissAccount           = "InvalidHead.MissAccount"
+	ERR_MissingAccount        = "InvalidHead.MissingAccount"
 	ERR_InvalidAccount        = "InvalidHead.Account"
 	ERR_NoPermission          = "InvalidToken.NoPermission"
 	ERR_InvalidToken          = "InvalidHead.Token"

@@ -38,7 +38,6 @@ func (n *Node) putHandle(c *gin.Context) {
 		roothash string
 		savedir  string
 		filename string
-		respMsg  = &RespMsg{}
 	)
 
 	// record client ip
@@ -46,11 +45,30 @@ func (n *Node) putHandle(c *gin.Context) {
 	n.Upfile("info", fmt.Sprintf("[%v] %v", clientIp, INFO_PutRequest))
 
 	// verify the authorization
-	token := c.Request.Header.Get(HTTPHeader_Authorization)
 	account := c.Request.Header.Get(HTTPHeader_Account)
 	message := c.Request.Header.Get(HTTPHeader_Message)
 	signature := c.Request.Header.Get(HTTPHeader_Signature)
+
+	if err = n.AccessControl(account); err != nil {
+		n.Upfile("info", fmt.Sprintf("[%v] %v", clientIp, err))
+		c.JSON(http.StatusForbidden, err.Error())
+		return
+	}
+
+	pkey, err := n.verifyAccountSignature(account, message, signature)
+	if err != nil {
+		n.Upfile("err", fmt.Sprintf("[%v] %s", clientIp, err.Error()))
+		c.JSON(http.StatusBadRequest, err.Error())
+		return
+	}
+
 	cipher := c.Request.Header.Get(HTTPHeader_Cipher)
+	if account == "" {
+		n.Upfile("err", fmt.Sprintf("[%v] %s", clientIp, ERR_MissingAccount))
+		c.JSON(http.StatusBadRequest, ERR_MissingAccount)
+		return
+	}
+
 	// verify mem availability
 	contentLength := c.Request.ContentLength
 	if len(cipher) > 32 {
@@ -61,40 +79,6 @@ func (n *Node) putHandle(c *gin.Context) {
 	n.Upfile("info", fmt.Sprintf("[%v] Acc: %s", clientIp, account))
 	n.Upfile("info", fmt.Sprintf("[%v] Message: %s", clientIp, message))
 	n.Upfile("info", fmt.Sprintf("[%v] Signature: %s", clientIp, signature))
-	userAccount, pkey, err := n.verifyToken(token, respMsg)
-	if err != nil {
-		if account != "" && signature != "" {
-			pkey, err = n.verifySignature(account, message, signature)
-			if err != nil {
-				pkey, err = n.verifySR25519Signature(account, message, signature)
-				if err != nil {
-					pkey, err = n.verifyJsSignatureHex(account, message, signature)
-					if err != nil {
-						pkey, err = n.verifyJsSignatureBase58(account, message, signature)
-						if err != nil {
-							n.Upfile("info", fmt.Sprintf("[%v] %v", clientIp, err))
-							c.JSON(respMsg.Code, err.Error())
-							return
-						}
-					}
-				}
-			}
-		} else {
-			n.Upfile("info", fmt.Sprintf("[%v] %v", clientIp, err))
-			c.JSON(respMsg.Code, err.Error())
-			return
-		}
-	} else {
-		account = userAccount
-	}
-
-	n.Upfile("info", fmt.Sprintf("[%v] verified acc: %s", clientIp, account))
-
-	if err = n.AccessControl(account); err != nil {
-		n.Upfile("info", fmt.Sprintf("[%v] %v", clientIp, err))
-		c.JSON(http.StatusForbidden, err.Error())
-		return
-	}
 
 	// verify the bucket name
 	bucketName := c.Request.Header.Get(HTTPHeader_BucketName)

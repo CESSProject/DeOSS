@@ -35,7 +35,7 @@ func (n *Node) TaskMgt() {
 	go n.findPeers(ch_findPeers)
 	go n.recvPeers(ch_recvPeers)
 
-	go n.noticeBlocks(ch_notifyBlocks)
+	// go n.noticeBlocks(ch_notifyBlocks)
 	go n.syncBlock(ch_syncBlock)
 	go n.syncFiles(ch_syncFile)
 
@@ -73,7 +73,7 @@ func (n *Node) TaskMgt() {
 			go n.sdkMgt(ch_sdkMgt)
 
 		case <-ch_notifyBlocks:
-			go n.noticeBlocks(ch_notifyBlocks)
+			// go n.noticeBlocks(ch_notifyBlocks)
 		}
 	}
 }

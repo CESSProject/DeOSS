@@ -15,42 +15,19 @@ func (n *Node) getRestoreHandle(c *gin.Context) {
 	var (
 		clientIp string
 		repeat   bool
-		respMsg  = &RespMsg{}
 	)
 
 	clientIp = c.Request.Header.Get("X-Forwarded-For")
 	n.Query("info", fmt.Sprintf("[%s] %s", clientIp, INFO_GetRestoreRequest))
 
-	token := c.Request.Header.Get(HTTPHeader_Authorization)
 	account := c.Request.Header.Get(HTTPHeader_Account)
 	message := c.Request.Header.Get(HTTPHeader_Message)
 	signature := c.Request.Header.Get(HTTPHeader_Signature)
-
-	userAccount, _, err := n.verifyToken(token, respMsg)
+	_, err := n.verifyAccountSignature(account, message, signature)
 	if err != nil {
-		if account != "" && signature != "" {
-			_, err = n.verifySignature(account, message, signature)
-			if err != nil {
-				_, err = n.verifySR25519Signature(account, message, signature)
-				if err != nil {
-					_, err = n.verifyJsSignatureHex(account, message, signature)
-					if err != nil {
-						_, err = n.verifyJsSignatureBase58(account, message, signature)
-						if err != nil {
-							n.Upfile("info", fmt.Sprintf("[%v] %v", clientIp, err))
-							c.JSON(respMsg.Code, err.Error())
-							return
-						}
-					}
-				}
-			}
-		} else {
-			n.Upfile("info", fmt.Sprintf("[%v] %v", clientIp, err))
-			c.JSON(respMsg.Code, err.Error())
-			return
-		}
-	} else {
-		account = userAccount
+		n.Upfile("err", fmt.Sprintf("[%v] %s", clientIp, err.Error()))
+		c.JSON(http.StatusBadRequest, err.Error())
+		return
 	}
 
 	if err = n.AccessControl(account); err != nil {

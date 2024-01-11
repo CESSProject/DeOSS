@@ -10,75 +10,49 @@ package node
 import (
 	"encoding/hex"
 	"fmt"
-	"net/http"
 	"strings"
 
 	"github.com/CESSProject/DeOSS/configs"
 	sutils "github.com/CESSProject/cess-go-sdk/utils"
 	"github.com/CESSProject/go-keyring"
-	jwt "github.com/dgrijalva/jwt-go"
 	"github.com/mr-tron/base58"
 	"github.com/pkg/errors"
 	"github.com/vedhavyas/go-subkey/v2/sr25519"
 )
 
-// VerifyToken is used to parse and verify token
-func (n *Node) verifyToken(token string, respmsg *RespMsg) (string, []byte, error) {
-	var (
-		ok       bool
-		err      error
-		claims   *CustomClaims
-		jwttoken *jwt.Token
-		account  string
-	)
-
-	if respmsg.Err != nil {
-		return account, nil, err
+func (n *Node) verifyAccountSignature(account, msg, signature string) ([]byte, error) {
+	var err error
+	var publicKey []byte
+	if account == "" {
+		return nil, errors.New("Account is missing in request header")
 	}
-
-	if token == "" {
-		respmsg.Code = http.StatusForbidden
-		respmsg.Err = errors.New(ERR_Authorization)
-		return account, nil, respmsg.Err
+	if msg == "" {
+		return nil, errors.New("Message is missing in request header")
 	}
-
-	// parse token
-	jwttoken, err = jwt.ParseWithClaims(
-		token,
-		&CustomClaims{},
-		func(token *jwt.Token) (interface{}, error) {
-			return n.signkey, nil
-		})
+	if signature == "" {
+		return nil, errors.New("Signature is missing in request header")
+	}
+	publicKey, err = n.verifySignature(account, msg, signature)
+	if err == nil {
+		return publicKey, nil
+	}
+	publicKey, err = n.verifySR25519Signature(account, msg, signature)
+	if err == nil {
+		return publicKey, nil
+	}
+	publicKey, err = n.verifyJsSignatureHex(account, msg, signature)
+	if err == nil {
+		return publicKey, nil
+	}
+	publicKey, err = n.verifyJsSignatureBase58(account, msg, signature)
 	if err != nil {
-		respmsg.Code = http.StatusForbidden
-		respmsg.Err = errors.New(ERR_Authorization)
-		return account, nil, respmsg.Err
+		return nil, errors.New("Signature verification failed")
 	}
-
-	if claims, ok = jwttoken.Claims.(*CustomClaims); ok && jwttoken.Valid {
-		account = claims.Account
-	} else {
-		respmsg.Code = http.StatusForbidden
-		respmsg.Err = errors.New(ERR_NoPermission)
-		return account, nil, err
-	}
-	pkey, err := sutils.ParsingPublickey(account)
-	if err != nil {
-		respmsg.Code = http.StatusBadRequest
-		respmsg.Err = errors.New(ERR_InvalidToken)
-		return account, nil, err
-	}
-
-	respmsg.Code = http.StatusOK
-	respmsg.Err = nil
-	return account, pkey, nil
+	return publicKey, nil
 }
 
 // VerifyToken is used to parse and verify token
 func (n *Node) verifySignature(account, message, signature string) ([]byte, error) {
-	if account == "" || signature == "" {
-		return nil, errors.New("no identity authentication information")
-	}
 	pkey, err := sutils.ParsingPublickey(account)
 	if err != nil {
 		return nil, err

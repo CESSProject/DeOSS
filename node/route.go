@@ -10,8 +10,6 @@ package node
 import "fmt"
 
 func (n *Node) addRoute() {
-	n.Engine.POST("/auth", n.authHandle)
-
 	n.Engine.POST("/feedback/log", n.fadebackHandle)
 
 	n.Engine.POST("/restore", n.postRestoreHandle)
