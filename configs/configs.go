@@ -29,8 +29,10 @@ const (
 
 const FileCacheExpirationTime = 720
 
+const MaxTrackThread = 10
+
 // Time out waiting for transaction completion
-const TimeOut_WaitBlock = time.Duration(time.Second * 15)
+const TimeOut_WaitBlock = time.Duration(time.Second * 30)
 
 const DefaultConfig = "conf.yaml"
 

@@ -68,6 +68,7 @@ func (n *Node) syncFiles(ch chan<- bool) {
 			ossinfo, err = n.QueryDeOSSInfo(pubkey)
 			if err != nil {
 				n.Log("err", err.Error())
+				time.Sleep(pattern.BlockInterval)
 				continue
 			}
 
@@ -91,6 +92,7 @@ func (n *Node) syncFiles(ch chan<- bool) {
 				sorder, err := n.QueryStorageOrder(wantfiles[i].File)
 				if err != nil {
 					n.Log("err", err.Error())
+					time.Sleep(pattern.BlockInterval)
 					continue
 				} else {
 					size = sorder.FileSize.Int64()

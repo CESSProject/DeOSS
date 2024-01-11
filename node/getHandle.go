@@ -116,8 +116,8 @@ func (n *Node) getHandle(c *gin.Context) {
 
 	if len(queryName) != len(pattern.FileHash{}) {
 		if account == "" {
-			n.Query("err", fmt.Sprintf("[%s] %s", clientIp, ERR_MissAccount))
-			c.JSON(http.StatusBadRequest, ERR_MissAccount)
+			n.Query("err", fmt.Sprintf("[%s] %s", clientIp, ERR_MissingAccount))
+			c.JSON(http.StatusBadRequest, ERR_MissingAccount)
 			return
 		}
 		pkey, err := sutils.ParsingPublickey(account)

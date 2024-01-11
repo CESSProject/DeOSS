@@ -3,7 +3,7 @@
 DeOSS ( Decentralized Object Storage Service ) is a decentralized object-based mass storage service that provides low-cost, secure and scalable distributed data storage services for the web3 domain.
 
 ## 📝 Reporting a Vulnerability
-If you find any system errors or you have better suggestions, please submit an issue or submit a pull request. You can also join the [CESS discord](https://discord.gg/mYHTMfBwNS) to communicate with us.
+If you find any system errors or you have better suggestions, please submit an issue or PR, or join the [CESS discord](https://discord.gg/mYHTMfBwNS) to communicate with us.
 
 ## 📢 Announcement
 ### CESS test network rpc endpoints
@@ -89,7 +89,7 @@ service iptables restart
 ### Method one
 Download the latest release of the binary application directly at：
 ```
-wget https://github.com/CESSProject/DeOSS/releases/download/v0.3.3/DeOSS0.3.3.linux-amd64.tar.gz
+wget https://github.com/CESSProject/DeOSS/releases/download/v0.3.4/DeOSS0.3.4.linux-amd64.tar.gz
 ```
 
 ### Method two
@@ -97,7 +97,7 @@ Compile the binary program from the DeOSS source code and follow the process as 
 
 **1) install go**
 
-DeOSS requires [Go 1.20](https://golang.org/dl/) or higher, See the [official Golang installation instructions](https://golang.org/doc/install).
+DeOSS requires [Go 1.20](https://golang.org/dl/), See the [official Golang installation instructions](https://golang.org/doc/install).
 
 Open go mod mode:
 ```
@@ -146,23 +146,23 @@ Use `deoss` to generate configuration file templates directly in the current dir
 The contents of the configuration file template are as follows. The contents inside are the defaults and you will need to modify them as appropriate. By default, `deoss` uses `conf.yaml` in the current directory as the runtime configuration file. You can use `-c` or `-config` to specify the location of the configuration file.
 
 ```yaml
-# The rpc endpoint of the chain node
+# RPC endpoint of the chain node
 Rpc:
   # test network
   - "wss://testnet-rpc0.cess.cloud/ws/"
   - "wss://testnet-rpc1.cess.cloud/ws/"
   - "wss://testnet-rpc2.cess.cloud/ws/"
-# Bootstrap Nodes
+# bootstrap nodes
 Boot:
   # test network
-  - "_dnsaddr.boot-kldr-testnet.cess.cloud"
-# Account mnemonic
+  - "_dnsaddr.boot-bucket-testnet.cess.cloud"
+# signature account mnemonic
 Mnemonic: "xxx xxx ... xxx"
-# Service workspace
+# service workspace
 Workspace: /
 # P2P communication port
 P2P_Port: 4001
-# Service listening port
+# service listening port
 HTTP_Port: 8080
 # Access mode: public / private
 # In public mode, only users in Accounts can't access it. 
