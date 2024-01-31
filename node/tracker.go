@@ -177,7 +177,8 @@ func (n *Node) trackFile(trackfile string) error {
 			if err != nil {
 				return errors.Wrapf(err, "[%s] [%s] [GenerateStorageOrder]", txhash, roothash)
 			}
-			time.Sleep(pattern.BlockInterval * 2)
+			n.Track("info", fmt.Sprintf("[%s] GenerateStorageOrder: %s", roothash, txhash))
+			time.Sleep(pattern.BlockInterval * 3)
 			storageOrder, err = n.QueryStorageOrder(roothash)
 			if err != nil {
 				return errors.Wrapf(err, "[%s] [QueryStorageOrder]", roothash)
