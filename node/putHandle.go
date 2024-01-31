@@ -273,7 +273,7 @@ func (n *Node) putHandle(c *gin.Context) {
 	}
 
 	if filename == "" {
-		filename = "null.ces"
+		filename = "null"
 	}
 
 	if len(filename) < 3 {
@@ -408,6 +408,20 @@ func (n *Node) putHandle(c *gin.Context) {
 		n.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, err))
 		c.JSON(http.StatusInternalServerError, ERR_InternalServer)
 		return
+	}
+
+	txhash, err := n.GenerateStorageOrder(
+		roothash,
+		recordInfo.SegmentInfo,
+		recordInfo.Owner,
+		recordInfo.Filename,
+		recordInfo.Buckname,
+		recordInfo.Filesize,
+	)
+	if err != nil {
+		n.Upfile("err", fmt.Sprintf("[%s] GenerateStorageOrder failed, tx: %s err: %v", roothash, txhash, err))
+	} else {
+		n.Upfile("info", fmt.Sprintf("[%s] GenerateStorageOrder suc: %s", roothash, txhash))
 	}
 
 	n.Upfile("info", fmt.Sprintf("[%v] [%s] uploaded successfully", clientIp, roothash))
