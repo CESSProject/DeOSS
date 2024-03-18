@@ -23,7 +23,7 @@ func (n *Node) getRestoreHandle(c *gin.Context) {
 	account := c.Request.Header.Get(HTTPHeader_Account)
 	message := c.Request.Header.Get(HTTPHeader_Message)
 	signature := c.Request.Header.Get(HTTPHeader_Signature)
-	_, err := n.verifyAccountSignature(account, message, signature)
+	_, err := n.VerifyAccountSignature(account, message, signature)
 	if err != nil {
 		n.Upfile("err", fmt.Sprintf("[%v] %s", clientIp, err.Error()))
 		c.JSON(http.StatusBadRequest, err.Error())

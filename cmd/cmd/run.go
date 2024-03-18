@@ -110,7 +110,7 @@ func cmd_run_func(cmd *cobra.Command, args []string) {
 		p2pgo.Workspace(filepath.Join(n.GetWorkspace(), n.GetSignatureAcc(), n.GetSDKName())),
 		p2pgo.BootPeers(n.GetBootNodes()),
 		p2pgo.ProtocolPrefix(protocolPrefix),
-		p2pgo.EnableBitswap(),
+		//p2pgo.EnableBitswap(),
 	)
 	if err != nil {
 		out.Err(err.Error())

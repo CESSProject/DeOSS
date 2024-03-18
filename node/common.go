@@ -20,7 +20,7 @@ import (
 	"github.com/vedhavyas/go-subkey/v2/sr25519"
 )
 
-func (n *Node) verifyAccountSignature(account, msg, signature string) ([]byte, error) {
+func (n *Node) VerifyAccountSignature(account, msg, signature string) ([]byte, error) {
 	var err error
 	var publicKey []byte
 	if account == "" {
@@ -132,6 +132,13 @@ func (n *Node) verifyJsSignatureBase58(account, message, signature string) ([]by
 		sign_array[i] = sign_bytes[i]
 	}
 
+	if strings.HasPrefix(message, "<Bytes>") && strings.HasSuffix(message, "</Bytes>") {
+		ok := verkr.Verify(verkr.SigningContext([]byte(message)), sign_array)
+		if ok {
+			return pkey, nil
+		}
+	}
+
 	// Verify signature
 	ok := verkr.Verify(verkr.SigningContext([]byte("<Bytes>"+message+"</Bytes>")), sign_array)
 	if ok {
@@ -172,6 +179,13 @@ func (n *Node) verifyJsSignatureHex(account, message, signature string) ([]byte,
 	}
 
 	// Verify signature
+	if strings.HasPrefix(message, "<Bytes>") && strings.HasSuffix(message, "</Bytes>") {
+		ok := verkr.Verify(verkr.SigningContext([]byte(message)), sign_array)
+		if ok {
+			return pkey, nil
+		}
+	}
+
 	ok := verkr.Verify(verkr.SigningContext([]byte("<Bytes>"+message+"</Bytes>")), sign_array)
 	if ok {
 		return pkey, nil

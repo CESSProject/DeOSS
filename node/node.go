@@ -110,6 +110,42 @@ func (n *Node) Run() {
 	}
 }
 
+func (n *Node) Run2(port int, workspace string) {
+	var err error
+	if workspace == "" {
+		workspace, err = os.Getwd()
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
+	gin.SetMode(gin.DebugMode)
+	n.Engine = gin.Default()
+	n.Engine.LoadHTMLGlob("templates/*")
+	n.Engine.Static("/static", "./static")
+	n.peersPath = filepath.Join(workspace, "peers")
+	config := cors.DefaultConfig()
+	config.AllowAllOrigins = true
+	config.AllowMethods = []string{"HEAD", "GET", "POST", "PUT", "DELETE", "OPTIONS"}
+	config.AddAllowHeaders(
+		configs.Header_Auth,
+		configs.Header_Account,
+		configs.Header_BucketName,
+		"*",
+	)
+	n.Engine.MaxMultipartMemory = MaxMemUsed
+	n.Engine.Use(cors.New(config))
+	// Add route
+	n.addRoute()
+	// Task management
+	// go n.TaskMgt()
+	out.Tip(fmt.Sprintf("Listening on port: %d", port))
+	// Run
+	err = n.Engine.Run(fmt.Sprintf(":%d", port))
+	if err != nil {
+		log.Fatalf("err: %v", err)
+	}
+}
+
 func (n *Node) SavePeer(peerid string, addr peer.AddrInfo) {
 	if n.lock.TryLock() {
 		n.peers[peerid] = addr
