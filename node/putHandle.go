@@ -218,7 +218,12 @@ func (n *Node) putHandle(c *gin.Context) {
 		return
 	}
 
-	for {
+	blockIdx, _ := strconv.Atoi(c.Request.Header.Get(HTTPHeader_BIdx))
+	blockNum, _ := strconv.Atoi(c.Request.Header.Get(HTTPHeader_BNum))
+	totalSize, _ := strconv.Atoi(c.Request.Header.Get(HTTPHeader_TSize))
+	filename = c.Request.Header.Get(HTTPHeader_Fname)
+
+	for blockNum <= 0 {
 		savedir = filepath.Join(n.GetDirs().FileDir, account, fmt.Sprintf("%s-%s", uuid.New().String(), uuid.New().String()))
 		_, err = os.Stat(savedir)
 		if err != nil {
@@ -234,6 +239,26 @@ func (n *Node) putHandle(c *gin.Context) {
 		fpath = filepath.Join(savedir, fmt.Sprintf("%v", time.Now().Unix()))
 		defer os.Remove(savedir)
 		break
+	}
+
+	if blockNum > 0 {
+		fdir, err := sutils.CalcSHA256(append([]byte(bucketName+filename), []byte(account)...))
+		if err != nil {
+			n.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, err.Error()))
+			c.JSON(http.StatusInternalServerError, ERR_InternalServer)
+			return
+		}
+		savedir = filepath.Join(n.GetDirs().FileDir, account, fdir)
+		_, err = os.Stat(savedir)
+		if err != nil {
+			err = os.MkdirAll(savedir, pattern.DirMode)
+			if err != nil {
+				n.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, err.Error()))
+				c.JSON(http.StatusInternalServerError, ERR_InternalServer)
+				return
+			}
+		}
+		fpath = filepath.Join(savedir, filename)
 	}
 
 	formfile, fileHeder, err := c.Request.FormFile("file")
@@ -269,19 +294,25 @@ func (n *Node) putHandle(c *gin.Context) {
 			return
 		}
 	} else {
-		filename = fileHeder.Filename
+		if blockNum <= 0 {
+			filename = fileHeder.Filename
+		}
 		if len(filename) > pattern.MaxBucketNameLength {
 			n.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, ERR_FileNameTooLang))
 			c.JSON(http.StatusBadRequest, ERR_FileNameTooLang)
 			return
 		}
-		f, err := os.Create(fpath)
+		var f *os.File
+		if blockNum > 0 && blockIdx > 1 {
+			f, err = os.OpenFile(fpath, os.O_WRONLY|os.O_APPEND, 0666)
+		} else {
+			f, err = os.Create(fpath)
+		}
 		if err != nil {
 			n.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, err))
 			c.JSON(http.StatusInternalServerError, ERR_InternalServer)
 			return
 		}
-
 		_, err = io.Copy(f, formfile)
 		if err != nil {
 			f.Close()
@@ -290,6 +321,26 @@ func (n *Node) putHandle(c *gin.Context) {
 			return
 		}
 		f.Close()
+	}
+
+	if blockNum > 0 && blockIdx < blockNum {
+		n.Upfile("info", fmt.Sprintf("[%v] uploaded file block %d/%d successfully", clientIp, blockIdx, blockNum))
+		c.JSON(http.StatusOK, blockIdx)
+		return
+	}
+
+	if blockNum > 0 && blockIdx == blockNum {
+		stat, err := os.Stat(fpath)
+		if err != nil {
+			n.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, err.Error()))
+			c.JSON(http.StatusInternalServerError, ERR_InternalServer)
+			return
+		}
+		if stat.Size() != int64(totalSize) {
+			n.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, "file is not the same size as expected"))
+			c.JSON(http.StatusBadRequest, fmt.Sprintf("file size mismatch,expected %d, actual %d", totalSize, stat.Size()))
+			return
+		}
 	}
 
 	if filename == "" {
