@@ -38,6 +38,7 @@ func (n *Node) putHandle(c *gin.Context) {
 		roothash string
 		savedir  string
 		filename string
+		pkey     []byte
 	)
 
 	// record client ip
@@ -46,12 +47,14 @@ func (n *Node) putHandle(c *gin.Context) {
 
 	// verify the authorization
 	account := c.Request.Header.Get(HTTPHeader_Account)
+	ethAccount := c.Request.Header.Get(HTTPHeader_EthAccount)
 	message := c.Request.Header.Get(HTTPHeader_Message)
 	signature := c.Request.Header.Get(HTTPHeader_Signature)
 	bucketName := c.Request.Header.Get(HTTPHeader_BucketName)
 	cipher := c.Request.Header.Get(HTTPHeader_Cipher)
 	contentLength := c.Request.ContentLength
 	n.Upfile("info", fmt.Sprintf("[%v] Acc: %s", clientIp, account))
+	n.Upfile("info", fmt.Sprintf("[%v] EthAcc: %s", clientIp, ethAccount))
 	n.Upfile("info", fmt.Sprintf("[%v] Message: %s", clientIp, message))
 	n.Upfile("info", fmt.Sprintf("[%v] Signature: %s", clientIp, signature))
 	n.Upfile("info", fmt.Sprintf("[%v] BucketName: %s", clientIp, bucketName))
@@ -63,22 +66,36 @@ func (n *Node) putHandle(c *gin.Context) {
 		return
 	}
 
-	pkey, err := n.VerifyAccountSignature(account, message, signature)
-	if err != nil {
-		n.Upfile("err", fmt.Sprintf("[%v] %s", clientIp, err.Error()))
-		c.JSON(http.StatusBadRequest, err.Error())
-		return
+	if ethAccount != "" {
+		ethAccInSian, err := VerifyEthSign(message, signature)
+		if err != nil {
+			n.Upfile("err", fmt.Sprintf("[%v] %s", clientIp, err.Error()))
+			c.JSON(http.StatusBadRequest, err.Error())
+			return
+		}
+		if ethAccInSian != ethAccount {
+			n.Upfile("err", fmt.Sprintf("[%v] %s", clientIp, "ETH signature verification failed"))
+			c.JSON(http.StatusBadRequest, "ETH signature verification failed")
+			return
+		}
+		pkey, err = sutils.ParsingPublickey(account)
+		if err != nil {
+			n.Upfile("err", fmt.Sprintf("[%v] %s", clientIp, err.Error()))
+			c.JSON(http.StatusBadRequest, fmt.Sprintf("invalid cess account: %s", account))
+			return
+		}
+	} else {
+		pkey, err = n.VerifyAccountSignature(account, message, signature)
+		if err != nil {
+			n.Upfile("err", fmt.Sprintf("[%v] %s", clientIp, err.Error()))
+			c.JSON(http.StatusBadRequest, err.Error())
+			return
+		}
 	}
 
 	if !sutils.CheckBucketName(bucketName) {
 		n.Upfile("info", fmt.Sprintf("[%v] %v", clientIp, ERR_HeaderFieldBucketName))
 		c.JSON(http.StatusBadRequest, ERR_HeaderFieldBucketName)
-		return
-	}
-
-	if account == "" {
-		n.Upfile("err", fmt.Sprintf("[%v] %s", clientIp, ERR_MissingAccount))
-		c.JSON(http.StatusBadRequest, ERR_MissingAccount)
 		return
 	}
 

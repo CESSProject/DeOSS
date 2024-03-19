@@ -10,11 +10,14 @@ package node
 import (
 	"encoding/hex"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/CESSProject/DeOSS/configs"
 	sutils "github.com/CESSProject/cess-go-sdk/utils"
 	"github.com/CESSProject/go-keyring"
+	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/mr-tron/base58"
 	"github.com/pkg/errors"
 	"github.com/vedhavyas/go-subkey/v2/sr25519"
@@ -23,6 +26,7 @@ import (
 func (n *Node) VerifyAccountSignature(account, msg, signature string) ([]byte, error) {
 	var err error
 	var publicKey []byte
+
 	if account == "" {
 		return nil, errors.New("Account is missing in request header")
 	}
@@ -49,6 +53,34 @@ func (n *Node) VerifyAccountSignature(account, msg, signature string) ([]byte, e
 		return nil, errors.New("Signature verification failed")
 	}
 	return publicKey, nil
+}
+
+func VerifyEthSign(message string, sign string) (string, error) {
+	// Hash the unsigned message using EIP-191
+	hashedMessage := []byte("\x19Ethereum Signed Message:\n" + strconv.Itoa(len(message)) + message)
+	hash := crypto.Keccak256Hash(hashedMessage)
+
+	// Get the bytes of the signed message
+	decodedMessage, err := hexutil.Decode(sign)
+	if err != nil {
+		return "", err
+	}
+
+	// Handles cases where EIP-115 is not implemented (most wallets don't implement it)
+	if decodedMessage[64] == 27 || decodedMessage[64] == 28 {
+		decodedMessage[64] -= 27
+	}
+
+	// Recover a public key from the signed message
+	sigPublicKeyECDSA, err := crypto.SigToPub(hash.Bytes(), decodedMessage)
+	if sigPublicKeyECDSA == nil {
+		err = errors.New("Could not get a public get from the message signature")
+	}
+	if err != nil {
+		return "", err
+	}
+
+	return crypto.PubkeyToAddress(*sigPublicKeyECDSA).String(), nil
 }
 
 // VerifyToken is used to parse and verify token

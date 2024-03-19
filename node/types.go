@@ -12,6 +12,7 @@ const (
 	HTTPHeader_Authorization = "Authorization"
 	HTTPHeader_BucketName    = "BucketName"
 	HTTPHeader_Account       = "Account"
+	HTTPHeader_EthAccount    = "EthAcc"
 	HTTPHeader_Digest        = "Digest"
 	HTTPHeader_Operation     = "Operation"
 	HTTPHeader_Message       = "Message"

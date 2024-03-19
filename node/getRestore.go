@@ -7,12 +7,14 @@ import (
 	"os"
 	"path/filepath"
 
+	sutils "github.com/CESSProject/cess-go-sdk/utils"
 	"github.com/gin-gonic/gin"
 )
 
 // getHandle
 func (n *Node) getRestoreHandle(c *gin.Context) {
 	var (
+		err      error
 		clientIp string
 		repeat   bool
 	)
@@ -21,19 +23,41 @@ func (n *Node) getRestoreHandle(c *gin.Context) {
 	n.Query("info", fmt.Sprintf("[%s] %s", clientIp, INFO_GetRestoreRequest))
 
 	account := c.Request.Header.Get(HTTPHeader_Account)
+	ethAccount := c.Request.Header.Get(HTTPHeader_EthAccount)
 	message := c.Request.Header.Get(HTTPHeader_Message)
 	signature := c.Request.Header.Get(HTTPHeader_Signature)
-	_, err := n.VerifyAccountSignature(account, message, signature)
-	if err != nil {
-		n.Upfile("err", fmt.Sprintf("[%v] %s", clientIp, err.Error()))
-		c.JSON(http.StatusBadRequest, err.Error())
-		return
-	}
 
 	if err = n.AccessControl(account); err != nil {
 		n.Upfile("info", fmt.Sprintf("[%v] %v", clientIp, err))
 		c.JSON(http.StatusForbidden, err.Error())
 		return
+	}
+
+	if ethAccount != "" {
+		ethAccInSian, err := VerifyEthSign(message, signature)
+		if err != nil {
+			n.Upfile("err", fmt.Sprintf("[%v] %s", clientIp, err.Error()))
+			c.JSON(http.StatusBadRequest, err.Error())
+			return
+		}
+		if ethAccInSian != ethAccount {
+			n.Upfile("err", fmt.Sprintf("[%v] %s", clientIp, "ETH signature verification failed"))
+			c.JSON(http.StatusBadRequest, "ETH signature verification failed")
+			return
+		}
+		_, err = sutils.ParsingPublickey(account)
+		if err != nil {
+			n.Upfile("err", fmt.Sprintf("[%v] %s", clientIp, err.Error()))
+			c.JSON(http.StatusBadRequest, fmt.Sprintf("invalid cess account: %s", account))
+			return
+		}
+	} else {
+		_, err = n.VerifyAccountSignature(account, message, signature)
+		if err != nil {
+			n.Upfile("err", fmt.Sprintf("[%v] %s", clientIp, err.Error()))
+			c.JSON(http.StatusBadRequest, err.Error())
+			return
+		}
 	}
 
 	var userfils_cache userFiles
