@@ -38,6 +38,7 @@ func (n *Node) putHandle(c *gin.Context) {
 		roothash string
 		savedir  string
 		filename string
+		pkey     []byte
 	)
 
 	// record client ip
@@ -46,8 +47,18 @@ func (n *Node) putHandle(c *gin.Context) {
 
 	// verify the authorization
 	account := c.Request.Header.Get(HTTPHeader_Account)
+	ethAccount := c.Request.Header.Get(HTTPHeader_EthAccount)
 	message := c.Request.Header.Get(HTTPHeader_Message)
 	signature := c.Request.Header.Get(HTTPHeader_Signature)
+	bucketName := c.Request.Header.Get(HTTPHeader_BucketName)
+	cipher := c.Request.Header.Get(HTTPHeader_Cipher)
+	contentLength := c.Request.ContentLength
+	n.Upfile("info", fmt.Sprintf("[%v] Acc: %s", clientIp, account))
+	n.Upfile("info", fmt.Sprintf("[%v] EthAcc: %s", clientIp, ethAccount))
+	n.Upfile("info", fmt.Sprintf("[%v] Message: %s", clientIp, message))
+	n.Upfile("info", fmt.Sprintf("[%v] Signature: %s", clientIp, signature))
+	n.Upfile("info", fmt.Sprintf("[%v] BucketName: %s", clientIp, bucketName))
+	n.Upfile("info", fmt.Sprintf("[%v] ContentLength: %d", clientIp, contentLength))
 
 	if err = n.AccessControl(account); err != nil {
 		n.Upfile("info", fmt.Sprintf("[%v] %v", clientIp, err))
@@ -55,40 +66,49 @@ func (n *Node) putHandle(c *gin.Context) {
 		return
 	}
 
-	pkey, err := n.verifyAccountSignature(account, message, signature)
-	if err != nil {
-		n.Upfile("err", fmt.Sprintf("[%v] %s", clientIp, err.Error()))
-		c.JSON(http.StatusBadRequest, err.Error())
-		return
+	if ethAccount != "" {
+		ethAccInSian, err := VerifyEthSign(message, signature)
+		if err != nil {
+			n.Upfile("err", fmt.Sprintf("[%v] %s", clientIp, err.Error()))
+			c.JSON(http.StatusBadRequest, err.Error())
+			return
+		}
+		if ethAccInSian != ethAccount {
+			n.Upfile("err", fmt.Sprintf("[%v] %s", clientIp, "ETH signature verification failed"))
+			c.JSON(http.StatusBadRequest, "ETH signature verification failed")
+			return
+		}
+		pkey, err = sutils.ParsingPublickey(account)
+		if err != nil {
+			n.Upfile("err", fmt.Sprintf("[%v] %s", clientIp, err.Error()))
+			c.JSON(http.StatusBadRequest, fmt.Sprintf("invalid cess account: %s", account))
+			return
+		}
+	} else {
+		pkey, err = n.VerifyAccountSignature(account, message, signature)
+		if err != nil {
+			n.Upfile("err", fmt.Sprintf("[%v] %s", clientIp, err.Error()))
+			c.JSON(http.StatusBadRequest, err.Error())
+			return
+		}
 	}
 
-	cipher := c.Request.Header.Get(HTTPHeader_Cipher)
-	if account == "" {
-		n.Upfile("err", fmt.Sprintf("[%v] %s", clientIp, ERR_MissingAccount))
-		c.JSON(http.StatusBadRequest, ERR_MissingAccount)
-		return
-	}
-
-	// verify mem availability
-	contentLength := c.Request.ContentLength
-	if len(cipher) > 32 {
-		n.Upfile("err", fmt.Sprintf("[%v] The length of cipher cannot exceed 32", clientIp))
-		c.JSON(http.StatusBadRequest, "The length of cipher cannot exceed 32")
-		return
-	}
-	n.Upfile("info", fmt.Sprintf("[%v] Acc: %s", clientIp, account))
-	n.Upfile("info", fmt.Sprintf("[%v] Message: %s", clientIp, message))
-	n.Upfile("info", fmt.Sprintf("[%v] Signature: %s", clientIp, signature))
-
-	// verify the bucket name
-	bucketName := c.Request.Header.Get(HTTPHeader_BucketName)
-	if strings.Contains(bucketName, " ") {
+	if !sutils.CheckBucketName(bucketName) {
 		n.Upfile("info", fmt.Sprintf("[%v] %v", clientIp, ERR_HeaderFieldBucketName))
 		c.JSON(http.StatusBadRequest, ERR_HeaderFieldBucketName)
 		return
 	}
 
-	if !sutils.CheckBucketName(bucketName) {
+	// verify mem availability
+	if len(cipher) > 32 {
+		n.Upfile("err", fmt.Sprintf("[%v] The length of cipher cannot exceed 32", clientIp))
+		c.JSON(http.StatusBadRequest, "The length of cipher cannot exceed 32")
+		return
+	}
+
+	// verify the bucket name
+
+	if strings.Contains(bucketName, " ") {
 		n.Upfile("info", fmt.Sprintf("[%v] %v", clientIp, ERR_HeaderFieldBucketName))
 		c.JSON(http.StatusBadRequest, ERR_HeaderFieldBucketName)
 		return
@@ -116,7 +136,7 @@ func (n *Node) putHandle(c *gin.Context) {
 	}
 	if !flag {
 		n.Upfile("info", fmt.Sprintf("[%v] %v", clientIp, ERR_SpaceNotAuth))
-		c.JSON(http.StatusForbidden, ERR_SpaceNotAuth)
+		c.JSON(http.StatusForbidden, fmt.Sprintf("please authorize your space usage to %s", n.GetSignatureAcc()))
 		return
 	}
 
@@ -300,22 +320,22 @@ func (n *Node) putHandle(c *gin.Context) {
 		return
 	}
 
-	for i := 0; i < len(segmentInfo); i++ {
-		for j := 0; j < len(segmentInfo[i].FragmentHash); j++ {
-			mycid, err := n.FidToCid(filepath.Base(segmentInfo[i].FragmentHash[j]))
-			n.Upfile("info", fmt.Sprintf("[%v] my cid from hash-1: %v ,%v", clientIp, mycid, err))
-		}
-	}
+	// for i := 0; i < len(segmentInfo); i++ {
+	// 	for j := 0; j < len(segmentInfo[i].FragmentHash); j++ {
+	// 		mycid, err := n.FidToCid(filepath.Base(segmentInfo[i].FragmentHash[j]))
+	// 		n.Upfile("info", fmt.Sprintf("[%v] my cid from hash-1: %v ,%v", clientIp, mycid, err))
+	// 	}
+	// }
 
 	n.Upfile("info", fmt.Sprintf("[%v] segmentInfo: %v", clientIp, segmentInfo))
-	savedCid, err := n.saveToBlockStore(segmentInfo)
-	if err != nil {
-		n.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, err))
-		c.JSON(http.StatusInternalServerError, err.Error())
-		return
-	}
+	// savedCid, err := n.saveToBlockStore(segmentInfo)
+	// if err != nil {
+	// 	n.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, err))
+	// 	c.JSON(http.StatusInternalServerError, err.Error())
+	// 	return
+	// }
 
-	n.Upfile("info", fmt.Sprintf("[%v] save successed cids: %v", clientIp, savedCid))
+	// n.Upfile("info", fmt.Sprintf("[%v] save successed cids: %v", clientIp, savedCid))
 
 	// for i := 0; i < len(savedCid); i++ {
 	// 	buf, err := n.GetDataFromBlock(n.GetCtxQueryFromCtxCancel(), savedCid[i])

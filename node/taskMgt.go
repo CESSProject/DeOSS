@@ -32,12 +32,12 @@ func (n *Node) TaskMgt() {
 
 	go n.refreshMiner()
 
-	go n.findPeers(ch_findPeers)
+	// go n.findPeers(ch_findPeers)
 	go n.recvPeers(ch_recvPeers)
 
 	// go n.noticeBlocks(ch_notifyBlocks)
-	go n.syncBlock(ch_syncBlock)
-	go n.syncFiles(ch_syncFile)
+	// go n.syncBlock(ch_syncBlock)
+	// go n.syncFiles(ch_syncFile)
 
 	go n.tracker(ch_trackFile)
 	go n.sdkMgt(ch_sdkMgt)
@@ -55,16 +55,16 @@ func (n *Node) TaskMgt() {
 			}
 
 		case <-ch_findPeers:
-			go n.findPeers(ch_findPeers)
+			// go n.findPeers(ch_findPeers)
 
 		case <-ch_recvPeers:
 			go n.recvPeers(ch_recvPeers)
 
 		case <-ch_syncBlock:
-			go n.syncBlock(ch_syncBlock)
+			// go n.syncBlock(ch_syncBlock)
 
 		case <-ch_syncFile:
-			go n.syncFiles(ch_syncFile)
+			// go n.syncFiles(ch_syncFile)
 
 		case <-ch_trackFile:
 			go n.tracker(ch_trackFile)

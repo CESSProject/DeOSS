@@ -76,7 +76,7 @@ func (n *Node) tracker(ch chan<- bool) {
 					continue
 				}
 				n.Track("info", fmt.Sprintf("start track file: %s", filepath.Base(v)))
-				go n.trackFileThread(v)
+				go func(file string) { n.trackFileThread(file) }(v)
 				time.Sleep(pattern.BlockInterval)
 			}
 		}
@@ -119,7 +119,8 @@ func (n *Node) trackFile(trackfile string) error {
 			n.Track("info", fmt.Sprintf("[%s] storage successful", roothash))
 			if len(recordFile.SegmentInfo) > 0 {
 				baseDir := filepath.Dir(recordFile.SegmentInfo[0].SegmentHash)
-				os.Rename(filepath.Join(baseDir, roothash), filepath.Join(n.GetDirs().FileDir, roothash))
+				//os.Rename(filepath.Join(baseDir, roothash), filepath.Join(n.GetDirs().FileDir, roothash))
+				os.RemoveAll(filepath.Join(n.GetDirs().FileDir, roothash))
 				os.RemoveAll(baseDir)
 			}
 			n.DeleteTrackFile(roothash)

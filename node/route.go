@@ -23,4 +23,6 @@ func (n *Node) addRoute() {
 	n.Engine.DELETE(fmt.Sprintf("/:%s", HTTP_ParameterName), n.delHandle)
 
 	n.Engine.DELETE("/", n.delFilesHandle)
+
+	n.Engine.GET("/404", n.notFoundHandler)
 }
