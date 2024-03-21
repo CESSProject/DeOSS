@@ -28,6 +28,13 @@ import (
 	"github.com/pkg/errors"
 )
 
+type ChunksInfo struct {
+	BlockNum     int    `json:"block_num"`
+	SavedBlockId int    `json:"saved_block_id"`
+	FileName     string `json:"file_name"`
+	TotalSize    int64  `json:"total_size"`
+}
+
 // putHandle
 func (n *Node) putHandle(c *gin.Context) {
 	var (
@@ -218,6 +225,7 @@ func (n *Node) putHandle(c *gin.Context) {
 	blockNum, _ := strconv.Atoi(c.Request.Header.Get(HTTPHeader_BNum))
 	totalSize, _ := strconv.Atoi(c.Request.Header.Get(HTTPHeader_TSize))
 	filename = c.Request.Header.Get(HTTPHeader_Fname)
+	var chunksInfo ChunksInfo
 
 	for blockNum <= 0 {
 		savedir = filepath.Join(n.GetDirs().FileDir, account, fmt.Sprintf("%s-%s", uuid.New().String(), uuid.New().String()))
@@ -254,7 +262,36 @@ func (n *Node) putHandle(c *gin.Context) {
 				return
 			}
 		}
+
 		fpath = filepath.Join(savedir, filename)
+		_, err = os.Stat(filepath.Join(savedir, "chunk-info"))
+		if err != nil {
+			chunksInfo = ChunksInfo{
+				BlockNum:     blockNum,
+				SavedBlockId: 0,
+				FileName:     filename,
+				TotalSize:    int64(totalSize),
+			}
+		} else {
+			jbytes, err := os.ReadFile(filepath.Join(savedir, "chunk-info"))
+			if err != nil {
+				n.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, err.Error()))
+				c.JSON(http.StatusInternalServerError, ERR_InternalServer)
+				return
+			}
+			err = json.Unmarshal(jbytes, &chunksInfo)
+			if err != nil {
+				n.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, err.Error()))
+				c.JSON(http.StatusInternalServerError, ERR_InternalServer)
+				return
+			}
+		}
+	}
+
+	if blockNum != chunksInfo.BlockNum || blockIdx != chunksInfo.SavedBlockId+1 {
+		n.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, "bad chunk index"))
+		c.JSON(http.StatusForbidden, "bad chunk index")
+		return
 	}
 
 	formfile, fileHeder, err := c.Request.FormFile("file")
@@ -318,12 +355,26 @@ func (n *Node) putHandle(c *gin.Context) {
 	}
 
 	if blockNum > 0 && blockIdx < blockNum {
+		chunksInfo.SavedBlockId += 1
+		jbytes, err := json.Marshal(chunksInfo)
+		if err != nil {
+			n.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, err.Error()))
+			c.JSON(http.StatusInternalServerError, ERR_InternalServer)
+			return
+		}
+		err = sutils.WriteBufToFile(jbytes, fpath)
+		if err != nil {
+			n.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, err))
+			c.JSON(http.StatusInternalServerError, ERR_InternalServer)
+			return
+		}
 		n.Upfile("info", fmt.Sprintf("[%v] uploaded file block %d/%d successfully", clientIp, blockIdx, blockNum))
 		c.JSON(http.StatusOK, blockIdx)
 		return
 	}
 
 	if blockNum > 0 && blockIdx == blockNum {
+		defer os.Remove(savedir)
 		stat, err := os.Stat(fpath)
 		if err != nil {
 			n.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, err.Error()))
@@ -331,6 +382,7 @@ func (n *Node) putHandle(c *gin.Context) {
 			return
 		}
 		if stat.Size() != int64(totalSize) {
+			os.Remove(fpath)
 			n.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, "file is not the same size as expected"))
 			c.JSON(http.StatusBadRequest, fmt.Sprintf("file size mismatch,expected %d, actual %d", totalSize, stat.Size()))
 			return
