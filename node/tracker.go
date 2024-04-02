@@ -143,7 +143,7 @@ func (n *Node) trackFile(trackfile string) error {
 				os.Rename(filepath.Join(baseDir, roothash), filepath.Join(n.GetDirs().FileDir, roothash))
 				os.RemoveAll(baseDir)
 			}
-			n.DeleteTrackFile(roothash)
+			n.DeleteTrackFile(roothash) // if storage successfully ,remove track file
 			return nil
 		}
 

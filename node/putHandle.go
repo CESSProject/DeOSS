@@ -29,10 +29,11 @@ import (
 )
 
 type ChunksInfo struct {
-	BlockNum     int    `json:"block_num"`
-	SavedBlockId int    `json:"saved_block_id"`
-	FileName     string `json:"file_name"`
-	TotalSize    int64  `json:"total_size"`
+	BlockNum      int    `json:"block_num"`
+	SavedBlockId  int    `json:"saved_block_id"`
+	SavedFileSize int64  `json:"saved_file_size"`
+	FileName      string `json:"file_name"`
+	TotalSize     int64  `json:"total_size"`
 }
 
 // putHandle
@@ -268,7 +269,7 @@ func (n *Node) putHandle(c *gin.Context) {
 		if err != nil {
 			chunksInfo = ChunksInfo{
 				BlockNum:     blockNum,
-				SavedBlockId: 0,
+				SavedBlockId: -1,
 				FileName:     filename,
 				TotalSize:    int64(totalSize),
 			}
@@ -290,7 +291,7 @@ func (n *Node) putHandle(c *gin.Context) {
 
 	if blockNum != chunksInfo.BlockNum || blockIdx != chunksInfo.SavedBlockId+1 {
 		n.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, "bad chunk index"))
-		c.JSON(http.StatusForbidden, "bad chunk index")
+		c.JSON(http.StatusBadRequest, "bad chunk index")
 		return
 	}
 
@@ -334,7 +335,7 @@ func (n *Node) putHandle(c *gin.Context) {
 			filename = filename[len(filename)-pattern.MaxBucketNameLength:]
 		}
 		var f *os.File
-		if blockNum > 0 && blockIdx > 1 {
+		if blockNum > 0 && blockIdx > 0 {
 			f, err = os.OpenFile(fpath, os.O_WRONLY|os.O_APPEND, 0666)
 		} else {
 			f, err = os.Create(fpath)
@@ -342,6 +343,12 @@ func (n *Node) putHandle(c *gin.Context) {
 		if err != nil {
 			n.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, err))
 			c.JSON(http.StatusInternalServerError, ERR_InternalServer)
+			return
+		}
+
+		if fileHeder.Size+chunksInfo.SavedFileSize > chunksInfo.TotalSize {
+			n.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, "bad chunk size"))
+			c.JSON(http.StatusBadRequest, "bad chunk size")
 			return
 		}
 		_, err = io.Copy(f, formfile)
@@ -352,9 +359,10 @@ func (n *Node) putHandle(c *gin.Context) {
 			return
 		}
 		f.Close()
+		chunksInfo.SavedFileSize += fileHeder.Size
 	}
 
-	if blockNum > 0 && blockIdx < blockNum {
+	if blockNum > 0 && blockIdx < blockNum-1 {
 		chunksInfo.SavedBlockId += 1
 		jbytes, err := json.Marshal(chunksInfo)
 		if err != nil {
@@ -362,7 +370,7 @@ func (n *Node) putHandle(c *gin.Context) {
 			c.JSON(http.StatusInternalServerError, ERR_InternalServer)
 			return
 		}
-		err = sutils.WriteBufToFile(jbytes, fpath)
+		err = sutils.WriteBufToFile(jbytes, filepath.Join(savedir, "chunk-info"))
 		if err != nil {
 			n.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, err))
 			c.JSON(http.StatusInternalServerError, ERR_InternalServer)
@@ -373,7 +381,7 @@ func (n *Node) putHandle(c *gin.Context) {
 		return
 	}
 
-	if blockNum > 0 && blockIdx == blockNum {
+	if blockNum > 0 && blockIdx == blockNum-1 {
 		defer os.Remove(savedir)
 		stat, err := os.Stat(fpath)
 		if err != nil {
@@ -381,8 +389,9 @@ func (n *Node) putHandle(c *gin.Context) {
 			c.JSON(http.StatusInternalServerError, ERR_InternalServer)
 			return
 		}
-		if stat.Size() != int64(totalSize) {
+		if stat.Size() != int64(totalSize) && stat.Size() != chunksInfo.TotalSize {
 			os.Remove(fpath)
+			os.Remove(filepath.Join(savedir, "chunk-info"))
 			n.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, "file is not the same size as expected"))
 			c.JSON(http.StatusBadRequest, fmt.Sprintf("file size mismatch,expected %d, actual %d", totalSize, stat.Size()))
 			return
