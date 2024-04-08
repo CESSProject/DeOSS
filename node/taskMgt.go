@@ -18,27 +18,13 @@ import (
 
 func (n *Node) TaskMgt() {
 	var (
-		ch_findPeers = make(chan bool, 1)
 		ch_recvPeers = make(chan bool, 1)
-
-		ch_syncBlock = make(chan bool, 1)
-		ch_syncFile  = make(chan bool, 1)
-
 		ch_trackFile = make(chan bool, 1)
 		ch_sdkMgt    = make(chan bool, 1)
-
-		ch_notifyBlocks = make(chan bool, 1)
 	)
 
 	go n.refreshMiner()
-
-	// go n.findPeers(ch_findPeers)
-	go n.recvPeers(ch_recvPeers)
-
-	// go n.noticeBlocks(ch_notifyBlocks)
-	// go n.syncBlock(ch_syncBlock)
-	// go n.syncFiles(ch_syncFile)
-
+	go n.subscribe(ch_recvPeers)
 	go n.tracker(ch_trackFile)
 	go n.sdkMgt(ch_sdkMgt)
 
@@ -54,26 +40,14 @@ func (n *Node) TaskMgt() {
 				out.Err(pattern.ERR_RPC_CONNECTION.Error())
 			}
 
-		case <-ch_findPeers:
-			// go n.findPeers(ch_findPeers)
-
 		case <-ch_recvPeers:
-			go n.recvPeers(ch_recvPeers)
-
-		case <-ch_syncBlock:
-			// go n.syncBlock(ch_syncBlock)
-
-		case <-ch_syncFile:
-			// go n.syncFiles(ch_syncFile)
+			go n.subscribe(ch_recvPeers)
 
 		case <-ch_trackFile:
 			go n.tracker(ch_trackFile)
 
 		case <-ch_sdkMgt:
 			go n.sdkMgt(ch_sdkMgt)
-
-		case <-ch_notifyBlocks:
-			// go n.noticeBlocks(ch_notifyBlocks)
 		}
 	}
 }

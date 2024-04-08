@@ -8,6 +8,7 @@
 package node
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -258,14 +259,6 @@ func (n *Node) getHandle(c *gin.Context) {
 		var err error
 		var size uint64
 		n.Query("info", fmt.Sprintf("[%s] Download file [%s]", clientIp, queryName))
-		mycid, err := n.FidToCid(queryName)
-		if err == nil {
-			buf, err := n.GetLocalDataFromBlock(mycid)
-			if err == nil {
-				c.Data(200, "application/octet-stream", buf)
-				return
-			}
-		}
 
 		fpath := utils.FindFile(n.GetDirs().FileDir, queryName)
 		fstat, err := os.Stat(fpath)
@@ -323,10 +316,10 @@ func (n *Node) getHandle(c *gin.Context) {
 				if !ok {
 					continue
 				}
-				if n.ID().Pretty() == v {
+				if n.ID().String() == v {
 					continue
 				}
-				err = n.Connect(n.GetCtxQueryFromCtxCancel(), addr)
+				err = n.Connect(context.TODO(), addr)
 				if err != nil {
 					continue
 				}
@@ -370,7 +363,7 @@ func (n *Node) fetchFiles(roothash, dir, cipher string) (string, error) {
 	if err == nil {
 		return userfile, nil
 	}
-	os.MkdirAll(dir, pattern.DirMode)
+	os.MkdirAll(dir, 0755)
 	f, err := os.Create(userfile)
 	if err != nil {
 		return "", err
@@ -412,12 +405,9 @@ func (n *Node) fetchFiles(roothash, dir, cipher string) (string, error) {
 			peerid := base58.Encode([]byte(string(miner.PeerId[:])))
 			addr, ok := n.GetPeer(peerid)
 			if !ok {
-				addr, err = n.DHTFindPeer(peerid)
-				if err != nil {
-					continue
-				}
+				continue
 			}
-			err = n.Connect(n.GetCtxQueryFromCtxCancel(), addr)
+			err = n.Connect(context.TODO(), addr)
 			if err != nil {
 				continue
 			}
