@@ -19,6 +19,10 @@ const (
 	HTTPHeader_Signature     = "Signature"
 	HTTPHeader_Fid           = "Fid"
 	HTTPHeader_Cipher        = "cipher"
+	HTTPHeader_BIdx          = "BlockIndex"
+	HTTPHeader_BNum          = "BlockNumber"
+	HTTPHeader_Fname         = "FileName"
+	HTTPHeader_TSize         = "TotalSize"
 )
 
 const (
