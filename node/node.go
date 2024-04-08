@@ -13,14 +13,12 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"sort"
 	"sync"
 	"sync/atomic"
-	"syscall"
 	"time"
 
-	"github.com/AstaFrode/go-libp2p/core/peer"
 	"github.com/CESSProject/DeOSS/configs"
+	"github.com/CESSProject/DeOSS/inter"
 	"github.com/CESSProject/DeOSS/pkg/confile"
 	"github.com/CESSProject/DeOSS/pkg/db"
 	"github.com/CESSProject/DeOSS/pkg/logger"
@@ -33,6 +31,7 @@ import (
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/multiformats/go-multiaddr"
 	"github.com/pkg/errors"
 )
@@ -42,12 +41,6 @@ type Oss interface {
 }
 
 type Node struct {
-	confile.Confile
-	logger.Logger
-	db.Cache
-	sdk.SDK
-	core.P2P
-	*gin.Engine
 	signkey            []byte
 	processingFiles    []string
 	processingFileLock *sync.RWMutex
@@ -55,6 +48,7 @@ type Node struct {
 	lock               *sync.RWMutex
 	blacklistLock      *sync.RWMutex
 	storagePeersLock   *sync.RWMutex
+	findPeer           *atomic.Uint32
 	peers              map[string]peer.AddrInfo
 	storagePeers       map[string]struct{}
 	blacklist          map[string]int64
@@ -63,7 +57,13 @@ type Node struct {
 	peersPath          string
 	ufileDir           string
 	dfileDir           string
-	findPeer           *atomic.Uint32
+	inter.TrackFile
+	confile.Confile
+	logger.Logger
+	db.Cache
+	sdk.SDK
+	*core.PeerNode
+	*gin.Engine
 }
 
 // New is used to build a node instance
@@ -74,6 +74,7 @@ func New() *Node {
 		lock:               new(sync.RWMutex),
 		blacklistLock:      new(sync.RWMutex),
 		storagePeersLock:   new(sync.RWMutex),
+		TrackFile:          inter.NewTeeRecord(),
 		processingFiles:    make([]string, 0),
 		peers:              make(map[string]peer.AddrInfo, 0),
 		storagePeers:       make(map[string]struct{}, 0),
@@ -104,6 +105,42 @@ func (n *Node) Run() {
 	out.Tip(fmt.Sprintf("Listening on port: %d", n.GetHttpPort()))
 	// Run
 	err := n.Engine.Run(fmt.Sprintf(":%d", n.GetHttpPort()))
+	if err != nil {
+		log.Fatalf("err: %v", err)
+	}
+}
+
+func (n *Node) Run2(port int, workspace string) {
+	var err error
+	if workspace == "" {
+		workspace, err = os.Getwd()
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
+	gin.SetMode(gin.DebugMode)
+	n.Engine = gin.Default()
+	n.Engine.LoadHTMLGlob("templates/*")
+	n.Engine.Static("/static", "./static")
+	n.peersPath = filepath.Join(workspace, "peers")
+	config := cors.DefaultConfig()
+	config.AllowAllOrigins = true
+	config.AllowMethods = []string{"HEAD", "GET", "POST", "PUT", "DELETE", "OPTIONS"}
+	config.AddAllowHeaders(
+		configs.Header_Auth,
+		configs.Header_Account,
+		configs.Header_BucketName,
+		"*",
+	)
+	n.Engine.MaxMultipartMemory = MaxMemUsed
+	n.Engine.Use(cors.New(config))
+	// Add route
+	n.addRoute()
+	// Task management
+	// go n.TaskMgt()
+	out.Tip(fmt.Sprintf("Listening on port: %d", port))
+	// Run
+	err = n.Engine.Run(fmt.Sprintf(":%d", port))
 	if err != nil {
 		log.Fatalf("err: %v", err)
 	}
@@ -207,7 +244,7 @@ func (n *Node) RemovePeerIntranetAddr() {
 		if len(addrs) > 0 {
 			addrInfo.ID = v.ID
 			addrInfo.Addrs = utils.RemoveRepeatedAddr(addrs)
-			n.SaveOrUpdatePeerUnSafe(v.ID.Pretty(), addrInfo)
+			n.SaveOrUpdatePeerUnSafe(v.ID.String(), addrInfo)
 		} else {
 			delete(n.peers, k)
 		}
@@ -305,30 +342,13 @@ func (n *Node) HasTrackFile(filehash string) bool {
 
 func (n *Node) ListTrackFiles() ([]string, error) {
 	n.trackLock.RLock()
-	result, err := filepath.Glob(fmt.Sprintf("%s/*", n.trackDir))
+	result, err := filepath.Glob(filepath.Join(n.trackDir, "*"))
 	if err != nil {
 		n.trackLock.RUnlock()
 		return nil, err
 	}
 	n.trackLock.RUnlock()
-
-	var linuxFileAttr *syscall.Stat_t
-	var keys = make([]int, 0)
-	var resultMap = make(map[int64]string, 0)
-	for _, v := range result {
-		fs, err := os.Stat(v)
-		if err == nil {
-			linuxFileAttr = fs.Sys().(*syscall.Stat_t)
-			resultMap[linuxFileAttr.Ctim.Sec] = v
-			keys = append(keys, int(linuxFileAttr.Ctim.Sec))
-		}
-	}
-	sort.Ints(keys)
-	var resultFile = make([]string, len(keys))
-	for k, v := range keys {
-		resultFile[k] = resultMap[int64(v)]
-	}
-	return resultFile, nil
+	return result, nil
 }
 
 func (n *Node) DeleteTrackFile(filehash string) {
@@ -363,7 +383,7 @@ func (n *Node) RebuildDirs() {
 	os.RemoveAll(filepath.Join(n.Workspace(), configs.Db))
 	os.RemoveAll(filepath.Join(n.Workspace(), configs.Log))
 	os.RemoveAll(filepath.Join(n.Workspace(), configs.Track))
-	os.MkdirAll(n.GetDirs().FileDir, pattern.DirMode)
-	os.MkdirAll(n.GetDirs().TmpDir, pattern.DirMode)
-	os.MkdirAll(filepath.Join(n.Workspace(), configs.Track), pattern.DirMode)
+	os.MkdirAll(n.GetDirs().FileDir, 0755)
+	os.MkdirAll(n.GetDirs().TmpDir, 0755)
+	os.MkdirAll(filepath.Join(n.Workspace(), configs.Track), 0755)
 }

@@ -8,12 +8,14 @@
 package node
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
 	"time"
 
+	"github.com/CESSProject/DeOSS/configs"
 	"github.com/CESSProject/DeOSS/pkg/utils"
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
 	"github.com/CESSProject/cess-go-sdk/core/process"
@@ -37,8 +39,6 @@ type RecordInfo struct {
 // MinRecordInfoLength = len(json.Marshal(RecordInfo{}))
 const MinRecordInfoLength = 132
 
-const MaxTrackThread = 50
-
 // tracker
 func (n *Node) tracker(ch chan<- bool) {
 	defer func() {
@@ -51,6 +51,7 @@ func (n *Node) tracker(ch chan<- bool) {
 	n.Track("info", ">>>>> start tracker <<<<<")
 
 	var err error
+	var processNum int
 	var trackFiles []string
 
 	for {
@@ -59,61 +60,40 @@ func (n *Node) tracker(ch chan<- bool) {
 			n.Track("err", err.Error())
 			time.Sleep(pattern.BlockInterval)
 			continue
-		} else if len(trackFiles) == 0 {
+		}
+		if len(trackFiles) == 0 {
 			time.Sleep(time.Minute)
 			continue
 		}
+		processNum = n.GetTrackFileNum()
 
-		for _, v := range trackFiles {
-			if n.processFileNum() <= MaxTrackThread {
-				if !n.contains(v) {
-					n.addProcessFile(v)
-					go n.trackFileThread(v)
+		if processNum < configs.MaxTrackThread {
+			for _, v := range trackFiles {
+				if _, err = os.Stat(v); err != nil {
+					continue
 				}
+				err = n.AddTrackFile(filepath.Base(v))
+				if err != nil {
+					continue
+				}
+				n.Track("info", fmt.Sprintf("start track file: %s", filepath.Base(v)))
+				go func(file string) { n.trackFileThread(file) }(v)
+				time.Sleep(pattern.BlockInterval)
 			}
 		}
-	}
-}
-
-func (n *Node) processFileNum() int {
-	n.processingFileLock.RLock()
-	defer n.processingFileLock.RUnlock()
-	return len(n.processingFiles)
-}
-
-func (n *Node) contains(str string) bool {
-	n.processingFileLock.RLock()
-	defer n.processingFileLock.RUnlock()
-	for _, v := range n.processingFiles {
-		if v == str {
-			return true
-		}
-	}
-	return false
-}
-
-func (n *Node) addProcessFile(str string) {
-	n.processingFileLock.Lock()
-	defer n.processingFileLock.Unlock()
-	n.processingFiles = append(n.processingFiles, str)
-}
-
-func (n *Node) removeProcessFile(r string) {
-	n.processingFileLock.Lock()
-	defer n.processingFileLock.Unlock()
-	for i, v := range n.processingFiles {
-		if v == r {
-			n.processingFiles = append(n.processingFiles[:i], n.processingFiles[i+1:]...)
-		}
+		time.Sleep(time.Minute)
 	}
 }
 
 func (n *Node) trackFileThread(trackFile string) {
+	defer func() {
+		n.DelTrackFile(filepath.Base(trackFile))
+	}()
 	err := n.trackFile(trackFile)
 	if err != nil {
 		n.Track("err", err.Error())
 	}
-	n.removeProcessFile(trackFile)
+	n.Track("info", fmt.Sprintf("end track file: %s", filepath.Base(trackFile)))
 }
 
 func (n *Node) trackFile(trackfile string) error {
@@ -140,7 +120,8 @@ func (n *Node) trackFile(trackfile string) error {
 			n.Track("info", fmt.Sprintf("[%s] storage successful", roothash))
 			if len(recordFile.SegmentInfo) > 0 {
 				baseDir := filepath.Dir(recordFile.SegmentInfo[0].SegmentHash)
-				os.Rename(filepath.Join(baseDir, roothash), filepath.Join(n.GetDirs().FileDir, roothash))
+				//os.Rename(filepath.Join(baseDir, roothash), filepath.Join(n.GetDirs().FileDir, roothash))
+				os.RemoveAll(filepath.Join(n.GetDirs().FileDir, roothash))
 				os.RemoveAll(baseDir)
 			}
 			n.DeleteTrackFile(roothash) // if storage successfully ,remove track file
@@ -187,7 +168,7 @@ func (n *Node) trackFile(trackfile string) error {
 				return errors.Errorf("[%s] user [%s] deauthorization", roothash, user)
 			}
 
-			_, err = n.GenerateStorageOrder(
+			txhash, err := n.GenerateStorageOrder(
 				roothash,
 				recordFile.SegmentInfo,
 				recordFile.Owner,
@@ -196,9 +177,10 @@ func (n *Node) trackFile(trackfile string) error {
 				recordFile.Filesize,
 			)
 			if err != nil {
-				return errors.Wrapf(err, "[%s] [GenerateStorageOrder]", roothash)
+				return errors.Wrapf(err, "[%s] [%s] [GenerateStorageOrder]", txhash, roothash)
 			}
-			time.Sleep(pattern.BlockInterval)
+			n.Track("info", fmt.Sprintf("[%s] GenerateStorageOrder: %s", roothash, txhash))
+			time.Sleep(pattern.BlockInterval * 3)
 			storageOrder, err = n.QueryStorageOrder(roothash)
 			if err != nil {
 				return errors.Wrapf(err, "[%s] [QueryStorageOrder]", roothash)
@@ -259,13 +241,16 @@ func (n *Node) trackFile(trackfile string) error {
 			if err != nil {
 				return errors.Wrapf(err, "[ShardedEncryptionProcessing]")
 			}
-			if reHash != reHash {
+			if reHash != roothash {
 				return errors.Wrapf(err, "The re-stored file hash is not consistent, please store it separately and specify the original encryption key.")
 			}
 			recordFile.SegmentInfo = resegmentInfo
 		}
 
-		n.storageData(recordFile.Roothash, recordFile.SegmentInfo, storageOrder.CompleteList)
+		err = n.storageData(recordFile.Roothash, recordFile.SegmentInfo, storageOrder.CompleteList)
+		if err != nil {
+			n.Track("err", err.Error())
+		}
 		time.Sleep(time.Minute * 2)
 	}
 }
@@ -305,7 +290,7 @@ func (n *Node) storageData(roothash string, segment []pattern.SegmentDataInfo, c
 		for _, value := range completeList {
 			if uint8(value.Index) == index {
 				completed = true
-				n.Track("info", fmt.Sprintf("The %d batch fragments already report", index))
+				n.Track("info", fmt.Sprintf("[%s] The %dth batch fragments already report", roothash, index))
 				break
 			}
 		}
@@ -314,8 +299,7 @@ func (n *Node) storageData(roothash string, segment []pattern.SegmentDataInfo, c
 			continue
 		}
 
-		n.Track("info", fmt.Sprintf("[%s] Prepare to store the %d batch of fragments", roothash, index))
-		n.Track("info", fmt.Sprintf("[%s] The %d batch of fragments: %v", roothash, index, v))
+		n.Track("info", fmt.Sprintf("[%s] Prepare to transfer the %dth batch of fragments", roothash, index))
 		utils.RandSlice(allpeers)
 		for i := 0; i < len(allpeers); i++ {
 			failed = false
@@ -336,7 +320,7 @@ func (n *Node) storageData(roothash string, segment []pattern.SegmentDataInfo, c
 				continue
 			}
 
-			err = n.Connect(n.GetCtxQueryFromCtxCancel(), addr)
+			err = n.Connect(context.TODO(), addr)
 			if err != nil {
 				n.AddToBlacklist(allpeers[i])
 				continue
@@ -348,13 +332,14 @@ func (n *Node) storageData(roothash string, segment []pattern.SegmentDataInfo, c
 				if err != nil {
 					failed = true
 					n.AddToBlacklist(allpeers[i])
-					n.Track("err", fmt.Sprintf("[%s] [WriteFileAction] [%s] err: %v", roothash, allpeers[i], err))
+					n.Track("err", fmt.Sprintf("[%s] transfer to %s failed: %v", roothash, allpeers[i], err))
 					break
 				}
+				n.Track("info", fmt.Sprintf("[%s] The %dth fragment of the %dth batch is transferred to %s", roothash, j, index, allpeers[i]))
 			}
 			if !failed {
 				sucPeer[allpeers[i]] = struct{}{}
-				n.Track("info", fmt.Sprintf("[%s] The %d batch of data transfer was successful", roothash, index))
+				n.Track("info", fmt.Sprintf("[%s] The %dth batch of fragments is transferred to %s", roothash, index, allpeers[i]))
 				break
 			}
 		}

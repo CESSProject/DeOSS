@@ -8,85 +8,62 @@
 package node
 
 import (
-	"time"
+	"context"
+	"encoding/json"
 
-	"github.com/AstaFrode/go-libp2p/core/peer"
 	"github.com/CESSProject/DeOSS/pkg/utils"
+	"github.com/CESSProject/p2p-go/core"
+	pubsub "github.com/libp2p/go-libp2p-pubsub"
+	"github.com/libp2p/go-libp2p/core/peer"
 )
 
-func (n *Node) findPeers(ch chan<- bool) {
+func (n *Node) subscribe(ch chan<- bool) {
 	defer func() {
 		if err := recover(); err != nil {
 			n.Pnc(utils.RecoverError(err))
 		}
 		ch <- true
 	}()
-	n.Discover("info", ">>>>> start findPeers <<<<<")
-	for {
-		if n.findPeer.Load() > 10 {
-			n.findPeer.Store(0)
-			err := n.findpeer()
-			if err != nil {
-				n.Discover("err", err.Error())
-			}
-		}
-	}
-}
+	n.Discover("info", ">>>>> start subscribe <<<<<")
 
-func (n *Node) recvPeers(ch chan<- bool) {
-	defer func() {
-		ch <- true
-		if err := recover(); err != nil {
-			n.Pnc(utils.RecoverError(err))
-		}
-	}()
-
-	n.Discover("info", ">>>>> start recvPeers <<<<<")
-
-	for {
-		select {
-		case foundPeer := <-n.GetDiscoveredPeers():
-			for _, v := range foundPeer.Responses {
-				if v != nil {
-					if len(v.Addrs) > 0 {
-						n.GetDht().RoutingTable().TryAddPeer(foundPeer.ID, true, true)
-						n.SavePeer(v.ID.Pretty(), peer.AddrInfo{
-							ID:    v.ID,
-							Addrs: v.Addrs,
-						})
-					}
-				}
-			}
-		default:
-			n.findPeer.Add(1)
-			time.Sleep(time.Second)
-		}
-	}
-}
-
-func (n *Node) findpeer() error {
-	peerChan, err := n.GetRoutingTable().FindPeers(
-		n.GetCtxQueryFromCtxCancel(),
-		n.GetRendezvousVersion(),
+	var (
+		err      error
+		findpeer peer.AddrInfo
 	)
+
+	gossipSub, err := pubsub.NewGossipSub(context.Background(), n.GetHost())
 	if err != nil {
-		return err
+		return
 	}
 
-	for onePeer := range peerChan {
-		if onePeer.ID == n.ID() {
+	// join the pubsub topic called librum
+	topic, err := gossipSub.Join(core.NetworkRoom)
+	if err != nil {
+		return
+	}
+
+	// subscribe to topic
+	subscriber, err := topic.Subscribe()
+	if err != nil {
+		return
+	}
+
+	for {
+		msg, err := subscriber.Next(context.Background())
+		if err != nil {
+			panic(err)
+		}
+
+		// only consider messages delivered by other peers
+		if msg.ReceivedFrom == n.ID() {
 			continue
 		}
-		err := n.Connect(n.GetCtxQueryFromCtxCancel(), onePeer)
+
+		err = json.Unmarshal(msg.Data, &findpeer)
 		if err != nil {
-			n.GetDht().RoutingTable().RemovePeer(onePeer.ID)
-		} else {
-			n.GetDht().RoutingTable().TryAddPeer(onePeer.ID, true, true)
-			n.SavePeer(onePeer.ID.Pretty(), peer.AddrInfo{
-				ID:    onePeer.ID,
-				Addrs: onePeer.Addrs,
-			})
+			continue
 		}
+
+		n.SavePeer(findpeer.ID.String(), findpeer)
 	}
-	return nil
 }

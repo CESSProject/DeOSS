@@ -2,6 +2,7 @@ package node
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -19,50 +20,46 @@ type RestoreList struct {
 
 // getHandle
 func (n *Node) postRestoreHandle(c *gin.Context) {
-	var (
-		clientIp string
-		respMsg  = &RespMsg{}
-	)
-
-	clientIp = c.Request.Header.Get("X-Forwarded-For")
+	clientIp := c.Request.Header.Get("X-Forwarded-For")
 	n.Query("info", fmt.Sprintf("[%s] %s", clientIp, INFO_PostRestoreRequest))
-
-	token := c.Request.Header.Get(HTTPHeader_Authorization)
+	var err error
+	var pkey []byte
 	account := c.Request.Header.Get(HTTPHeader_Account)
+	ethAccount := c.Request.Header.Get(HTTPHeader_EthAccount)
 	message := c.Request.Header.Get(HTTPHeader_Message)
 	signature := c.Request.Header.Get(HTTPHeader_Signature)
-
-	userAccount, pkey, err := n.verifyToken(token, respMsg)
-	if err != nil {
-		if account != "" && signature != "" {
-			pkey, err = n.verifySignature(account, message, signature)
-			if err != nil {
-				pkey, err = n.verifySR25519Signature(account, message, signature)
-				if err != nil {
-					pkey, err = n.verifyJsSignatureHex(account, message, signature)
-					if err != nil {
-						pkey, err = n.verifyJsSignatureBase58(account, message, signature)
-						if err != nil {
-							n.Upfile("info", fmt.Sprintf("[%v] %v", clientIp, err))
-							c.JSON(respMsg.Code, err.Error())
-							return
-						}
-					}
-				}
-			}
-		} else {
-			n.Upfile("info", fmt.Sprintf("[%v] %v", clientIp, err))
-			c.JSON(respMsg.Code, err.Error())
-			return
-		}
-	} else {
-		account = userAccount
-	}
 
 	if err = n.AccessControl(account); err != nil {
 		n.Upfile("info", fmt.Sprintf("[%v] %v", clientIp, err))
 		c.JSON(http.StatusForbidden, err.Error())
 		return
+	}
+
+	if ethAccount != "" {
+		ethAccInSian, err := VerifyEthSign(message, signature)
+		if err != nil {
+			n.Upfile("err", fmt.Sprintf("[%v] %s", clientIp, err.Error()))
+			c.JSON(http.StatusBadRequest, err.Error())
+			return
+		}
+		if ethAccInSian != ethAccount {
+			n.Upfile("err", fmt.Sprintf("[%v] %s", clientIp, "ETH signature verification failed"))
+			c.JSON(http.StatusBadRequest, "ETH signature verification failed")
+			return
+		}
+		pkey, err = sutils.ParsingPublickey(account)
+		if err != nil {
+			n.Upfile("err", fmt.Sprintf("[%v] %s", clientIp, err.Error()))
+			c.JSON(http.StatusBadRequest, fmt.Sprintf("invalid cess account: %s", account))
+			return
+		}
+	} else {
+		pkey, err = n.VerifyAccountSignature(account, message, signature)
+		if err != nil {
+			n.Upfile("err", fmt.Sprintf("[%v] %s", clientIp, err.Error()))
+			c.JSON(http.StatusBadRequest, err.Error())
+			return
+		}
 	}
 
 	var restoreList RestoreList
@@ -75,7 +72,7 @@ func (n *Node) postRestoreHandle(c *gin.Context) {
 
 	if len(restoreList.Files) == 0 {
 		n.Log("err", fmt.Sprintf("[%v] The restored file is empty", clientIp))
-		c.JSON(400, fmt.Sprintf("The restored file is empty"))
+		c.JSON(400, errors.New("the restored file is empty"))
 		return
 	}
 

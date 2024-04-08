@@ -104,7 +104,7 @@ func cmd_run_func(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
-	n.P2P, err = p2pgo.New(
+	n.PeerNode, err = p2pgo.New(
 		ctx,
 		p2pgo.ListenPort(n.GetP2pPort()),
 		p2pgo.Workspace(filepath.Join(n.GetWorkspace(), n.GetSignatureAcc(), n.GetSDKName())),
@@ -203,7 +203,6 @@ func cmd_run_func(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
-	out.Tip(n.GetProtocolPrefix())
 	out.Tip(n.Workspace())
 
 	// run
@@ -371,31 +370,31 @@ func buildAuthenticationConfig(cmd *cobra.Command) (confile.Confile, error) {
 
 func buildDir(workspace string) (string, string, string, string, string, string, error) {
 	logDir := filepath.Join(workspace, configs.Log)
-	if err := os.MkdirAll(logDir, pattern.DirMode); err != nil {
+	if err := os.MkdirAll(logDir, 0755); err != nil {
 		return "", "", "", "", "", "", err
 	}
 
 	cacheDir := filepath.Join(workspace, configs.Db)
-	if err := os.MkdirAll(cacheDir, pattern.DirMode); err != nil {
+	if err := os.MkdirAll(cacheDir, 0755); err != nil {
 		return "", "", "", "", "", "", err
 	}
 
 	trackDir := filepath.Join(workspace, configs.Track)
-	if err := os.MkdirAll(trackDir, pattern.DirMode); err != nil {
+	if err := os.MkdirAll(trackDir, 0755); err != nil {
 		return "", "", "", "", "", "", err
 	}
 
 	feedbackDir := filepath.Join(workspace, configs.Feedback)
-	if err := os.MkdirAll(feedbackDir, pattern.DirMode); err != nil {
+	if err := os.MkdirAll(feedbackDir, 0755); err != nil {
 		return "", "", "", "", "", "", err
 	}
 
 	ufileDir := filepath.Join(workspace, configs.Ufile)
-	if err := os.MkdirAll(ufileDir, pattern.DirMode); err != nil {
+	if err := os.MkdirAll(ufileDir, 0755); err != nil {
 		return "", "", "", "", "", "", err
 	}
 	dfileDir := filepath.Join(workspace, configs.Dfile)
-	if err := os.MkdirAll(dfileDir, pattern.DirMode); err != nil {
+	if err := os.MkdirAll(dfileDir, 0755); err != nil {
 		return "", "", "", "", "", "", err
 	}
 	return logDir, cacheDir, trackDir, feedbackDir, ufileDir, dfileDir, nil

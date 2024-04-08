@@ -10,8 +10,6 @@ package node
 import "fmt"
 
 func (n *Node) addRoute() {
-	n.Engine.POST("/auth", n.authHandle)
-
 	n.Engine.POST("/feedback/log", n.fadebackHandle)
 
 	n.Engine.POST("/restore", n.postRestoreHandle)
@@ -25,4 +23,6 @@ func (n *Node) addRoute() {
 	n.Engine.DELETE(fmt.Sprintf("/:%s", HTTP_ParameterName), n.delHandle)
 
 	n.Engine.DELETE("/", n.delFilesHandle)
+
+	n.Engine.GET("/404", n.notFoundHandler)
 }

@@ -8,6 +8,8 @@
 package node
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -65,11 +67,7 @@ type FileMetaData struct {
 
 // getHandle
 func (n *Node) getHandle(c *gin.Context) {
-	var (
-		clientIp string
-	)
-
-	clientIp = c.Request.Header.Get("X-Forwarded-For")
+	clientIp := c.Request.Header.Get("X-Forwarded-For")
 	n.Query("info", fmt.Sprintf("[%s] %s", clientIp, INFO_GetRequest))
 
 	cipher := c.Request.Header.Get(HTTPHeader_Cipher)
@@ -119,8 +117,8 @@ func (n *Node) getHandle(c *gin.Context) {
 
 	if len(queryName) != len(pattern.FileHash{}) {
 		if account == "" {
-			n.Query("err", fmt.Sprintf("[%s] %s", clientIp, ERR_MissAccount))
-			c.JSON(http.StatusBadRequest, ERR_MissAccount)
+			n.Query("err", fmt.Sprintf("[%s] %s", clientIp, ERR_MissingAccount))
+			c.JSON(http.StatusBadRequest, ERR_MissingAccount)
 			return
 		}
 		pkey, err := sutils.ParsingPublickey(account)
@@ -261,14 +259,6 @@ func (n *Node) getHandle(c *gin.Context) {
 		var err error
 		var size uint64
 		n.Query("info", fmt.Sprintf("[%s] Download file [%s]", clientIp, queryName))
-		mycid, err := n.FidToCid(queryName)
-		if err == nil {
-			buf, err := n.GetLocalDataFromBlock(mycid)
-			if err == nil {
-				c.Data(200, "application/octet-stream", buf)
-				return
-			}
-		}
 
 		fpath := utils.FindFile(n.GetDirs().FileDir, queryName)
 		fstat, err := os.Stat(fpath)
@@ -326,10 +316,10 @@ func (n *Node) getHandle(c *gin.Context) {
 				if !ok {
 					continue
 				}
-				if n.ID().Pretty() == v {
+				if n.ID().String() == v {
 					continue
 				}
-				err = n.Connect(n.GetCtxQueryFromCtxCancel(), addr)
+				err = n.Connect(context.TODO(), addr)
 				if err != nil {
 					continue
 				}
@@ -361,7 +351,6 @@ func (n *Node) getHandle(c *gin.Context) {
 	}
 	n.Query("err", fmt.Sprintf("[%s] [%s] %s", clientIp, queryName, ERR_HeadOperation))
 	c.JSON(http.StatusBadRequest, ERR_HeadOperation)
-	return
 }
 
 func (n *Node) fetchFiles(roothash, dir, cipher string) (string, error) {
@@ -374,7 +363,7 @@ func (n *Node) fetchFiles(roothash, dir, cipher string) (string, error) {
 	if err == nil {
 		return userfile, nil
 	}
-	os.MkdirAll(dir, pattern.DirMode)
+	os.MkdirAll(dir, 0755)
 	f, err := os.Create(userfile)
 	if err != nil {
 		return "", err
@@ -416,12 +405,9 @@ func (n *Node) fetchFiles(roothash, dir, cipher string) (string, error) {
 			peerid := base58.Encode([]byte(string(miner.PeerId[:])))
 			addr, ok := n.GetPeer(peerid)
 			if !ok {
-				addr, err = n.DHTFindPeer(peerid)
-				if err != nil {
-					continue
-				}
+				continue
 			}
-			err = n.Connect(n.GetCtxQueryFromCtxCancel(), addr)
+			err = n.Connect(context.TODO(), addr)
 			if err != nil {
 				continue
 			}
@@ -444,7 +430,7 @@ func (n *Node) fetchFiles(roothash, dir, cipher string) (string, error) {
 	}
 
 	if len(segmentspath) != len(fmeta.SegmentList) {
-		return "", fmt.Errorf("Download failed")
+		return "", errors.New("download failed")
 	}
 	var writecount = 0
 	for i := 0; i < len(fmeta.SegmentList); i++ {
@@ -475,7 +461,7 @@ func (n *Node) fetchFiles(roothash, dir, cipher string) (string, error) {
 		}
 	}
 	if writecount != len(fmeta.SegmentList) {
-		return "", fmt.Errorf("Write failed")
+		return "", errors.New("write failed")
 	}
 
 	return userfile, nil

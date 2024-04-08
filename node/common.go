@@ -10,70 +10,81 @@ package node
 import (
 	"encoding/hex"
 	"fmt"
-	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/CESSProject/DeOSS/configs"
 	sutils "github.com/CESSProject/cess-go-sdk/utils"
 	"github.com/CESSProject/go-keyring"
-	jwt "github.com/dgrijalva/jwt-go"
+	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/mr-tron/base58"
 	"github.com/pkg/errors"
 	"github.com/vedhavyas/go-subkey/v2/sr25519"
 )
 
-// VerifyToken is used to parse and verify token
-func (n *Node) verifyToken(token string, respmsg *RespMsg) (string, []byte, error) {
-	var (
-		ok       bool
-		err      error
-		claims   *CustomClaims
-		jwttoken *jwt.Token
-		account  string
-	)
+func (n *Node) VerifyAccountSignature(account, msg, signature string) ([]byte, error) {
+	var err error
+	var publicKey []byte
 
-	if respmsg.Err != nil {
-		return account, nil, err
+	if account == "" {
+		return nil, errors.New("Account is missing in request header")
 	}
-
-	if token == "" {
-		respmsg.Code = http.StatusForbidden
-		respmsg.Err = errors.New(ERR_Authorization)
-		return account, nil, respmsg.Err
+	if msg == "" {
+		return nil, errors.New("Message is missing in request header")
 	}
-
-	// parse token
-	jwttoken, err = jwt.ParseWithClaims(
-		token,
-		&CustomClaims{},
-		func(token *jwt.Token) (interface{}, error) {
-			return n.signkey, nil
-		})
-
-	if claims, ok = jwttoken.Claims.(*CustomClaims); ok && jwttoken.Valid {
-		account = claims.Account
-	} else {
-		respmsg.Code = http.StatusForbidden
-		respmsg.Err = errors.New(ERR_NoPermission)
-		return account, nil, err
+	if signature == "" {
+		return nil, errors.New("Signature is missing in request header")
 	}
-	pkey, err := sutils.ParsingPublickey(account)
+	publicKey, err = n.verifySignature(account, msg, signature)
+	if err == nil {
+		return publicKey, nil
+	}
+	publicKey, err = n.verifySR25519Signature(account, msg, signature)
+	if err == nil {
+		return publicKey, nil
+	}
+	publicKey, err = n.verifyJsSignatureHex(account, msg, signature)
+	if err == nil {
+		return publicKey, nil
+	}
+	publicKey, err = n.verifyJsSignatureBase58(account, msg, signature)
 	if err != nil {
-		respmsg.Code = http.StatusBadRequest
-		respmsg.Err = errors.New(ERR_InvalidToken)
-		return account, nil, err
+		return nil, errors.New("Signature verification failed")
+	}
+	return publicKey, nil
+}
+
+func VerifyEthSign(message string, sign string) (string, error) {
+	// Hash the unsigned message using EIP-191
+	hashedMessage := []byte("\x19Ethereum Signed Message:\n" + strconv.Itoa(len(message)) + message)
+	hash := crypto.Keccak256Hash(hashedMessage)
+
+	// Get the bytes of the signed message
+	decodedMessage, err := hexutil.Decode(sign)
+	if err != nil {
+		return "", err
 	}
 
-	respmsg.Code = http.StatusOK
-	respmsg.Err = nil
-	return account, pkey, nil
+	// Handles cases where EIP-115 is not implemented (most wallets don't implement it)
+	if decodedMessage[64] == 27 || decodedMessage[64] == 28 {
+		decodedMessage[64] -= 27
+	}
+
+	// Recover a public key from the signed message
+	sigPublicKeyECDSA, err := crypto.SigToPub(hash.Bytes(), decodedMessage)
+	if sigPublicKeyECDSA == nil {
+		err = errors.New("Could not get a public get from the message signature")
+	}
+	if err != nil {
+		return "", err
+	}
+
+	return crypto.PubkeyToAddress(*sigPublicKeyECDSA).String(), nil
 }
 
 // VerifyToken is used to parse and verify token
 func (n *Node) verifySignature(account, message, signature string) ([]byte, error) {
-	if account == "" || signature == "" {
-		return nil, errors.New("no identity authentication information")
-	}
 	pkey, err := sutils.ParsingPublickey(account)
 	if err != nil {
 		return nil, err
@@ -153,6 +164,13 @@ func (n *Node) verifyJsSignatureBase58(account, message, signature string) ([]by
 		sign_array[i] = sign_bytes[i]
 	}
 
+	if strings.HasPrefix(message, "<Bytes>") && strings.HasSuffix(message, "</Bytes>") {
+		ok := verkr.Verify(verkr.SigningContext([]byte(message)), sign_array)
+		if ok {
+			return pkey, nil
+		}
+	}
+
 	// Verify signature
 	ok := verkr.Verify(verkr.SigningContext([]byte("<Bytes>"+message+"</Bytes>")), sign_array)
 	if ok {
@@ -193,6 +211,13 @@ func (n *Node) verifyJsSignatureHex(account, message, signature string) ([]byte,
 	}
 
 	// Verify signature
+	if strings.HasPrefix(message, "<Bytes>") && strings.HasSuffix(message, "</Bytes>") {
+		ok := verkr.Verify(verkr.SigningContext([]byte(message)), sign_array)
+		if ok {
+			return pkey, nil
+		}
+	}
+
 	ok := verkr.Verify(verkr.SigningContext([]byte("<Bytes>"+message+"</Bytes>")), sign_array)
 	if ok {
 		return pkey, nil
@@ -240,7 +265,7 @@ func (n *Node) AccessControl(account string) error {
 	if n.GetAccess() == configs.Access_Public {
 		for _, v := range bwlist {
 			if v == account {
-				return fmt.Errorf("Your account [%s] does not have permissions", account)
+				return fmt.Errorf("your account [%s] does not have permissions", account)
 			}
 		}
 		return nil
@@ -254,5 +279,5 @@ func (n *Node) AccessControl(account string) error {
 		}
 	}
 
-	return fmt.Errorf("Your account [%s] does not have permissions", account)
+	return fmt.Errorf("your account [%s] does not have permissions", account)
 }

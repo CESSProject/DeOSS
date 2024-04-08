@@ -14,7 +14,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/CESSProject/cess-go-sdk/core/pattern"
 	"github.com/natefinch/lumberjack"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -62,7 +61,7 @@ func NewLogs(logfiles map[string]string) (Logger, error) {
 		dir := getFilePath(fpath)
 		_, err := os.Stat(dir)
 		if err != nil {
-			err = os.MkdirAll(dir, pattern.DirMode)
+			err = os.MkdirAll(dir, 0755)
 			if err != nil {
 				return nil, errors.Errorf("%v,%v", dir, err)
 			}

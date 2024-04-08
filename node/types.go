@@ -7,16 +7,12 @@
 
 package node
 
-type RespMsg struct {
-	Code int
-	Err  error
-}
-
 // HTTP HEADER
 const (
 	HTTPHeader_Authorization = "Authorization"
 	HTTPHeader_BucketName    = "BucketName"
 	HTTPHeader_Account       = "Account"
+	HTTPHeader_EthAccount    = "EthAcc"
 	HTTPHeader_Digest        = "Digest"
 	HTTPHeader_Operation     = "Operation"
 	HTTPHeader_Message       = "Message"
@@ -58,7 +54,7 @@ const (
 	ERR_DuplicateOrder        = "duplicate order"
 	ERR_MissToken             = "InvalidHead.MissToken"
 	ERR_EmptySeed             = "InvalidProfile.EmptySeed"
-	ERR_MissAccount           = "InvalidHead.MissAccount"
+	ERR_MissingAccount        = "InvalidHead.MissingAccount"
 	ERR_InvalidAccount        = "InvalidHead.Account"
 	ERR_NoPermission          = "InvalidToken.NoPermission"
 	ERR_InvalidToken          = "InvalidHead.Token"
@@ -74,7 +70,9 @@ const (
 	//ERR_SpaceExpired          = "space expired"
 	ERR_NotEnoughSpace = "not enough account space"
 
-	ERR_InternalServer = "InternalError"
+	ERR_InternalServer  = "InternalError"
+	ERR_FileNameTooLang = "The file name length cannot exceed 63 characters"
+	ERR_NoSpace         = "please purchase space first"
 )
 
 const (

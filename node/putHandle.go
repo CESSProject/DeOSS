@@ -46,7 +46,7 @@ func (n *Node) putHandle(c *gin.Context) {
 		roothash string
 		savedir  string
 		filename string
-		respMsg  = &RespMsg{}
+		pkey     []byte
 	)
 
 	// record client ip
@@ -54,49 +54,19 @@ func (n *Node) putHandle(c *gin.Context) {
 	n.Upfile("info", fmt.Sprintf("[%v] %v", clientIp, INFO_PutRequest))
 
 	// verify the authorization
-	token := c.Request.Header.Get(HTTPHeader_Authorization)
 	account := c.Request.Header.Get(HTTPHeader_Account)
+	ethAccount := c.Request.Header.Get(HTTPHeader_EthAccount)
 	message := c.Request.Header.Get(HTTPHeader_Message)
 	signature := c.Request.Header.Get(HTTPHeader_Signature)
+	bucketName := c.Request.Header.Get(HTTPHeader_BucketName)
 	cipher := c.Request.Header.Get(HTTPHeader_Cipher)
-	// verify mem availability
 	contentLength := c.Request.ContentLength
-	if len(cipher) > 32 {
-		n.Upfile("err", fmt.Sprintf("[%v] The length of cipher cannot exceed 32", clientIp))
-		c.JSON(http.StatusBadRequest, "The length of cipher cannot exceed 32")
-		return
-	}
 	n.Upfile("info", fmt.Sprintf("[%v] Acc: %s", clientIp, account))
+	n.Upfile("info", fmt.Sprintf("[%v] EthAcc: %s", clientIp, ethAccount))
 	n.Upfile("info", fmt.Sprintf("[%v] Message: %s", clientIp, message))
-	n.Upfile("info", fmt.Sprintf("[%v] signature: %s", clientIp, signature))
-	userAccount, pkey, err := n.verifyToken(token, respMsg)
-	if err != nil {
-		if account != "" && signature != "" {
-			pkey, err = n.verifySignature(account, message, signature)
-			if err != nil {
-				pkey, err = n.verifySR25519Signature(account, message, signature)
-				if err != nil {
-					pkey, err = n.verifyJsSignatureHex(account, message, signature)
-					if err != nil {
-						pkey, err = n.verifyJsSignatureBase58(account, message, signature)
-						if err != nil {
-							n.Upfile("info", fmt.Sprintf("[%v] %v", clientIp, err))
-							c.JSON(respMsg.Code, err.Error())
-							return
-						}
-					}
-				}
-			}
-		} else {
-			n.Upfile("info", fmt.Sprintf("[%v] %v", clientIp, err))
-			c.JSON(respMsg.Code, err.Error())
-			return
-		}
-	} else {
-		account = userAccount
-	}
-
-	n.Upfile("info", fmt.Sprintf("[%v] verified acc: %s", clientIp, account))
+	n.Upfile("info", fmt.Sprintf("[%v] Signature: %s", clientIp, signature))
+	n.Upfile("info", fmt.Sprintf("[%v] BucketName: %s", clientIp, bucketName))
+	n.Upfile("info", fmt.Sprintf("[%v] ContentLength: %d", clientIp, contentLength))
 
 	if err = n.AccessControl(account); err != nil {
 		n.Upfile("info", fmt.Sprintf("[%v] %v", clientIp, err))
@@ -104,15 +74,49 @@ func (n *Node) putHandle(c *gin.Context) {
 		return
 	}
 
-	// verify the bucket name
-	bucketName := c.Request.Header.Get(HTTPHeader_BucketName)
-	if strings.Contains(bucketName, " ") {
+	if ethAccount != "" {
+		ethAccInSian, err := VerifyEthSign(message, signature)
+		if err != nil {
+			n.Upfile("err", fmt.Sprintf("[%v] %s", clientIp, err.Error()))
+			c.JSON(http.StatusBadRequest, err.Error())
+			return
+		}
+		if ethAccInSian != ethAccount {
+			n.Upfile("err", fmt.Sprintf("[%v] %s", clientIp, "ETH signature verification failed"))
+			c.JSON(http.StatusBadRequest, "ETH signature verification failed")
+			return
+		}
+		pkey, err = sutils.ParsingPublickey(account)
+		if err != nil {
+			n.Upfile("err", fmt.Sprintf("[%v] %s", clientIp, err.Error()))
+			c.JSON(http.StatusBadRequest, fmt.Sprintf("invalid cess account: %s", account))
+			return
+		}
+	} else {
+		pkey, err = n.VerifyAccountSignature(account, message, signature)
+		if err != nil {
+			n.Upfile("err", fmt.Sprintf("[%v] %s", clientIp, err.Error()))
+			c.JSON(http.StatusBadRequest, err.Error())
+			return
+		}
+	}
+
+	if !sutils.CheckBucketName(bucketName) {
 		n.Upfile("info", fmt.Sprintf("[%v] %v", clientIp, ERR_HeaderFieldBucketName))
 		c.JSON(http.StatusBadRequest, ERR_HeaderFieldBucketName)
 		return
 	}
 
-	if !sutils.CheckBucketName(bucketName) {
+	// verify mem availability
+	if len(cipher) > 32 {
+		n.Upfile("err", fmt.Sprintf("[%v] The length of cipher cannot exceed 32", clientIp))
+		c.JSON(http.StatusBadRequest, "The length of cipher cannot exceed 32")
+		return
+	}
+
+	// verify the bucket name
+
+	if strings.Contains(bucketName, " ") {
 		n.Upfile("info", fmt.Sprintf("[%v] %v", clientIp, ERR_HeaderFieldBucketName))
 		c.JSON(http.StatusBadRequest, ERR_HeaderFieldBucketName)
 		return
@@ -140,7 +144,7 @@ func (n *Node) putHandle(c *gin.Context) {
 	}
 	if !flag {
 		n.Upfile("info", fmt.Sprintf("[%v] %v", clientIp, ERR_SpaceNotAuth))
-		c.JSON(http.StatusForbidden, ERR_SpaceNotAuth)
+		c.JSON(http.StatusForbidden, fmt.Sprintf("please authorize your space usage to %s", n.GetSignatureAcc()))
 		return
 	}
 
@@ -163,8 +167,8 @@ func (n *Node) putHandle(c *gin.Context) {
 	userInfo, err := n.QueryUserSpaceSt(pkey)
 	if err != nil {
 		if err.Error() == pattern.ERR_Empty {
-			n.Upfile("info", fmt.Sprintf("[%v] %v", clientIp, ERR_AccountNotExist))
-			c.JSON(http.StatusForbidden, ERR_AccountNotExist)
+			n.Upfile("info", fmt.Sprintf("[%v] %v", clientIp, ERR_NoSpace))
+			c.JSON(http.StatusForbidden, ERR_NoSpace)
 			return
 		}
 		n.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, err))
@@ -227,12 +231,11 @@ func (n *Node) putHandle(c *gin.Context) {
 	totalSize, _ := strconv.Atoi(c.Request.Header.Get(HTTPHeader_TSize))
 	filename = c.Request.Header.Get(HTTPHeader_Fname)
 	var chunksInfo ChunksInfo
-
 	for blockNum <= 0 {
 		savedir = filepath.Join(n.GetDirs().FileDir, account, fmt.Sprintf("%s-%s", uuid.New().String(), uuid.New().String()))
 		_, err = os.Stat(savedir)
 		if err != nil {
-			err = os.MkdirAll(savedir, pattern.DirMode)
+			err = os.MkdirAll(savedir, 0755)
 			if err != nil {
 				n.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, err.Error()))
 				c.JSON(http.StatusInternalServerError, ERR_InternalServer)
@@ -256,7 +259,7 @@ func (n *Node) putHandle(c *gin.Context) {
 		savedir = filepath.Join(n.GetDirs().FileDir, account, fdir)
 		_, err = os.Stat(savedir)
 		if err != nil {
-			err = os.MkdirAll(savedir, pattern.DirMode)
+			err = os.MkdirAll(savedir, 0755)
 			if err != nil {
 				n.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, err.Error()))
 				c.JSON(http.StatusInternalServerError, ERR_InternalServer)
@@ -332,7 +335,15 @@ func (n *Node) putHandle(c *gin.Context) {
 			filename = fileHeder.Filename
 		}
 		if len(filename) > pattern.MaxBucketNameLength {
-			filename = filename[len(filename)-pattern.MaxBucketNameLength:]
+			n.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, ERR_FileNameTooLang))
+			c.JSON(http.StatusBadRequest, ERR_FileNameTooLang)
+			return
+		}
+		var f *os.File
+		if blockNum > 0 && blockIdx > 1 {
+			f, err = os.OpenFile(fpath, os.O_WRONLY|os.O_APPEND, 0666)
+		} else {
+			f, err = os.Create(fpath)
 		}
 		var f *os.File
 		if blockNum > 0 && blockIdx > 0 {
@@ -340,6 +351,7 @@ func (n *Node) putHandle(c *gin.Context) {
 		} else {
 			f, err = os.Create(fpath)
 		}
+
 		if err != nil {
 			n.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, err))
 			c.JSON(http.StatusInternalServerError, ERR_InternalServer)
@@ -351,6 +363,7 @@ func (n *Node) putHandle(c *gin.Context) {
 			c.JSON(http.StatusBadRequest, "bad chunk size")
 			return
 		}
+
 		_, err = io.Copy(f, formfile)
 		if err != nil {
 			f.Close()
@@ -398,8 +411,28 @@ func (n *Node) putHandle(c *gin.Context) {
 		}
 	}
 
+	if blockNum > 0 && blockIdx < blockNum {
+		n.Upfile("info", fmt.Sprintf("[%v] uploaded file block %d/%d successfully", clientIp, blockIdx, blockNum))
+		c.JSON(http.StatusOK, blockIdx)
+		return
+	}
+
+	if blockNum > 0 && blockIdx == blockNum {
+		stat, err := os.Stat(fpath)
+		if err != nil {
+			n.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, err.Error()))
+			c.JSON(http.StatusInternalServerError, ERR_InternalServer)
+			return
+		}
+		if stat.Size() != int64(totalSize) {
+			n.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, "file is not the same size as expected"))
+			c.JSON(http.StatusBadRequest, fmt.Sprintf("file size mismatch,expected %d, actual %d", totalSize, stat.Size()))
+			return
+		}
+	}
+
 	if filename == "" {
-		filename = fmt.Sprintf("%v.ces", time.Now().Unix())
+		filename = "null"
 	}
 
 	if len(filename) < 3 {
@@ -426,33 +459,7 @@ func (n *Node) putHandle(c *gin.Context) {
 		return
 	}
 
-	for i := 0; i < len(segmentInfo); i++ {
-		for j := 0; j < len(segmentInfo[i].FragmentHash); j++ {
-			mycid, err := n.FidToCid(filepath.Base(segmentInfo[i].FragmentHash[j]))
-			n.Upfile("info", fmt.Sprintf("[%v] my cid from hash-1: %v ,%v", clientIp, mycid, err))
-		}
-	}
-
 	n.Upfile("info", fmt.Sprintf("[%v] segmentInfo: %v", clientIp, segmentInfo))
-	savedCid, err := n.saveToBlockStore(segmentInfo)
-	if err != nil {
-		n.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, err))
-		c.JSON(http.StatusInternalServerError, err.Error())
-		return
-	}
-
-	n.Upfile("info", fmt.Sprintf("[%v] save successed cids: %v", clientIp, savedCid))
-
-	// for i := 0; i < len(savedCid); i++ {
-	// 	buf, err := n.GetDataFromBlock(n.GetCtxQueryFromCtxCancel(), savedCid[i])
-	// 	if err != nil {
-	// 		n.Upfile("err", fmt.Sprintf("[%v] get data from %v failed", clientIp, savedCid[i]))
-	// 	} else {
-	// 		n.Upfile("info", fmt.Sprintf("[%v] get data from %v suc", clientIp, savedCid[i]))
-	// 		myhash, err := sutils.CalcSHA256(buf)
-	// 		n.Upfile("info", fmt.Sprintf("[%v] get data and calc hash: %v , %v", clientIp, myhash, err))
-	// 	}
-	// }
 
 	ok, err = n.deduplication(pkey, segmentInfo, roothash, filename, bucketName, uint64(fstat.Size()))
 	if err != nil {
@@ -481,7 +488,7 @@ func (n *Node) putHandle(c *gin.Context) {
 		}
 	}
 
-	err = os.MkdirAll(roothashDir, pattern.DirMode)
+	err = os.MkdirAll(roothashDir, 0755)
 	if err != nil {
 		n.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, err))
 		c.JSON(http.StatusInternalServerError, ERR_InternalServer)
@@ -536,9 +543,22 @@ func (n *Node) putHandle(c *gin.Context) {
 		return
 	}
 
+	txhash, err := n.GenerateStorageOrder(
+		roothash,
+		recordInfo.SegmentInfo,
+		recordInfo.Owner,
+		recordInfo.Filename,
+		recordInfo.Buckname,
+		recordInfo.Filesize,
+	)
+	if err != nil {
+		n.Upfile("err", fmt.Sprintf("[%s] GenerateStorageOrder failed, tx: %s err: %v", roothash, txhash, err))
+	} else {
+		n.Upfile("info", fmt.Sprintf("[%s] GenerateStorageOrder suc: %s", roothash, txhash))
+	}
+
 	n.Upfile("info", fmt.Sprintf("[%v] [%s] uploaded successfully", clientIp, roothash))
 	c.JSON(http.StatusOK, roothash)
-	return
 }
 
 func (n *Node) deduplication(pkey []byte, segmentInfo []pattern.SegmentDataInfo, roothash, filename, bucketname string, filesize uint64) (bool, error) {
@@ -600,26 +620,4 @@ func (n *Node) deduplication(pkey []byte, segmentInfo []pattern.SegmentDataInfo,
 	}
 
 	return false, nil
-}
-
-func (n *Node) saveToBlockStore(segmentInfo []pattern.SegmentDataInfo) ([]string, error) {
-	var err error
-	var buf []byte
-	var savedCid = make([]string, 0)
-	for _, segment := range segmentInfo {
-		for _, fragment := range segment.FragmentHash {
-			buf, err = os.ReadFile(fragment)
-			if err != nil {
-				return savedCid, err
-			}
-			aCid, err := n.SaveAndNotifyDataBlock(buf)
-			if err != nil {
-				n.Upfile("err", fmt.Sprintf("save %v to block failed", fragment))
-			} else {
-				n.Upfile("info", fmt.Sprintf("save %v to block suc: %v", fragment, aCid.String()))
-				savedCid = append(savedCid, aCid.String())
-			}
-		}
-	}
-	return savedCid, nil
 }

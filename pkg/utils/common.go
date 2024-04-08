@@ -17,7 +17,6 @@ import (
 	"reflect"
 	"runtime/debug"
 
-	"github.com/CESSProject/cess-go-sdk/core/pattern"
 	"github.com/pkg/errors"
 	"github.com/shirou/gopsutil/disk"
 	"github.com/shirou/gopsutil/mem"
@@ -134,7 +133,7 @@ func RenameDir(oldDir, newDir string) error {
 	}
 	fstat, err := os.Stat(newDir)
 	if err != nil {
-		err = os.MkdirAll(newDir, pattern.DirMode)
+		err = os.MkdirAll(newDir, 0755)
 		if err != nil {
 			return err
 		}

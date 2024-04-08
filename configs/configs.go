@@ -12,7 +12,7 @@ import "time"
 // account
 const (
 	// CESS token precision
-	CESSTokenPrecision = 1_000_000_000_000
+	CESSTokenPrecision = 1_000_000_000_000_000_000
 	// MinimumBalance is the minimum balance required for the program to run
 	// The unit is pico
 	MinimumBalance = 2 * CESSTokenPrecision
@@ -24,13 +24,14 @@ const (
 	Header_BucketName = "BucketName"
 	Header_Account    = "Account"
 	Header_Operation  = "Operation"
-	TokenDated        = 60 * 60 * 24 * 30
 )
 
 const FileCacheExpirationTime = 720
 
+const MaxTrackThread = 10
+
 // Time out waiting for transaction completion
-const TimeOut_WaitBlock = time.Duration(time.Second * 15)
+const TimeOut_WaitBlock = time.Duration(time.Second * 30)
 
 const DefaultConfig = "conf.yaml"
 

@@ -7,56 +7,57 @@ import (
 	"os"
 	"path/filepath"
 
+	sutils "github.com/CESSProject/cess-go-sdk/utils"
 	"github.com/gin-gonic/gin"
 )
 
 // getHandle
 func (n *Node) getRestoreHandle(c *gin.Context) {
 	var (
+		err      error
 		clientIp string
 		repeat   bool
-		respMsg  = &RespMsg{}
 	)
 
 	clientIp = c.Request.Header.Get("X-Forwarded-For")
 	n.Query("info", fmt.Sprintf("[%s] %s", clientIp, INFO_GetRestoreRequest))
 
-	token := c.Request.Header.Get(HTTPHeader_Authorization)
 	account := c.Request.Header.Get(HTTPHeader_Account)
+	ethAccount := c.Request.Header.Get(HTTPHeader_EthAccount)
 	message := c.Request.Header.Get(HTTPHeader_Message)
 	signature := c.Request.Header.Get(HTTPHeader_Signature)
-
-	userAccount, _, err := n.verifyToken(token, respMsg)
-	if err != nil {
-		if account != "" && signature != "" {
-			_, err = n.verifySignature(account, message, signature)
-			if err != nil {
-				_, err = n.verifySR25519Signature(account, message, signature)
-				if err != nil {
-					_, err = n.verifyJsSignatureHex(account, message, signature)
-					if err != nil {
-						_, err = n.verifyJsSignatureBase58(account, message, signature)
-						if err != nil {
-							n.Upfile("info", fmt.Sprintf("[%v] %v", clientIp, err))
-							c.JSON(respMsg.Code, err.Error())
-							return
-						}
-					}
-				}
-			}
-		} else {
-			n.Upfile("info", fmt.Sprintf("[%v] %v", clientIp, err))
-			c.JSON(respMsg.Code, err.Error())
-			return
-		}
-	} else {
-		account = userAccount
-	}
 
 	if err = n.AccessControl(account); err != nil {
 		n.Upfile("info", fmt.Sprintf("[%v] %v", clientIp, err))
 		c.JSON(http.StatusForbidden, err.Error())
 		return
+	}
+
+	if ethAccount != "" {
+		ethAccInSian, err := VerifyEthSign(message, signature)
+		if err != nil {
+			n.Upfile("err", fmt.Sprintf("[%v] %s", clientIp, err.Error()))
+			c.JSON(http.StatusBadRequest, err.Error())
+			return
+		}
+		if ethAccInSian != ethAccount {
+			n.Upfile("err", fmt.Sprintf("[%v] %s", clientIp, "ETH signature verification failed"))
+			c.JSON(http.StatusBadRequest, "ETH signature verification failed")
+			return
+		}
+		_, err = sutils.ParsingPublickey(account)
+		if err != nil {
+			n.Upfile("err", fmt.Sprintf("[%v] %s", clientIp, err.Error()))
+			c.JSON(http.StatusBadRequest, fmt.Sprintf("invalid cess account: %s", account))
+			return
+		}
+	} else {
+		_, err = n.VerifyAccountSignature(account, message, signature)
+		if err != nil {
+			n.Upfile("err", fmt.Sprintf("[%v] %s", clientIp, err.Error()))
+			c.JSON(http.StatusBadRequest, err.Error())
+			return
+		}
 	}
 
 	var userfils_cache userFiles
@@ -68,7 +69,7 @@ func (n *Node) getRestoreHandle(c *gin.Context) {
 	var userfils_file userFiles
 	data, err = os.ReadFile(filepath.Join(n.ufileDir, account))
 	if err == nil {
-		err = json.Unmarshal(data, &userfils_file)
+		json.Unmarshal(data, &userfils_file)
 	}
 
 	var userDeletedfils_cache userFiles
@@ -80,7 +81,7 @@ func (n *Node) getRestoreHandle(c *gin.Context) {
 	var userDeletedfils_file userFiles
 	data, err = os.ReadFile(filepath.Join(n.dfileDir, account))
 	if err == nil {
-		err = json.Unmarshal(data, &userDeletedfils_file)
+		json.Unmarshal(data, &userDeletedfils_file)
 	}
 
 	var savedFiles []string
