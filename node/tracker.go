@@ -8,6 +8,7 @@
 package node
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -319,7 +320,7 @@ func (n *Node) storageData(roothash string, segment []pattern.SegmentDataInfo, c
 				continue
 			}
 
-			err = n.Connect(n.GetCtxQueryFromCtxCancel(), addr)
+			err = n.Connect(context.TODO(), addr)
 			if err != nil {
 				n.AddToBlacklist(allpeers[i])
 				continue

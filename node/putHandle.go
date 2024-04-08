@@ -227,7 +227,7 @@ func (n *Node) putHandle(c *gin.Context) {
 		savedir = filepath.Join(n.GetDirs().FileDir, account, fmt.Sprintf("%s-%s", uuid.New().String(), uuid.New().String()))
 		_, err = os.Stat(savedir)
 		if err != nil {
-			err = os.MkdirAll(savedir, pattern.DirMode)
+			err = os.MkdirAll(savedir, 0755)
 			if err != nil {
 				n.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, err.Error()))
 				c.JSON(http.StatusInternalServerError, ERR_InternalServer)
@@ -251,7 +251,7 @@ func (n *Node) putHandle(c *gin.Context) {
 		savedir = filepath.Join(n.GetDirs().FileDir, account, fdir)
 		_, err = os.Stat(savedir)
 		if err != nil {
-			err = os.MkdirAll(savedir, pattern.DirMode)
+			err = os.MkdirAll(savedir, 0755)
 			if err != nil {
 				n.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, err.Error()))
 				c.JSON(http.StatusInternalServerError, ERR_InternalServer)
@@ -371,33 +371,7 @@ func (n *Node) putHandle(c *gin.Context) {
 		return
 	}
 
-	// for i := 0; i < len(segmentInfo); i++ {
-	// 	for j := 0; j < len(segmentInfo[i].FragmentHash); j++ {
-	// 		mycid, err := n.FidToCid(filepath.Base(segmentInfo[i].FragmentHash[j]))
-	// 		n.Upfile("info", fmt.Sprintf("[%v] my cid from hash-1: %v ,%v", clientIp, mycid, err))
-	// 	}
-	// }
-
 	n.Upfile("info", fmt.Sprintf("[%v] segmentInfo: %v", clientIp, segmentInfo))
-	// savedCid, err := n.saveToBlockStore(segmentInfo)
-	// if err != nil {
-	// 	n.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, err))
-	// 	c.JSON(http.StatusInternalServerError, err.Error())
-	// 	return
-	// }
-
-	// n.Upfile("info", fmt.Sprintf("[%v] save successed cids: %v", clientIp, savedCid))
-
-	// for i := 0; i < len(savedCid); i++ {
-	// 	buf, err := n.GetDataFromBlock(n.GetCtxQueryFromCtxCancel(), savedCid[i])
-	// 	if err != nil {
-	// 		n.Upfile("err", fmt.Sprintf("[%v] get data from %v failed", clientIp, savedCid[i]))
-	// 	} else {
-	// 		n.Upfile("info", fmt.Sprintf("[%v] get data from %v suc", clientIp, savedCid[i]))
-	// 		myhash, err := sutils.CalcSHA256(buf)
-	// 		n.Upfile("info", fmt.Sprintf("[%v] get data and calc hash: %v , %v", clientIp, myhash, err))
-	// 	}
-	// }
 
 	ok, err = n.deduplication(pkey, segmentInfo, roothash, filename, bucketName, uint64(fstat.Size()))
 	if err != nil {
@@ -426,7 +400,7 @@ func (n *Node) putHandle(c *gin.Context) {
 		}
 	}
 
-	err = os.MkdirAll(roothashDir, pattern.DirMode)
+	err = os.MkdirAll(roothashDir, 0755)
 	if err != nil {
 		n.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, err))
 		c.JSON(http.StatusInternalServerError, ERR_InternalServer)
@@ -558,26 +532,4 @@ func (n *Node) deduplication(pkey []byte, segmentInfo []pattern.SegmentDataInfo,
 	}
 
 	return false, nil
-}
-
-func (n *Node) saveToBlockStore(segmentInfo []pattern.SegmentDataInfo) ([]string, error) {
-	var err error
-	var buf []byte
-	var savedCid = make([]string, 0)
-	for _, segment := range segmentInfo {
-		for _, fragment := range segment.FragmentHash {
-			buf, err = os.ReadFile(fragment)
-			if err != nil {
-				return savedCid, err
-			}
-			aCid, err := n.SaveAndNotifyDataBlock(buf)
-			if err != nil {
-				n.Upfile("err", fmt.Sprintf("save %v to block failed", fragment))
-			} else {
-				n.Upfile("info", fmt.Sprintf("save %v to block suc: %v", fragment, aCid.String()))
-				savedCid = append(savedCid, aCid.String())
-			}
-		}
-	}
-	return savedCid, nil
 }

@@ -13,7 +13,6 @@ import (
 	"path"
 
 	"github.com/CESSProject/DeOSS/configs"
-	"github.com/CESSProject/cess-go-sdk/core/pattern"
 	sutils "github.com/CESSProject/cess-go-sdk/utils"
 	"github.com/centrifuge/go-substrate-rpc-client/v4/signature"
 	"github.com/pkg/errors"
@@ -152,7 +151,7 @@ func (c *confile) Parse(fpath string) error {
 
 	fstat, err = os.Stat(c.Workspace)
 	if err != nil {
-		err = os.MkdirAll(c.Workspace, pattern.DirMode)
+		err = os.MkdirAll(c.Workspace, 0755)
 		if err != nil {
 			return err
 		}
@@ -199,7 +198,7 @@ func (c *confile) SetP2pPort(port int) error {
 func (c *confile) SetWorkspace(workspace string) error {
 	fstat, err := os.Stat(workspace)
 	if err != nil {
-		err = os.MkdirAll(workspace, pattern.DirMode)
+		err = os.MkdirAll(workspace, 0755)
 		if err != nil {
 			return err
 		}

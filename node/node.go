@@ -17,7 +17,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/AstaFrode/go-libp2p/core/peer"
 	"github.com/CESSProject/DeOSS/configs"
 	"github.com/CESSProject/DeOSS/inter"
 	"github.com/CESSProject/DeOSS/pkg/confile"
@@ -32,6 +31,7 @@ import (
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/multiformats/go-multiaddr"
 	"github.com/pkg/errors"
 )
@@ -62,7 +62,7 @@ type Node struct {
 	logger.Logger
 	db.Cache
 	sdk.SDK
-	core.P2P
+	*core.PeerNode
 	*gin.Engine
 }
 
@@ -244,7 +244,7 @@ func (n *Node) RemovePeerIntranetAddr() {
 		if len(addrs) > 0 {
 			addrInfo.ID = v.ID
 			addrInfo.Addrs = utils.RemoveRepeatedAddr(addrs)
-			n.SaveOrUpdatePeerUnSafe(v.ID.Pretty(), addrInfo)
+			n.SaveOrUpdatePeerUnSafe(v.ID.String(), addrInfo)
 		} else {
 			delete(n.peers, k)
 		}
@@ -383,7 +383,7 @@ func (n *Node) RebuildDirs() {
 	os.RemoveAll(filepath.Join(n.Workspace(), configs.Db))
 	os.RemoveAll(filepath.Join(n.Workspace(), configs.Log))
 	os.RemoveAll(filepath.Join(n.Workspace(), configs.Track))
-	os.MkdirAll(n.GetDirs().FileDir, pattern.DirMode)
-	os.MkdirAll(n.GetDirs().TmpDir, pattern.DirMode)
-	os.MkdirAll(filepath.Join(n.Workspace(), configs.Track), pattern.DirMode)
+	os.MkdirAll(n.GetDirs().FileDir, 0755)
+	os.MkdirAll(n.GetDirs().TmpDir, 0755)
+	os.MkdirAll(filepath.Join(n.Workspace(), configs.Track), 0755)
 }
