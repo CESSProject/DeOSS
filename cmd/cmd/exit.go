@@ -44,6 +44,7 @@ func cmd_exit_func(cmd *cobra.Command, args []string) {
 		log.Println(err)
 		os.Exit(1)
 	}
+	defer n.GetSubstrateAPI().Client.Close()
 
 	txhash, err := n.ExitDeOSS()
 	if err != nil || txhash == "" {

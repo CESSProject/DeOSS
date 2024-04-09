@@ -103,6 +103,7 @@ func cmd_run_func(cmd *cobra.Command, args []string) {
 		out.Err(err.Error())
 		os.Exit(1)
 	}
+	defer n.GetSubstrateAPI().Client.Close()
 
 	n.PeerNode, err = p2pgo.New(
 		ctx,
