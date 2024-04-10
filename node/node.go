@@ -219,7 +219,7 @@ func (n *Node) GetAllStoragePeerId() []string {
 	defer n.storagePeersLock.RUnlock()
 	var result = make([]string, len(n.storagePeers))
 	var i int
-	for k, _ := range n.storagePeers {
+	for k := range n.storagePeers {
 		result[i] = k
 		i++
 	}
@@ -238,7 +238,7 @@ func (n *Node) GetAllPeerId() []string {
 	defer n.lock.RUnlock()
 	var result = make([]string, len(n.peers))
 	var i int
-	for k, _ := range n.peers {
+	for k := range n.peers {
 		result[i] = k
 		i++
 	}
