@@ -48,6 +48,7 @@ func cmd_stat_func(cmd *cobra.Command, args []string) {
 		log.Println(err)
 		os.Exit(1)
 	}
+	defer n.GetSubstrateAPI().Client.Close()
 
 	pubkey, err := n.Confile.GetPublickey()
 	if err != nil {
