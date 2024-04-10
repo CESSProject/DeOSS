@@ -10,11 +10,16 @@ package node
 import (
 	"context"
 	"encoding/json"
+	"log"
+	"time"
 
 	"github.com/CESSProject/DeOSS/pkg/utils"
 	"github.com/CESSProject/p2p-go/core"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
+	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/peer"
+	drouting "github.com/libp2p/go-libp2p/p2p/discovery/routing"
+	dutil "github.com/libp2p/go-libp2p/p2p/discovery/util"
 )
 
 func (n *Node) subscribe(ch chan<- bool) {
@@ -63,7 +68,37 @@ func (n *Node) subscribe(ch chan<- bool) {
 		if err != nil {
 			continue
 		}
+		n.SavePeerDecorator(findpeer.ID.String(), findpeer)
+	}
+}
 
-		n.SavePeer(findpeer.ID.String(), findpeer)
+func (n *Node) discover() {
+	var routingDiscovery = drouting.NewRoutingDiscovery(n.GetDHTable())
+	rendezvous := n.GetRendezvousVersion()
+	h := n.GetHost()
+	dutil.Advertise(context.Background(), routingDiscovery, rendezvous)
+
+	ticker := time.NewTicker(time.Second * 1)
+	defer ticker.Stop()
+
+	for {
+		<-ticker.C
+		peers, err := routingDiscovery.FindPeers(context.Background(), rendezvous)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		for p := range peers {
+			if p.ID == h.ID() {
+				continue
+			}
+			if h.Network().Connectedness(p.ID) != network.Connected {
+				_, err = h.Network().DialPeer(context.Background(), p.ID)
+				if err != nil {
+					continue
+				}
+			}
+			n.SavePeerDecorator(p.ID.String(), p)
+		}
 	}
 }

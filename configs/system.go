@@ -31,5 +31,6 @@ const (
 	//
 	Ufile = "ufile"
 	//
-	Dfile = "dfile"
+	Dfile      = "dfile"
+	FILE_CACHE = "filecache"
 )

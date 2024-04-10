@@ -25,6 +25,7 @@ func (n *Node) TaskMgt() {
 
 	go n.refreshMiner()
 	go n.subscribe(ch_recvPeers)
+	go n.discover()
 	go n.tracker(ch_trackFile)
 	go n.sdkMgt(ch_sdkMgt)
 
@@ -42,6 +43,7 @@ func (n *Node) TaskMgt() {
 
 		case <-ch_recvPeers:
 			go n.subscribe(ch_recvPeers)
+			go n.discover()
 
 		case <-ch_trackFile:
 			go n.tracker(ch_trackFile)

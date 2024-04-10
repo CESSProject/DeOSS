@@ -23,7 +23,9 @@ import (
 	"github.com/CESSProject/DeOSS/pkg/db"
 	"github.com/CESSProject/DeOSS/pkg/logger"
 	"github.com/CESSProject/DeOSS/pkg/utils"
+	"github.com/CESSProject/cess-go-sdk/core/cacher"
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
+	"github.com/CESSProject/cess-go-sdk/core/scheduler"
 	"github.com/CESSProject/cess-go-sdk/core/sdk"
 	sutils "github.com/CESSProject/cess-go-sdk/utils"
 	"github.com/CESSProject/p2p-go/core"
@@ -64,6 +66,8 @@ type Node struct {
 	sdk.SDK
 	*core.PeerNode
 	*gin.Engine
+	cacher.FileCache
+	scheduler.Selector
 }
 
 // New is used to build a node instance
@@ -146,10 +150,37 @@ func (n *Node) Run2(port int, workspace string) {
 	}
 }
 
+func (n *Node) InitFileCache(exp time.Duration, maxSpace int64, cacheDir string) {
+	n.FileCache = cacher.NewCacher(exp, maxSpace, cacheDir)
+}
+
+func (n *Node) InitNodeSelector(strategy string, nodeFilePath string, maxNodeNum int, maxTTL, flushInterval int64) error {
+	var err error
+	n.Selector, err = scheduler.NewNodeSelector(strategy, nodeFilePath, maxNodeNum, maxTTL, flushInterval)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func (n *Node) SavePeer(peerid string, addr peer.AddrInfo) {
 	if n.lock.TryLock() {
 		n.peers[peerid] = addr
 		n.lock.Unlock()
+	}
+}
+
+func (n *Node) SavePeerDecorator(peerid string, addr peer.AddrInfo) {
+	n.SavePeer(peerid, addr)
+	// if n.HasStoragePeer(peerid) {
+	// 	n.FlushPeerNodes(scheduler.DEFAULT_TIMEOUT, addr)
+	// }
+	switch peerid {
+	case "12D3KooWEGeAp1MvvUrBYQtb31FE1LPg7aHsd1LtTXn6cerZTBBd":
+	case "12D3KooWGDk9JJ5F6UPNuutEKSbHrTXnF5eSn3zKaR27amgU6o9S":
+	case "12D3KooWRm2sQg65y2ZgCUksLsjWmKbBtZ4HRRsGLxbN76XTtC8T":
+	default:
+		n.FlushPeerNodes(scheduler.DEFAULT_TIMEOUT, addr)
 	}
 }
 

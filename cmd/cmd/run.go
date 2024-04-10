@@ -24,6 +24,7 @@ import (
 	cess "github.com/CESSProject/cess-go-sdk"
 	sconfig "github.com/CESSProject/cess-go-sdk/config"
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
+	"github.com/CESSProject/cess-go-sdk/core/scheduler"
 	sutils "github.com/CESSProject/cess-go-sdk/utils"
 	p2pgo "github.com/CESSProject/p2p-go"
 	"github.com/CESSProject/p2p-go/config"
@@ -188,6 +189,20 @@ func cmd_run_func(cmd *cobra.Command, args []string) {
 	n.SetFadebackDir(fadebackDir)
 	n.SetUfileDir(ufileDir)
 	n.SetDfileDir(dfileDir)
+
+	//init DeOSS extension components
+	n.InitFileCache(
+		3*time.Hour,
+		100*1024*1024*1024,
+		filepath.Join(n.Workspace(), configs.FILE_CACHE),
+	)
+	n.InitNodeSelector(
+		scheduler.DEFAULT_STRATEGY,
+		filepath.Join(n.Workspace(), "storage_nodes.json"),
+		scheduler.MAX_ALLOWED_NODES,
+		int64(600),
+		int64(4),
+	)
 
 	// Build cache
 	n.Cache, err = buildCache(dbDir)
@@ -395,6 +410,12 @@ func buildDir(workspace string) (string, string, string, string, string, string,
 	}
 	dfileDir := filepath.Join(workspace, configs.Dfile)
 	if err := os.MkdirAll(dfileDir, 0755); err != nil {
+		return "", "", "", "", "", "", err
+	}
+
+	//make file cache dir
+	fileCache := filepath.Join(workspace, configs.FILE_CACHE)
+	if err := os.MkdirAll(fileCache, 0755); err != nil {
 		return "", "", "", "", "", "", err
 	}
 	return logDir, cacheDir, trackDir, feedbackDir, ufileDir, dfileDir, nil

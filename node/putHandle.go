@@ -340,12 +340,6 @@ func (n *Node) putHandle(c *gin.Context) {
 			return
 		}
 		var f *os.File
-		if blockNum > 0 && blockIdx > 1 {
-			f, err = os.OpenFile(fpath, os.O_WRONLY|os.O_APPEND, 0666)
-		} else {
-			f, err = os.Create(fpath)
-		}
-		var f *os.File
 		if blockNum > 0 && blockIdx > 0 {
 			f, err = os.OpenFile(fpath, os.O_WRONLY|os.O_APPEND, 0666)
 		} else {
@@ -411,26 +405,6 @@ func (n *Node) putHandle(c *gin.Context) {
 		}
 	}
 
-	if blockNum > 0 && blockIdx < blockNum {
-		n.Upfile("info", fmt.Sprintf("[%v] uploaded file block %d/%d successfully", clientIp, blockIdx, blockNum))
-		c.JSON(http.StatusOK, blockIdx)
-		return
-	}
-
-	if blockNum > 0 && blockIdx == blockNum {
-		stat, err := os.Stat(fpath)
-		if err != nil {
-			n.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, err.Error()))
-			c.JSON(http.StatusInternalServerError, ERR_InternalServer)
-			return
-		}
-		if stat.Size() != int64(totalSize) {
-			n.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, "file is not the same size as expected"))
-			c.JSON(http.StatusBadRequest, fmt.Sprintf("file size mismatch,expected %d, actual %d", totalSize, stat.Size()))
-			return
-		}
-	}
-
 	if filename == "" {
 		filename = "null"
 	}
@@ -482,6 +456,10 @@ func (n *Node) putHandle(c *gin.Context) {
 	_, err = os.Stat(roothashDir)
 	if err == nil {
 		if ok := n.HasTrackFile(roothash); ok {
+			err = n.MoveFileToCache(roothash, filepath.Join(roothashDir, roothash)) //move file to cache
+			if err != nil {
+				n.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, err))
+			}
 			c.JSON(http.StatusOK, roothash)
 			n.Upfile("info", fmt.Sprintf("[%v] [%s] uploaded successfully", clientIp, roothash))
 			return
@@ -508,6 +486,11 @@ func (n *Node) putHandle(c *gin.Context) {
 		n.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, err))
 		c.JSON(http.StatusInternalServerError, ERR_InternalServer)
 		return
+	}
+
+	err = n.MoveFileToCache(roothash, filepath.Join(roothashDir, roothash)) //move file to cache
+	if err != nil {
+		n.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, err))
 	}
 
 	for i := 0; i < len(segmentInfo); i++ {
