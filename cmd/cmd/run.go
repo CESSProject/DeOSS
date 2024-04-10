@@ -24,7 +24,6 @@ import (
 	cess "github.com/CESSProject/cess-go-sdk"
 	sconfig "github.com/CESSProject/cess-go-sdk/config"
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
-	"github.com/CESSProject/cess-go-sdk/core/scheduler"
 	sutils "github.com/CESSProject/cess-go-sdk/utils"
 	p2pgo "github.com/CESSProject/p2p-go"
 	"github.com/CESSProject/p2p-go/config"
@@ -192,17 +191,25 @@ func cmd_run_func(cmd *cobra.Command, args []string) {
 	n.SetDfileDir(dfileDir)
 
 	//init DeOSS extension components
+	cacheDir := n.Confile.GetCacheDir()
+	if cacheDir == "" {
+		cacheDir = filepath.Join(n.Workspace(), configs.FILE_CACHE)
+	}
 	n.InitFileCache(
-		3*time.Hour,
-		100*1024*1024*1024,
-		filepath.Join(n.Workspace(), configs.FILE_CACHE),
+		time.Duration(n.Confile.GetCacheItemExp()),
+		n.Confile.GetCacheSize(),
+		cacheDir,
 	)
+	nodeFilePath := n.Confile.GetNodeFilePath()
+	if cacheDir == "" {
+		nodeFilePath = filepath.Join(n.Workspace(), "storage_nodes.json")
+	}
 	n.InitNodeSelector(
-		scheduler.DEFAULT_STRATEGY,
-		filepath.Join(n.Workspace(), "storage_nodes.json"),
-		scheduler.MAX_ALLOWED_NODES,
-		int64(600),
-		int64(4),
+		n.Confile.GetSelectStrategy(),
+		nodeFilePath,
+		n.Confile.GetMaxNodeNum(),
+		n.Confile.GetMaxTTL(),
+		n.Confile.GetRefreshTime(),
 	)
 
 	// Build cache

@@ -11,7 +11,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 	"time"
@@ -277,10 +276,8 @@ func (n *Node) storageData(roothash string, segment []pattern.SegmentDataInfo, c
 	//allpeers := n.GetAllStoragePeerId()
 	itor, err := n.NewPeersIterator(pattern.DataShards + pattern.ParShards)
 	if err != nil {
-		log.Println("get peers iterator error", err)
 		return err
 	}
-	log.Println("get peers iterator success", itor)
 
 	//n.Track("info", fmt.Sprintf("All storage peers: %v", allpeers))
 	var sucPeer = make(map[string]struct{}, pattern.DataShards+pattern.ParShards)
@@ -309,8 +306,7 @@ func (n *Node) storageData(roothash string, segment []pattern.SegmentDataInfo, c
 
 		n.Track("info", fmt.Sprintf("[%s] Prepare to transfer the %dth batch of fragments", roothash, index))
 		//utils.RandSlice(allpeers)
-		for peer, ok := itor.GetPeer(); ok; {
-			log.Println("get peer ", peer.ID, "to use")
+		for peer, ok := itor.GetPeer(); ok; peer, ok = itor.GetPeer() {
 			failed = false
 			if _, ok := sucPeer[peer.ID.String()]; ok {
 				continue
@@ -318,7 +314,6 @@ func (n *Node) storageData(roothash string, segment []pattern.SegmentDataInfo, c
 
 			err = n.Connect(context.TODO(), peer)
 			if err != nil {
-				log.Println("connet peer ", peer.ID, "error", err)
 				n.Feedback(peer.ID.String(), false)
 				continue
 			}
@@ -328,7 +323,6 @@ func (n *Node) storageData(roothash string, segment []pattern.SegmentDataInfo, c
 				err = n.WriteFileAction(peer.ID, roothash, v[j])
 				if err != nil {
 					failed = true
-					log.Println("write file to peer ", peer.ID, "error", err)
 					n.Feedback(peer.ID.String(), false)
 					n.Track("err", fmt.Sprintf("[%s] transfer to %s failed: %v", roothash, peer.ID.String(), err))
 					break
@@ -338,7 +332,6 @@ func (n *Node) storageData(roothash string, segment []pattern.SegmentDataInfo, c
 			if !failed {
 				sucPeer[peer.ID.String()] = struct{}{}
 				n.Feedback(peer.ID.String(), true)
-				log.Println("write file to peer ", peer.ID, "success")
 				n.Track("info", fmt.Sprintf("[%s] The %dth batch of fragments is transferred to %s", roothash, index, peer.ID.String()))
 				break
 			}
