@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"time"
 
 	"github.com/CESSProject/DeOSS/configs"
 	sutils "github.com/CESSProject/cess-go-sdk/utils"
@@ -48,7 +49,30 @@ Accounts:
   - cX...
   - cX...
 # If you want to expose your oss service, please configure its domain name
-Domain: ""`
+Domain: ""
+
+# User Files Cacher config
+# File cache size, default 512G, (unit is byte)
+CacheSize:
+# File cache expiration time, default 3 hour (unit is minutes)
+Expiration:
+# Directory to store file cache, default path: Workspace/filecache/
+CacheDir:
+
+# Storage Node Selector config
+# Used to find better storage node partners for DeOSS to upload or download files
+# Two strategies for using your specified storage nodes, "priority" or "fixed", default is "priority"
+SelectStrategy: 
+# JSON file used to specify the storage node. If it does not exist, it will be automatically created.
+# You can configure which storage nodes to use or not use in this file.   
+NodeFilePath:
+# Maximum number of storage nodes allowed for long-term cooperation, default 120
+MaxNodeNum:
+# Maximum tolerable TTL for communication with storage nodes, default 500 ms (unit is milliseconds)
+MaxTTL:
+# Available storage node list refresh time, default 4 hours (unit is hours)
+RefreshTime:
+`
 )
 
 type Confile interface {
@@ -64,18 +88,34 @@ type Confile interface {
 	GetAccess() string
 	GetAccounts() []string
 	GetDomainName() string
+	GetCacheSize() int64
+	GetCacheItemExp() int64
+	GetCacheDir() string
+	GetSelectStrategy() string
+	GetNodeFilePath() string
+	GetMaxNodeNum() int
+	GetMaxTTL() int64
+	GetRefreshTime() int64
 }
 
 type confile struct {
-	Rpc       []string `name:"Rpc" toml:"Rpc" yaml:"Rpc"`
-	Boot      []string `name:"Boot" toml:"Boot" yaml:"Boot"`
-	Mnemonic  string   `name:"Mnemonic" toml:"Mnemonic" yaml:"Mnemonic"`
-	Workspace string   `name:"Workspace" toml:"Workspace" yaml:"Workspace"`
-	P2P_Port  int      `name:"P2P_Port" toml:"P2P_Port" yaml:"P2P_Port"`
-	HTTP_Port int      `name:"HTTP_Port" toml:"HTTP_Port" yaml:"HTTP_Port"`
-	Access    string   `name:"Access" toml:"Access" yaml:"Access"`
-	Accounts  []string `name:"Accounts" toml:"Accounts" yaml:"Accounts"`
-	Domain    string   `name:"Domain" toml:"Domain" yaml:"Domain"`
+	Rpc            []string `name:"Rpc" toml:"Rpc" yaml:"Rpc"`
+	Boot           []string `name:"Boot" toml:"Boot" yaml:"Boot"`
+	Mnemonic       string   `name:"Mnemonic" toml:"Mnemonic" yaml:"Mnemonic"`
+	Workspace      string   `name:"Workspace" toml:"Workspace" yaml:"Workspace"`
+	P2P_Port       int      `name:"P2P_Port" toml:"P2P_Port" yaml:"P2P_Port"`
+	HTTP_Port      int      `name:"HTTP_Port" toml:"HTTP_Port" yaml:"HTTP_Port"`
+	Access         string   `name:"Access" toml:"Access" yaml:"Access"`
+	Accounts       []string `name:"Accounts" toml:"Accounts" yaml:"Accounts"`
+	Domain         string   `name:"Domain" toml:"Domain" yaml:"Domain"`
+	CacheSize      int64    `name:"CacheSize" toml:"CacheSize" yaml:"CacheSize"`
+	Expiration     int64    `name:"Expiration" toml:"Expiration" yaml:"Expiration"`
+	CacheDir       string   `name:"CacheDir" toml:"CacheDir" yaml:"CacheDir"`
+	SelectStrategy string   `name:"SelectStrategy" toml:"SelectStrategy" yaml:"SelectStrategy"`
+	NodeFilePath   string   `name:"NodeFilePath" toml:"NodeFilePath" yaml:"NodeFilePath"`
+	MaxNodeNum     int      `name:"MaxNodeNum" toml:"MaxNodeNum" yaml:"MaxNodeNum"`
+	MaxTTL         int64    `name:"MaxTTL" toml:"MaxTTL" yaml:"MaxTTL"`
+	RefreshTime    int64    `name:"RefreshTime" toml:"RefreshTime" yaml:"RefreshTime"`
 }
 
 var _ Confile = (*confile)(nil)
@@ -139,7 +179,7 @@ func (c *confile) Parse(fpath string) error {
 		accounts[v] = struct{}{}
 	}
 	var accountList = make([]string, 0)
-	for k, _ := range accounts {
+	for k := range accounts {
 		accountList = append(accountList, k)
 	}
 	c.Accounts = accountList
@@ -267,4 +307,44 @@ func (c *confile) GetAccess() string {
 
 func (c *confile) GetAccounts() []string {
 	return c.Accounts
+}
+
+func (c *confile) GetCacheSize() int64 {
+	if c.CacheSize <= 128*1024*1024*1024 {
+		c.CacheSize = 128 * 1024 * 1024 * 1024
+	}
+	return c.CacheSize
+}
+func (c *confile) GetCacheItemExp() int64 {
+	if c.Expiration <= 0 || c.Expiration > 7*24*60 {
+		c.Expiration = 3 * 60
+	}
+	return c.Expiration * int64(time.Minute)
+}
+func (c *confile) GetCacheDir() string {
+	return c.CacheDir
+}
+func (c *confile) GetSelectStrategy() string {
+	return c.SelectStrategy
+}
+func (c *confile) GetNodeFilePath() string {
+	return c.NodeFilePath
+}
+func (c *confile) GetMaxNodeNum() int {
+	if c.MaxNodeNum <= 0 || c.MaxNodeNum > 10000 {
+		c.MaxNodeNum = 120
+	}
+	return c.MaxNodeNum
+}
+func (c *confile) GetMaxTTL() int64 {
+	if c.MaxTTL <= 0 || c.MaxTTL >= 5000 {
+		c.MaxTTL = 500
+	}
+	return c.MaxTTL
+}
+func (c *confile) GetRefreshTime() int64 {
+	if c.RefreshTime <= 0 || c.RefreshTime > 24 {
+		c.RefreshTime = 4
+	}
+	return c.RefreshTime
 }

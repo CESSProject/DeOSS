@@ -260,7 +260,12 @@ func (n *Node) getHandle(c *gin.Context) {
 		var size uint64
 		n.Query("info", fmt.Sprintf("[%s] Download file [%s]", clientIp, queryName))
 
-		fpath := utils.FindFile(n.GetDirs().FileDir, queryName)
+		//fpath := utils.FindFile(n.GetDirs().FileDir, queryName)
+		fpath, err := n.GetCacheRecord(queryName) //query file from cache
+		if err != nil {
+			n.Query("err", fmt.Sprintf("[%s] Query file [%s] info from cache: %v", clientIp, queryName, err))
+			c.JSON(http.StatusNotFound, ERR_NotFound)
+		}
 		fstat, err := os.Stat(fpath)
 		if err == nil {
 			if fstat.Size() > 0 {
@@ -328,6 +333,10 @@ func (n *Node) getHandle(c *gin.Context) {
 					continue
 				}
 				c.File(fpath)
+				err = n.MoveFileToCache(queryName, fpath) // add file to cache
+				if err != nil {
+					n.Query("err", fmt.Sprintf("[%s] add file [%s] to cache error [%v]", clientIp, queryName, err))
+				}
 				return
 			}
 		}
@@ -347,6 +356,10 @@ func (n *Node) getHandle(c *gin.Context) {
 		}
 		n.Query("info", fmt.Sprintf("[%s] Download file [%s] suc", clientIp, queryName))
 		c.File(fpath)
+		err = n.MoveFileToCache(queryName, fpath) // add file to cache
+		if err != nil {
+			n.Query("err", fmt.Sprintf("[%s] add file [%s] to cache error [%v]", clientIp, queryName, err))
+		}
 		return
 	}
 	n.Query("err", fmt.Sprintf("[%s] [%s] %s", clientIp, queryName, ERR_HeadOperation))

@@ -29,7 +29,7 @@ func (n *Node) sdkMgt(ch chan<- bool) {
 	tick_60s := time.NewTicker(time.Minute)
 	defer tick_60s.Stop()
 
-	for _ = range tick_60s.C {
+	for range tick_60s.C {
 		sminerList, err := n.QueryAllSminerAccount()
 		if err != nil {
 			continue

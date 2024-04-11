@@ -190,6 +190,28 @@ func cmd_run_func(cmd *cobra.Command, args []string) {
 	n.SetUfileDir(ufileDir)
 	n.SetDfileDir(dfileDir)
 
+	//init DeOSS extension components
+	cacheDir := n.Confile.GetCacheDir()
+	if cacheDir == "" {
+		cacheDir = filepath.Join(n.Workspace(), configs.FILE_CACHE)
+	}
+	n.InitFileCache(
+		time.Duration(n.Confile.GetCacheItemExp()),
+		n.Confile.GetCacheSize(),
+		cacheDir,
+	)
+	nodeFilePath := n.Confile.GetNodeFilePath()
+	if nodeFilePath == "" {
+		nodeFilePath = filepath.Join(n.Workspace(), "storage_nodes.json")
+	}
+	n.InitNodeSelector(
+		n.Confile.GetSelectStrategy(),
+		nodeFilePath,
+		n.Confile.GetMaxNodeNum(),
+		n.Confile.GetMaxTTL(),
+		n.Confile.GetRefreshTime(),
+	)
+
 	// Build cache
 	n.Cache, err = buildCache(dbDir)
 	if err != nil {
@@ -396,6 +418,12 @@ func buildDir(workspace string) (string, string, string, string, string, string,
 	}
 	dfileDir := filepath.Join(workspace, configs.Dfile)
 	if err := os.MkdirAll(dfileDir, 0755); err != nil {
+		return "", "", "", "", "", "", err
+	}
+
+	//make file cache dir
+	fileCache := filepath.Join(workspace, configs.FILE_CACHE)
+	if err := os.MkdirAll(fileCache, 0755); err != nil {
 		return "", "", "", "", "", "", err
 	}
 	return logDir, cacheDir, trackDir, feedbackDir, ufileDir, dfileDir, nil

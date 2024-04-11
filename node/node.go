@@ -26,6 +26,8 @@ import (
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
 	"github.com/CESSProject/cess-go-sdk/core/sdk"
 	sutils "github.com/CESSProject/cess-go-sdk/utils"
+	"github.com/CESSProject/cess-go-tools/cacher"
+	"github.com/CESSProject/cess-go-tools/scheduler"
 	"github.com/CESSProject/p2p-go/core"
 	"github.com/CESSProject/p2p-go/out"
 	"github.com/gin-contrib/cors"
@@ -64,6 +66,8 @@ type Node struct {
 	sdk.SDK
 	*core.PeerNode
 	*gin.Engine
+	cacher.FileCache
+	scheduler.Selector
 }
 
 // New is used to build a node instance
@@ -146,10 +150,39 @@ func (n *Node) Run2(port int, workspace string) {
 	}
 }
 
+func (n *Node) InitFileCache(exp time.Duration, maxSpace int64, cacheDir string) {
+	n.FileCache = cacher.NewCacher(exp, maxSpace, cacheDir)
+}
+
+func (n *Node) InitNodeSelector(strategy string, nodeFilePath string, maxNodeNum int, maxTTL, flushInterval int64) error {
+	var err error
+	n.Selector, err = scheduler.NewNodeSelector(strategy, nodeFilePath, maxNodeNum, maxTTL, flushInterval)
+	if err != nil {
+		return err
+	}
+	//refresh the user-configured storage node list
+	n.Selector.FlushlistedPeerNodes(scheduler.DEFAULT_TIMEOUT, n.GetDHTable())
+	return nil
+}
+
 func (n *Node) SavePeer(peerid string, addr peer.AddrInfo) {
 	if n.lock.TryLock() {
 		n.peers[peerid] = addr
 		n.lock.Unlock()
+	}
+}
+
+func (n *Node) SavePeerDecorator(peerid string, addr peer.AddrInfo) {
+	n.SavePeer(peerid, addr)
+	// if n.HasStoragePeer(peerid) {
+	// 	n.FlushPeerNodes(scheduler.DEFAULT_TIMEOUT, addr)
+	// }
+	switch peerid {
+	case "12D3KooWEGeAp1MvvUrBYQtb31FE1LPg7aHsd1LtTXn6cerZTBBd":
+	case "12D3KooWGDk9JJ5F6UPNuutEKSbHrTXnF5eSn3zKaR27amgU6o9S":
+	case "12D3KooWRm2sQg65y2ZgCUksLsjWmKbBtZ4HRRsGLxbN76XTtC8T":
+	default:
+		n.FlushPeerNodes(scheduler.DEFAULT_TIMEOUT, addr)
 	}
 }
 
@@ -188,7 +221,7 @@ func (n *Node) GetAllStoragePeerId() []string {
 	defer n.storagePeersLock.RUnlock()
 	var result = make([]string, len(n.storagePeers))
 	var i int
-	for k, _ := range n.storagePeers {
+	for k := range n.storagePeers {
 		result[i] = k
 		i++
 	}
@@ -207,7 +240,7 @@ func (n *Node) GetAllPeerId() []string {
 	defer n.lock.RUnlock()
 	var result = make([]string, len(n.peers))
 	var i int
-	for k, _ := range n.peers {
+	for k := range n.peers {
 		result[i] = k
 		i++
 	}
