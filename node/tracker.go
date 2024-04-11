@@ -251,7 +251,7 @@ func (n *Node) trackFile(trackfile string) error {
 		if err != nil {
 			n.Track("err", err.Error())
 		}
-
+		n.FlushlistedPeerNodes(5*time.Second, n.GetDHTable()) //refresh the user-configured storage node list
 		time.Sleep(time.Minute * 2)
 	}
 }

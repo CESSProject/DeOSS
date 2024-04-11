@@ -160,6 +160,8 @@ func (n *Node) InitNodeSelector(strategy string, nodeFilePath string, maxNodeNum
 	if err != nil {
 		return err
 	}
+	//refresh the user-configured storage node list
+	n.Selector.FlushlistedPeerNodes(scheduler.DEFAULT_TIMEOUT, n.GetDHTable())
 	return nil
 }
 

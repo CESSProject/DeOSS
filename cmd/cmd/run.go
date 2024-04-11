@@ -201,7 +201,7 @@ func cmd_run_func(cmd *cobra.Command, args []string) {
 		cacheDir,
 	)
 	nodeFilePath := n.Confile.GetNodeFilePath()
-	if cacheDir == "" {
+	if nodeFilePath == "" {
 		nodeFilePath = filepath.Join(n.Workspace(), "storage_nodes.json")
 	}
 	n.InitNodeSelector(
