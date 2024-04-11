@@ -4,7 +4,7 @@ go 1.20
 
 require (
 	github.com/CESSProject/cess-go-sdk v0.5.1-0.20240408085819-f424b08e5f4e
-	github.com/CESSProject/cess-go-tools v0.1.2
+	github.com/CESSProject/cess-go-tools v0.1.6
 	github.com/CESSProject/go-keyring v0.0.0-20220614131247-ee3a8da30fde
 	github.com/CESSProject/p2p-go v0.3.5
 	github.com/btcsuite/btcutil v1.0.3-0.20201208143702-a53e38424cce
