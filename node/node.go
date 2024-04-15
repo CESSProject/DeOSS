@@ -174,14 +174,7 @@ func (n *Node) SavePeer(peerid string, addr peer.AddrInfo) {
 
 func (n *Node) SavePeerDecorator(peerid string, addr peer.AddrInfo) {
 	n.SavePeer(peerid, addr)
-	// if n.HasStoragePeer(peerid) {
-	// 	n.FlushPeerNodes(scheduler.DEFAULT_TIMEOUT, addr)
-	// }
-	switch peerid {
-	case "12D3KooWEGeAp1MvvUrBYQtb31FE1LPg7aHsd1LtTXn6cerZTBBd":
-	case "12D3KooWGDk9JJ5F6UPNuutEKSbHrTXnF5eSn3zKaR27amgU6o9S":
-	case "12D3KooWRm2sQg65y2ZgCUksLsjWmKbBtZ4HRRsGLxbN76XTtC8T":
-	default:
+	if n.HasStoragePeer(peerid) {
 		n.FlushPeerNodes(scheduler.DEFAULT_TIMEOUT, addr)
 	}
 }
