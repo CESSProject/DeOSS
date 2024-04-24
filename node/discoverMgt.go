@@ -10,39 +10,55 @@ package node
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log"
-	"time"
+	"strings"
 
-	"github.com/CESSProject/DeOSS/pkg/utils"
 	"github.com/CESSProject/p2p-go/core"
+	"github.com/CESSProject/p2p-go/out"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
-	"github.com/libp2p/go-libp2p/core/network"
+	"github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/peer"
-	drouting "github.com/libp2p/go-libp2p/p2p/discovery/routing"
-	dutil "github.com/libp2p/go-libp2p/p2p/discovery/util"
+	"github.com/libp2p/go-libp2p/p2p/discovery/mdns"
 )
 
-func (n *Node) subscribe(ch chan<- bool) {
-	defer func() {
-		if err := recover(); err != nil {
-			n.Pnc(utils.RecoverError(err))
-		}
-		ch <- true
-	}()
-	n.Discover("info", ">>>>> start subscribe <<<<<")
-
+func Subscribe(ctx context.Context, h host.Host, peerRecord PeerRecord, bootnode string) {
 	var (
 		err      error
+		room     string
 		findpeer peer.AddrInfo
 	)
 
-	gossipSub, err := pubsub.NewGossipSub(context.Background(), n.GetHost())
+	fmt.Println("start subscribe...")
+
+	gossipSub, err := pubsub.NewGossipSub(ctx, h)
 	if err != nil {
 		return
 	}
 
+	if strings.Contains(bootnode, "12D3KooWRm2sQg65y2ZgCUksLsjWmKbBtZ4HRRsGLxbN76XTtC8T") {
+		room = fmt.Sprintf("%s-12D3KooWRm2sQg65y2ZgCUksLsjWmKbBtZ4HRRsGLxbN76XTtC8T", core.NetworkRoom)
+	} else if strings.Contains(bootnode, "12D3KooWEGeAp1MvvUrBYQtb31FE1LPg7aHsd1LtTXn6cerZTBBd") {
+		room = fmt.Sprintf("%s-12D3KooWEGeAp1MvvUrBYQtb31FE1LPg7aHsd1LtTXn6cerZTBBd", core.NetworkRoom)
+	} else if strings.Contains(bootnode, "12D3KooWGDk9JJ5F6UPNuutEKSbHrTXnF5eSn3zKaR27amgU6o9S") {
+		room = fmt.Sprintf("%s-12D3KooWGDk9JJ5F6UPNuutEKSbHrTXnF5eSn3zKaR27amgU6o9S", core.NetworkRoom)
+	} else if strings.Contains(bootnode, "12D3KooWS8a18xoBzwkmUsgGBctNo6QCr6XCpUDR946mTBBUTe83") {
+		room = fmt.Sprintf("%s-12D3KooWS8a18xoBzwkmUsgGBctNo6QCr6XCpUDR946mTBBUTe83", core.NetworkRoom)
+	} else if strings.Contains(bootnode, "12D3KooWDWeiiqbpNGAqA5QbDTdKgTtwX8LCShWkTpcyxpRf2jA9") {
+		room = fmt.Sprintf("%s-12D3KooWDWeiiqbpNGAqA5QbDTdKgTtwX8LCShWkTpcyxpRf2jA9", core.NetworkRoom)
+	} else if strings.Contains(bootnode, "12D3KooWNcTWWuUWKhjTVDF1xZ38yCoHXoF4aDjnbjsNpeVwj33U") {
+		room = fmt.Sprintf("%s-12D3KooWNcTWWuUWKhjTVDF1xZ38yCoHXoF4aDjnbjsNpeVwj33U", core.NetworkRoom)
+	} else {
+		room = core.NetworkRoom
+	}
+	fmt.Println("room: ", room)
+	// setup local mDNS discovery
+	if err := setupDiscovery(h); err != nil {
+		return
+	}
+
 	// join the pubsub topic called librum
-	topic, err := gossipSub.Join(core.NetworkRoom)
+	topic, err := gossipSub.Join(room)
 	if err != nil {
 		return
 	}
@@ -53,14 +69,16 @@ func (n *Node) subscribe(ch chan<- bool) {
 		return
 	}
 
+	out.Ok(fmt.Sprintf("subscribe to a room: %s", room))
+
 	for {
-		msg, err := subscriber.Next(context.Background())
+		msg, err := subscriber.Next(ctx)
 		if err != nil {
-			panic(err)
+			continue
 		}
 
 		// only consider messages delivered by other peers
-		if msg.ReceivedFrom == n.ID() {
+		if msg.ReceivedFrom == h.ID() {
 			continue
 		}
 
@@ -68,37 +86,31 @@ func (n *Node) subscribe(ch chan<- bool) {
 		if err != nil {
 			continue
 		}
-		n.SavePeerDecorator(findpeer.ID.String(), findpeer)
+		log.Println("got a peer: ", findpeer.ID.String())
+		peerRecord.SavePeer(findpeer)
 	}
 }
 
-func (n *Node) discover() {
-	var routingDiscovery = drouting.NewRoutingDiscovery(n.GetDHTable())
-	rendezvous := n.GetRendezvousVersion()
-	h := n.GetHost()
-	dutil.Advertise(context.Background(), routingDiscovery, rendezvous)
+// discoveryNotifee gets notified when we find a new peer via mDNS discovery
+type discoveryNotifee struct {
+	h host.Host
+}
 
-	ticker := time.NewTicker(time.Second * 1)
-	defer ticker.Stop()
-
-	for {
-		<-ticker.C
-		peers, err := routingDiscovery.FindPeers(context.Background(), rendezvous)
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		for p := range peers {
-			if p.ID == h.ID() {
-				continue
-			}
-			if h.Network().Connectedness(p.ID) != network.Connected {
-				_, err = h.Network().DialPeer(context.Background(), p.ID)
-				if err != nil {
-					continue
-				}
-			}
-			n.SavePeerDecorator(p.ID.String(), p)
-		}
+// HandlePeerFound connects to peers discovered via mDNS. Once they're connected,
+// the PubSub system will automatically start interacting with them if they also
+// support PubSub.
+func (n *discoveryNotifee) HandlePeerFound(pi peer.AddrInfo) {
+	fmt.Printf("discovered new peer %s\n", pi.ID.String())
+	err := n.h.Connect(context.TODO(), pi)
+	if err != nil {
+		fmt.Printf("error connecting to peer %s: %s\n", pi.ID.String(), err)
 	}
+}
+
+// setupDiscovery creates an mDNS discovery service and attaches it to the libp2p Host.
+// This lets us automatically discover peers on the same LAN and connect to them.
+func setupDiscovery(h host.Host) error {
+	// setup mDNS discovery to find local peers
+	s := mdns.NewMdnsService(h, "", &discoveryNotifee{h: h})
+	return s.Start()
 }
