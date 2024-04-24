@@ -33,7 +33,7 @@ func cmd_exit_func(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
-	n.SDK, err = cess.New(
+	n.ChainClient, err = cess.New(
 		context.Background(),
 		cess.Name(sconfig.CharacterName_Deoss),
 		cess.ConnectRpcAddrs(n.Confile.GetRpcAddr()),

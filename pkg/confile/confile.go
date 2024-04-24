@@ -64,7 +64,7 @@ CacheDir:
 # Two strategies for using your specified storage nodes, "priority" or "fixed", default is "priority"
 SelectStrategy: 
 # JSON file used to specify the storage node. If it does not exist, it will be automatically created.
-# You can configure which storage nodes to use or not use in this file.   
+# You can configure which storage nodes to use or not use in this file.
 NodeFilePath:
 # Maximum number of storage nodes allowed for long-term cooperation, default 120
 MaxNodeNum:
