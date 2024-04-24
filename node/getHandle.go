@@ -86,18 +86,6 @@ func (n *Node) getHandle(c *gin.Context) {
 		return
 	}
 
-	if queryName == "peers" {
-		n.Query("info", fmt.Sprintf("[%s] Query peers", clientIp))
-		_, err := os.Stat(n.peersPath)
-		if err != nil {
-			buf := n.EncodePeers()
-			c.JSON(http.StatusOK, string(buf))
-			return
-		}
-		c.File(n.peersPath)
-		return
-	}
-
 	if queryName == "file" {
 		fid := c.Request.Header.Get(HTTPHeader_Fid)
 		if fid == "" || len(fid) != len(pattern.FileHash{}) {
@@ -317,8 +305,8 @@ func (n *Node) getHandle(c *gin.Context) {
 		peerList, _ := n.QueryAllDeOSSPeerId()
 		if len(peerList) > 0 {
 			for _, v := range peerList {
-				addr, ok := n.GetPeer(v)
-				if !ok {
+				addr, err := n.GetPeer(v)
+				if err != nil {
 					continue
 				}
 				if n.ID().String() == v {
@@ -416,8 +404,8 @@ func (n *Node) fetchFiles(roothash, dir, cipher string) (string, error) {
 				return "", err
 			}
 			peerid := base58.Encode([]byte(string(miner.PeerId[:])))
-			addr, ok := n.GetPeer(peerid)
-			if !ok {
+			addr, err := n.GetPeer(peerid)
+			if err != nil {
 				continue
 			}
 			err = n.Connect(context.TODO(), addr)

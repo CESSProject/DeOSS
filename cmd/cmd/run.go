@@ -8,7 +8,6 @@
 package cmd
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -26,7 +25,6 @@ import (
 	"github.com/CESSProject/cess-go-sdk/core/pattern"
 	sutils "github.com/CESSProject/cess-go-sdk/utils"
 	p2pgo "github.com/CESSProject/p2p-go"
-	"github.com/CESSProject/p2p-go/config"
 	"github.com/CESSProject/p2p-go/core"
 	"github.com/CESSProject/p2p-go/out"
 	"github.com/howeyc/gopass"
@@ -38,20 +36,20 @@ import (
 // which is used to start the deoss service.
 func cmd_run_func(cmd *cobra.Command, args []string) {
 	var (
-		registerFlag   bool
-		err            error
-		logDir         string
-		dbDir          string
-		trackDir       string
-		fadebackDir    string
-		ufileDir       string
-		dfileDir       string
-		protocolPrefix string
-		bootEnv        string
-		syncSt         pattern.SysSyncState
-		n              = node.New()
+		registerFlag bool
+		err          error
+		logDir       string
+		dbDir        string
+		trackDir     string
+		fadebackDir  string
+		ufileDir     string
+		dfileDir     string
+		bootEnv      string
+		syncSt       pattern.SysSyncState
+		peerRecord   = node.NewPeerRecord()
+		n            = node.New()
 	)
-	ctx := context.Background()
+	ctx := cmd.Context()
 	// Building Profile Instances
 	n.Confile, err = buildConfigFile(cmd)
 	if err != nil {
@@ -72,27 +70,8 @@ func cmd_run_func(cmd *cobra.Command, args []string) {
 
 	n.SetSignkey(signKey)
 
-	boots := n.GetBootNodes()
-	for _, v := range boots {
-		if strings.Contains(v, "testnet") {
-			bootEnv = "cess-testnet"
-			protocolPrefix = config.TestnetProtocolPrefix
-			break
-		} else if strings.Contains(v, "mainnet") {
-			bootEnv = "cess-mainnet"
-			protocolPrefix = config.MainnetProtocolPrefix
-			break
-		} else if strings.Contains(v, "devnet") {
-			bootEnv = "cess-devnet"
-			protocolPrefix = config.DevnetProtocolPrefix
-			break
-		} else {
-			bootEnv = "unknown"
-		}
-	}
-
 	// Build sdk
-	n.SDK, err = cess.New(
+	n.ChainClient, err = cess.New(
 		ctx,
 		cess.Name(sconfig.CharacterName_Deoss),
 		cess.ConnectRpcAddrs(n.GetRpcAddr()),
@@ -103,39 +82,7 @@ func cmd_run_func(cmd *cobra.Command, args []string) {
 		out.Err(err.Error())
 		os.Exit(1)
 	}
-	defer n.GetSubstrateAPI().Client.Close()
-
-	n.PeerNode, err = p2pgo.New(
-		ctx,
-		p2pgo.ListenPort(n.GetP2pPort()),
-		p2pgo.Workspace(filepath.Join(n.GetWorkspace(), n.GetSignatureAcc(), n.GetSDKName())),
-		p2pgo.BootPeers(n.GetBootNodes()),
-		p2pgo.ProtocolPrefix(protocolPrefix),
-	)
-	if err != nil {
-		out.Err(err.Error())
-		os.Exit(1)
-	}
-
-	out.Tip(fmt.Sprintf("chain network: %s", n.GetNetworkEnv()))
-	out.Tip(fmt.Sprintf("p2p network: %s", bootEnv))
-	if strings.Contains(bootEnv, "test") {
-		if !strings.Contains(n.GetNetworkEnv(), "test") {
-			out.Warn("chain and p2p are not in the same network")
-		}
-	}
-
-	if strings.Contains(bootEnv, "main") {
-		if !strings.Contains(n.GetNetworkEnv(), "main") {
-			out.Warn("chain and p2p are not in the same network")
-		}
-	}
-
-	if strings.Contains(bootEnv, "dev") {
-		if !strings.Contains(n.GetNetworkEnv(), "dev") {
-			out.Warn("chain and p2p are not in the same network")
-		}
-	}
+	defer n.ChainClient.Close()
 
 	for {
 		syncSt, err = n.SyncState()
@@ -158,6 +105,41 @@ func cmd_run_func(cmd *cobra.Command, args []string) {
 		} else {
 			out.Err("Weak network signal or rpc service failure")
 			os.Exit(1)
+		}
+	}
+
+	n.PeerNode, err = p2pgo.New(
+		ctx,
+		p2pgo.ListenPort(n.GetP2pPort()),
+		p2pgo.Workspace(filepath.Join(n.GetWorkspace(), n.GetSignatureAcc(), n.GetSDKName())),
+		p2pgo.BootPeers(n.GetBootNodes()),
+	)
+	if err != nil {
+		out.Err(err.Error())
+		os.Exit(1)
+	}
+	defer n.PeerNode.Close()
+
+	go node.Subscribe(ctx, n.PeerNode.GetHost(), peerRecord, n.PeerNode.GetBootnode())
+	time.Sleep(time.Second)
+
+	out.Tip(fmt.Sprintf("chain network: %s", n.GetNetworkEnv()))
+	out.Tip(fmt.Sprintf("p2p network: %s", bootEnv))
+	if strings.Contains(bootEnv, "test") {
+		if !strings.Contains(n.GetNetworkEnv(), "test") {
+			out.Warn("chain and p2p are not in the same network")
+		}
+	}
+
+	if strings.Contains(bootEnv, "main") {
+		if !strings.Contains(n.GetNetworkEnv(), "main") {
+			out.Warn("chain and p2p are not in the same network")
+		}
+	}
+
+	if strings.Contains(bootEnv, "dev") {
+		if !strings.Contains(n.GetNetworkEnv(), "dev") {
+			out.Warn("chain and p2p are not in the same network")
 		}
 	}
 
@@ -226,6 +208,7 @@ func cmd_run_func(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
+	n.PeerRecord = peerRecord
 	out.Tip(n.Workspace())
 
 	// run

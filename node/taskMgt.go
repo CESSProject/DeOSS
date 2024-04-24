@@ -18,14 +18,11 @@ import (
 
 func (n *Node) TaskMgt() {
 	var (
-		ch_recvPeers = make(chan bool, 1)
 		ch_trackFile = make(chan bool, 1)
 		ch_sdkMgt    = make(chan bool, 1)
 	)
 
 	go n.refreshMiner()
-	go n.subscribe(ch_recvPeers)
-	go n.discover()
 	go n.tracker(ch_trackFile)
 	go n.sdkMgt(ch_sdkMgt)
 
@@ -40,10 +37,6 @@ func (n *Node) TaskMgt() {
 				n.Log("err", pattern.ERR_RPC_CONNECTION.Error())
 				out.Err(pattern.ERR_RPC_CONNECTION.Error())
 			}
-
-		case <-ch_recvPeers:
-			go n.subscribe(ch_recvPeers)
-			go n.discover()
 
 		case <-ch_trackFile:
 			go n.tracker(ch_trackFile)
