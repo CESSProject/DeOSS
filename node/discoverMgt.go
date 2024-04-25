@@ -22,7 +22,7 @@ import (
 	"github.com/libp2p/go-libp2p/p2p/discovery/mdns"
 )
 
-func Subscribe(ctx context.Context, h host.Host, peerRecord PeerRecord, bootnode string) {
+func Subscribe(ctx context.Context, h host.Host, bootnode string, callback func(p peer.AddrInfo)) {
 	var (
 		err      error
 		room     string
@@ -87,7 +87,7 @@ func Subscribe(ctx context.Context, h host.Host, peerRecord PeerRecord, bootnode
 			continue
 		}
 		log.Println("got a peer: ", findpeer.ID.String())
-		peerRecord.SavePeer(findpeer)
+		callback(findpeer)
 	}
 }
 

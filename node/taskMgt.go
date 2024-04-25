@@ -28,7 +28,7 @@ func (n *Node) TaskMgt() {
 
 	task_10S := time.NewTicker(time.Duration(time.Second * 10))
 	defer task_10S.Stop()
-
+	count := 0
 	for {
 		select {
 		case <-task_10S.C:
@@ -36,6 +36,11 @@ func (n *Node) TaskMgt() {
 			if err != nil {
 				n.Log("err", pattern.ERR_RPC_CONNECTION.Error())
 				out.Err(pattern.ERR_RPC_CONNECTION.Error())
+			}
+			count++
+			if count >= 4320 { //blacklist released every 12 hours
+				count = 0
+				n.ClearBlackList()
 			}
 
 		case <-ch_trackFile:
