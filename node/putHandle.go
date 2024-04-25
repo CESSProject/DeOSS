@@ -36,8 +36,25 @@ type ChunksInfo struct {
 	TotalSize     int64  `json:"total_size"`
 }
 
+const max_concurrent_req = 10
+
+var max_concurrent_req_ch chan bool
+
+func init() {
+	max_concurrent_req_ch = make(chan bool, 10)
+	for i := 0; i < max_concurrent_req; i++ {
+		max_concurrent_req_ch <- true
+	}
+}
+
 // putHandle
 func (n *Node) putHandle(c *gin.Context) {
+	if _, ok := <-max_concurrent_req_ch; !ok {
+		c.JSON(http.StatusTooManyRequests, "The server is busy, please try again later.")
+		return
+	}
+	defer func() { max_concurrent_req_ch <- true }()
+
 	var (
 		ok       bool
 		err      error
