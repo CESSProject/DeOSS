@@ -292,7 +292,7 @@ func (n *Node) putHandle(c *gin.Context) {
 		}
 	}
 
-	if blockNum != chunksInfo.BlockNum || blockIdx != chunksInfo.SavedBlockId+1 {
+	if blockNum > 0 && (blockNum != chunksInfo.BlockNum || blockIdx != chunksInfo.SavedBlockId+1) {
 		n.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, "bad chunk index"))
 		c.JSON(http.StatusBadRequest, "bad chunk index")
 		return
