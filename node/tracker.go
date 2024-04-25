@@ -250,9 +250,12 @@ func (n *Node) trackFile(trackfile string) error {
 		err = n.storageData(recordFile.Roothash, recordFile.SegmentInfo, storageOrder.CompleteList)
 		if err != nil {
 			n.Track("err", err.Error())
+			time.Sleep(time.Minute * 3)
+		} else {
+			n.Track("info", fmt.Sprintf("[%s] file transfer completed", roothash))
+			time.Sleep(time.Minute * 10)
 		}
 		n.FlushlistedPeerNodes(5*time.Second, n.GetDHTable()) //refresh the user-configured storage node list
-		time.Sleep(time.Minute * 2)
 	}
 }
 
@@ -304,10 +307,10 @@ func (n *Node) storageData(roothash string, segment []pattern.SegmentDataInfo, c
 			continue
 		}
 
-		n.Track("info", fmt.Sprintf("[%s] Prepare to transfer the %dth batch of fragments", roothash, index))
+		n.Track("info", fmt.Sprintf("[%s] Prepare to transfer the %dth batch of fragments (%d)", roothash, index, len(v)))
 		//utils.RandSlice(allpeers)
 		for peer, ok := itor.GetPeer(); ok; peer, ok = itor.GetPeer() {
-			failed = false
+			failed = true
 			if _, ok := sucPeer[peer.ID.String()]; ok {
 				continue
 			}
@@ -320,11 +323,18 @@ func (n *Node) storageData(roothash string, segment []pattern.SegmentDataInfo, c
 
 			n.Track("info", fmt.Sprintf("[%s] Will transfer to %s", roothash, peer.ID.String()))
 			for j := 0; j < len(v); j++ {
-				err = n.WriteFileAction(peer.ID, roothash, v[j])
-				if err != nil {
-					failed = true
-					n.Feedback(peer.ID.String(), false)
+				for k := 0; k < 10; k++ {
+					err = n.WriteFileAction(peer.ID, roothash, v[j])
+					if err != nil {
+						time.Sleep(pattern.BlockInterval * 3)
+						continue
+					}
+					failed = false
+					break
+				}
+				if failed {
 					n.Track("err", fmt.Sprintf("[%s] transfer to %s failed: %v", roothash, peer.ID.String(), err))
+					n.Feedback(peer.ID.String(), false)
 					break
 				}
 				n.Track("info", fmt.Sprintf("[%s] The %dth fragment of the %dth batch is transferred to %s", roothash, j, index, peer.ID.String()))
