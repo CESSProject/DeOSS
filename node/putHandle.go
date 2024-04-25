@@ -369,10 +369,11 @@ func (n *Node) putHandle(c *gin.Context) {
 			return
 		}
 
-		if fileHeder.Size+chunksInfo.SavedFileSize > chunksInfo.TotalSize {
+		if blockNum > 0 && fileHeder.Size+chunksInfo.SavedFileSize > chunksInfo.TotalSize {
 			n.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, "bad chunk size"))
 			c.JSON(http.StatusBadRequest, "bad chunk size")
 			return
+
 		}
 
 		_, err = io.Copy(f, formfile)
@@ -383,7 +384,10 @@ func (n *Node) putHandle(c *gin.Context) {
 			return
 		}
 		f.Close()
-		chunksInfo.SavedFileSize += fileHeder.Size
+
+		if blockNum > 0 {
+			chunksInfo.SavedFileSize += fileHeder.Size
+		}
 	}
 
 	if blockNum > 0 && blockIdx < blockNum-1 {
