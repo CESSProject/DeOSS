@@ -248,14 +248,14 @@ func (n *Node) trackFile(trackfile string) error {
 		}
 
 		err = n.storageData(recordFile.Roothash, recordFile.SegmentInfo, storageOrder.CompleteList)
+		n.FlushlistedPeerNodes(5*time.Second, n.GetDHTable()) //refresh the user-configured storage node list
 		if err != nil {
 			n.Track("err", err.Error())
-			time.Sleep(time.Minute * 3)
+			return err
 		} else {
 			n.Track("info", fmt.Sprintf("[%s] file transfer completed", roothash))
-			time.Sleep(time.Minute * 10)
+			time.Sleep(time.Minute * 3)
 		}
-		n.FlushlistedPeerNodes(5*time.Second, n.GetDHTable()) //refresh the user-configured storage node list
 	}
 }
 
@@ -263,16 +263,10 @@ func (n *Node) storageData(roothash string, segment []pattern.SegmentDataInfo, c
 	var err error
 	var failed bool
 	var completed bool
-	var dataGroup = make(map[uint8][]string, len(segment[0].FragmentHash))
+	var dataGroup = make(map[uint8][]string, (pattern.DataShards + pattern.ParShards))
 	for index := 0; index < len(segment[0].FragmentHash); index++ {
-		dataGroup[uint8(index+1)] = make([]string, 0)
 		for i := 0; i < len(segment); i++ {
-			for j := 0; j < len(segment[i].FragmentHash); j++ {
-				if index == j {
-					dataGroup[uint8(index+1)] = append(dataGroup[uint8(index+1)], string(segment[i].FragmentHash[j]))
-					break
-				}
-			}
+			dataGroup[uint8(index+1)] = append(dataGroup[uint8(index+1)], string(segment[i].FragmentHash[index]))
 		}
 	}
 
