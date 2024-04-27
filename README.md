@@ -311,6 +311,64 @@ Response schema: `application/json`
 # curl -X PUT URL/ -F 'file=@test.log;type=application/octet-stream' -H "BucketName: bucket1" -H "Account: cX..." -H "Message: ..." -H "Signature: 0x..."
 ```
 
+## Upload a file by resuming breakpoints
+
+| **PUT**  / |
+| ---------- |
+
+Compared with uploading the entire file directly, resumable upload has some more parameter requirements, but has the same return result. At the same time, the uploaded file can also be encrypted.
+
+- Request Header
+
+| key           | description        |
+| ------------- | ------------------ |
+| BucketName    | stored bucket name |
+| cipher        | your cipher        |
+| Account       | your CESS account  |
+| Message       | your sgin message  |
+| Signature     | sign of message by your account  |
+| FileName      | file name or alias  |
+| BlockNumber   | The number of chunks the file is to be divided into  |
+| BlockIndex    | index of chunk to be uploaded, [0,BlockNumber)  |
+| TotalSize     | the byte size of the file, the sum of the sizes of all chunks  |
+
+- Request Body
+
+| key  | value        |
+| ---- | ------------ |
+| file | file[binary] |
+
+
+
+- Responses
+
+Response schema: `application/json`
+
+| HTTP Code | Message                       | Description               |
+| --------- | ----------------------------- | ------------------------- |
+| 200       | fid                           | file id                   |
+| 200       | chunk index                   | chunk index               |
+| 400       | InvalidHead.MissingToken      | token is empty            |
+| 400       | InvalidHead.MissingBucketName | bucketname is empty       |
+| 400       | InvalidHead.BucketName        | wrong bucket name         |
+| 400       | InvalidHead.Token             | token error               |
+| 400       | Unauthorized                  | DeOSS is not authorized   |
+| 400       | InvalidParameter.EmptyFile    | file is empty             |
+| 400       | InvalidParameter.FormFile     | form File                 |
+| 400       | InvalidParameter.File         | error receiving file      |
+| 400       | bad chunk size                | Invalid chunk size        |
+| 400       | bad chunk index               | Invalid chunk index       |
+| 400       | file size mismatch            | file size does not match the TotalSize |
+| 403       | NoPermission                  | token verification failed |
+| 500       | InternalError                 | service internal error    |
+
+
+- Request example
+
+```shell
+# curl -X PUT URL/ -F 'file=@test-chunk0;type=application/octet-stream' -H "BucketName: bucket1" -H "Account: cX..." -H "Message: ..." -H "Signature: 0x... -H FileName: test.log -H BlockNumber: 5 -H BlockIndex: 0 -H TotalSize: 1000"
+```
+
 ## Download a file
 
 | **GET**  /{fid} |
