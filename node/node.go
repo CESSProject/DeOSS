@@ -23,7 +23,6 @@ import (
 	"github.com/CESSProject/DeOSS/pkg/db"
 	"github.com/CESSProject/DeOSS/pkg/logger"
 	"github.com/CESSProject/cess-go-sdk/chain"
-	"github.com/CESSProject/cess-go-sdk/core/pattern"
 	"github.com/CESSProject/cess-go-tools/cacher"
 	"github.com/CESSProject/cess-go-tools/scheduler"
 	"github.com/CESSProject/p2p-go/core"
@@ -212,7 +211,7 @@ func (n *Node) WriteTrackFile(filehash string, data []byte) error {
 	if len(data) < MinRecordInfoLength {
 		return errors.New("invalid data")
 	}
-	if len(filehash) != len(pattern.FileHash{}) {
+	if len(filehash) != len(chain.FileHash{}) {
 		return errors.New("invalid filehash")
 	}
 	fpath := filepath.Join(n.trackDir, uuid.New().String())

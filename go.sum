@@ -9,8 +9,8 @@ dmitri.shuralyov.com/state v0.0.0-20180228185332-28bcc343414c/go.mod h1:0PRwlb0D
 git.apache.org/thrift.git v0.0.0-20180902110319-2566ecd5d999/go.mod h1:fPE2ZNJGynbRyZ4dJvy6G277gSllfV2HJqblrnkyeyg=
 github.com/BurntSushi/toml v0.3.1 h1:WXkYYl6Yr3qBf1K79EBnL4mak0OimBfB0XUf9Vl28OQ=
 github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03qcyfWMU=
-github.com/CESSProject/cess-go-sdk v0.5.1 h1:WPilU3csfc3Do0cZWYmwI7klyXFJT6IKwocWtUZUlrw=
-github.com/CESSProject/cess-go-sdk v0.5.1/go.mod h1:Y78g1FHZ02S1KDbf0NCHZQ/CELJkQ/Ti45hMaIO3HNM=
+github.com/CESSProject/cess-go-sdk v0.5.1-0.20240511074236-0962272b87ad h1:oknDc9mWkxphN3ICRcJQNqPaudZOJkKx6t8uYYsXKEQ=
+github.com/CESSProject/cess-go-sdk v0.5.1-0.20240511074236-0962272b87ad/go.mod h1:9BGRFkU3Zc5CYqK9EIz3DY14MjDg6a0bA1DWgMk3qFc=
 github.com/CESSProject/cess-go-tools v0.2.6 h1:kZjqHN8uIyExTu8EEQApLN4qsmpWaWQfgBQD/0wF2+A=
 github.com/CESSProject/cess-go-tools v0.2.6/go.mod h1:g86Xkq1+FZHg1srAvkwGqD3WoG+EIdeA2JHQAhhtKqQ=
 github.com/CESSProject/go-keyring v0.0.0-20220614131247-ee3a8da30fde h1:5MDRjjtg6PEhqyVjupwaapN96cOZiddOGAYwKQeaTu0=
@@ -474,7 +474,7 @@ github.com/raulk/go-watchdog v1.3.0/go.mod h1:fIvOnLbF0b0ZwkB9YU4mOW9Did//4vPZtD
 github.com/rivo/uniseg v0.2.0 h1:S1pD9weZBuJdFmowNwbpi7BJ8TNftyUImj/0WQi72jY=
 github.com/rivo/uniseg v0.2.0/go.mod h1:J6wj4VEh+S6ZtnVlnTBMWIodfgj8LQOQFoIToxlJtxc=
 github.com/rogpeppe/go-internal v1.3.0/go.mod h1:M8bDsm7K2OlrFYOpmOWEs/qY81heoFRclV5y23lUDJ4=
-github.com/rogpeppe/go-internal v1.10.0 h1:TMyTOH3F/DB16zRVcYyreMH6GnZZrwQVAoYjRBZyWFQ=
+github.com/rogpeppe/go-internal v1.12.0 h1:exVL4IDcn6na9z1rAb56Vxr+CgyK3nn3O+epU5NdKM8=
 github.com/rs/cors v1.8.2 h1:KCooALfAYGs415Cwu5ABvv9n9509fSiG5SQJn/AQo4U=
 github.com/rs/cors v1.8.2/go.mod h1:XyqrcTp5zjWr1wsJ8PIRZssZ8b/WMcMf71DJnit4EMU=
 github.com/russross/blackfriday v1.5.2/go.mod h1:JO/DiYxRf+HjHt06OyowR9PTA263kcR/rfWxYHBV53g=

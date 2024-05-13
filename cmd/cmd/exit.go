@@ -15,7 +15,6 @@ import (
 	"github.com/CESSProject/DeOSS/configs"
 	"github.com/CESSProject/DeOSS/node"
 	cess "github.com/CESSProject/cess-go-sdk"
-	sconfig "github.com/CESSProject/cess-go-sdk/config"
 	"github.com/spf13/cobra"
 )
 
@@ -35,7 +34,7 @@ func cmd_exit_func(cmd *cobra.Command, args []string) {
 
 	n.ChainClient, err = cess.New(
 		context.Background(),
-		cess.Name(sconfig.CharacterName_Deoss),
+		cess.Name(configs.Name),
 		cess.ConnectRpcAddrs(n.Confile.GetRpcAddr()),
 		cess.Mnemonic(n.Confile.GetMnemonic()),
 		cess.TransactionTimeout(configs.TimeOut_WaitBlock),
@@ -46,7 +45,7 @@ func cmd_exit_func(cmd *cobra.Command, args []string) {
 	}
 	defer n.GetSubstrateAPI().Client.Close()
 
-	txhash, err := n.ExitDeOSS()
+	txhash, err := n.DestroyOss()
 	if err != nil || txhash == "" {
 		log.Printf("[err] %v\n", err)
 		os.Exit(1)
