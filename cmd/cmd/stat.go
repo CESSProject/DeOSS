@@ -16,8 +16,7 @@ import (
 	"github.com/CESSProject/DeOSS/configs"
 	"github.com/CESSProject/DeOSS/node"
 	cess "github.com/CESSProject/cess-go-sdk"
-	sconfig "github.com/CESSProject/cess-go-sdk/config"
-	"github.com/CESSProject/cess-go-sdk/core/pattern"
+	"github.com/CESSProject/cess-go-sdk/chain"
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/spf13/cobra"
@@ -39,7 +38,7 @@ func cmd_stat_func(cmd *cobra.Command, args []string) {
 
 	n.ChainClient, err = cess.New(
 		context.Background(),
-		cess.Name(sconfig.CharacterName_Deoss),
+		cess.Name(configs.Name),
 		cess.ConnectRpcAddrs(n.Confile.GetRpcAddr()),
 		cess.Mnemonic(n.Confile.GetMnemonic()),
 		cess.TransactionTimeout(configs.TimeOut_WaitBlock),
@@ -55,12 +54,12 @@ func cmd_stat_func(cmd *cobra.Command, args []string) {
 		log.Println(err)
 		os.Exit(1)
 	}
-	ossinfo, err := n.QueryDeOSSInfo(pubkey)
+	ossinfo, err := n.QueryOss(pubkey, -1)
 	if err != nil {
-		if err.Error() == pattern.ERR_Empty {
+		if err.Error() == chain.ERR_Empty {
 			log.Printf("[err] You are not registered as an oss role\n")
 		} else {
-			log.Printf("[err] %v\n", pattern.ERR_RPC_CONNECTION)
+			log.Printf("[err] %v\n", chain.ERR_RPC_CONNECTION)
 		}
 		os.Exit(1)
 	}

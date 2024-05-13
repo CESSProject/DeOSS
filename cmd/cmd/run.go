@@ -21,8 +21,7 @@ import (
 	"github.com/CESSProject/DeOSS/pkg/logger"
 	"github.com/CESSProject/DeOSS/pkg/utils"
 	cess "github.com/CESSProject/cess-go-sdk"
-	sconfig "github.com/CESSProject/cess-go-sdk/config"
-	"github.com/CESSProject/cess-go-sdk/core/pattern"
+	"github.com/CESSProject/cess-go-sdk/chain"
 	sutils "github.com/CESSProject/cess-go-sdk/utils"
 	"github.com/CESSProject/cess-go-tools/scheduler"
 	p2pgo "github.com/CESSProject/p2p-go"
@@ -47,7 +46,7 @@ func cmd_run_func(cmd *cobra.Command, args []string) {
 		ufileDir     string
 		dfileDir     string
 		bootEnv      string
-		syncSt       pattern.SysSyncState
+		syncSt       chain.SysSyncState
 		peerRecord   = node.NewPeerRecord()
 		n            = node.New()
 	)
@@ -75,7 +74,7 @@ func cmd_run_func(cmd *cobra.Command, args []string) {
 	// Build sdk
 	n.ChainClient, err = cess.New(
 		ctx,
-		cess.Name(sconfig.CharacterName_Deoss),
+		cess.Name(configs.Name),
 		cess.ConnectRpcAddrs(n.GetRpcAddr()),
 		cess.Mnemonic(n.GetMnemonic()),
 		cess.TransactionTimeout(configs.TimeOut_WaitBlock),
@@ -87,7 +86,7 @@ func cmd_run_func(cmd *cobra.Command, args []string) {
 	defer n.ChainClient.Close()
 
 	for {
-		syncSt, err = n.SyncState()
+		syncSt, err = n.SystemSyncState()
 		if err != nil {
 			out.Err(err.Error())
 			os.Exit(1)
@@ -100,9 +99,9 @@ func cmd_run_func(cmd *cobra.Command, args []string) {
 		time.Sleep(time.Second * time.Duration(utils.Ternary(int64(syncSt.HighestBlock-syncSt.CurrentBlock)*6, 30)))
 	}
 
-	ossinfo, err := n.QueryDeOSSInfo(n.GetSignatureAccPulickey())
+	ossinfo, err := n.QueryOss(n.GetSignatureAccPulickey(), -1)
 	if err != nil {
-		if err.Error() == pattern.ERR_Empty {
+		if err.Error() == chain.ERR_Empty {
 			registerFlag = true
 		} else {
 			out.Err("Weak network signal or rpc service failure")
@@ -113,7 +112,7 @@ func cmd_run_func(cmd *cobra.Command, args []string) {
 	n.PeerNode, err = p2pgo.New(
 		ctx,
 		p2pgo.ListenPort(n.GetP2pPort()),
-		p2pgo.Workspace(filepath.Join(n.GetWorkspace(), n.GetSignatureAcc(), n.GetSDKName())),
+		p2pgo.Workspace(filepath.Join(n.GetWorkspace(), n.GetSignatureAcc(), configs.Name)),
 		p2pgo.BootPeers(n.GetBootNodes()),
 	)
 	if err != nil {
@@ -155,7 +154,7 @@ func cmd_run_func(cmd *cobra.Command, args []string) {
 	}
 
 	if registerFlag {
-		_, err = n.RegisterDeOSS(n.GetPeerPublickey(), n.GetDomainName())
+		_, err = n.RegisterOss(n.GetPeerPublickey(), n.GetDomainName())
 		if err != nil {
 			out.Err(fmt.Sprintf("register deoss err: %v", err))
 			os.Exit(1)
@@ -165,7 +164,7 @@ func cmd_run_func(cmd *cobra.Command, args []string) {
 		newPeerid := n.GetPeerPublickey()
 		if !sutils.CompareSlice([]byte(string(ossinfo.Peerid[:])), newPeerid) ||
 			n.GetDomainName() != string(ossinfo.Domain) {
-			txhash, err := n.UpdateDeOSS(string(newPeerid), n.GetDomainName())
+			txhash, err := n.UpdateOss(string(newPeerid), n.GetDomainName())
 			if err != nil {
 				out.Err(fmt.Sprintf("[%s] update deoss err: %v", txhash, err))
 				os.Exit(1)

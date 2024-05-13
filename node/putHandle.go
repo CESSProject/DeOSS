@@ -20,7 +20,8 @@ import (
 	"time"
 
 	"github.com/CESSProject/DeOSS/pkg/utils"
-	"github.com/CESSProject/cess-go-sdk/core/pattern"
+	"github.com/CESSProject/cess-go-sdk/chain"
+	sconfig "github.com/CESSProject/cess-go-sdk/config"
 	"github.com/CESSProject/cess-go-sdk/core/process"
 	sutils "github.com/CESSProject/cess-go-sdk/utils"
 	"github.com/gin-gonic/gin"
@@ -141,9 +142,9 @@ func (n *Node) putHandle(c *gin.Context) {
 
 	// verify the space is authorized
 	var flag bool
-	authAccs, err := n.QueryAuthorizedAccounts(pkey)
+	authAccs, err := n.QueryAuthorityList(pkey, -1)
 	if err != nil {
-		if err.Error() == pattern.ERR_Empty {
+		if err.Error() == chain.ERR_Empty {
 			n.Upfile("info", fmt.Sprintf("[%v] %v", clientIp, ERR_SpaceNotAuth))
 			c.JSON(http.StatusForbidden, ERR_SpaceNotAuth)
 			return
@@ -154,7 +155,7 @@ func (n *Node) putHandle(c *gin.Context) {
 	}
 
 	for _, v := range authAccs {
-		if n.GetSignatureAcc() == v {
+		if sutils.CompareSlice(n.GetSignatureAccPulickey(), v[:]) {
 			flag = true
 			break
 		}
@@ -173,7 +174,7 @@ func (n *Node) putHandle(c *gin.Context) {
 			return
 		}
 		n.Upfile("info", fmt.Sprintf("[%v] create bucket [%v] successfully: %v", clientIp, bucketName, txHash))
-		if len(txHash) != (pattern.FileHashLen + 2) {
+		if len(txHash) != (chain.FileHashLen + 2) {
 			c.JSON(http.StatusOK, "bucket already exists")
 		} else {
 			c.JSON(http.StatusOK, map[string]string{"Block hash:": txHash})
@@ -181,9 +182,9 @@ func (n *Node) putHandle(c *gin.Context) {
 		return
 	}
 
-	userInfo, err := n.QueryUserSpaceSt(pkey)
+	userInfo, err := n.QueryUserOwnedSpace(pkey, -1)
 	if err != nil {
-		if err.Error() == pattern.ERR_Empty {
+		if err.Error() == chain.ERR_Empty {
 			n.Upfile("info", fmt.Sprintf("[%v] %v", clientIp, ERR_NoSpace))
 			c.JSON(http.StatusForbidden, ERR_NoSpace)
 			return
@@ -193,14 +194,14 @@ func (n *Node) putHandle(c *gin.Context) {
 		return
 	}
 
-	blockheight, err := n.QueryBlockHeight("")
+	blockheight, err := n.QueryBlockNumber("")
 	if err != nil {
 		n.Upfile("info", fmt.Sprintf("[%v] %v", clientIp, err))
 		c.JSON(http.StatusForbidden, ERR_RpcFailed)
 		return
 	}
 
-	if userInfo.Deadline < (blockheight + 30) {
+	if uint32(userInfo.Deadline) < (blockheight + 30) {
 		n.Upfile("info", fmt.Sprintf("[%v] %v [%d] [%d]", clientIp, ERR_SpaceExpiresSoon, userInfo.Deadline, blockheight))
 		c.JSON(http.StatusForbidden, ERR_SpaceExpiresSoon)
 		return
@@ -221,7 +222,7 @@ func (n *Node) putHandle(c *gin.Context) {
 	if contentLength > MaxMemUsed {
 		freeSpace, err := utils.GetDirFreeSpace("/tmp")
 		if err == nil {
-			if uint64(contentLength+pattern.SIZE_1MiB*16) > freeSpace {
+			if uint64(contentLength+sconfig.SIZE_1MiB*16) > freeSpace {
 				n.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, ERR_DeviceSpaceNoLeft))
 				c.JSON(http.StatusForbidden, ERR_DeviceSpaceNoLeft)
 				return
@@ -230,7 +231,7 @@ func (n *Node) putHandle(c *gin.Context) {
 	}
 
 	usedSpace := contentLength * 15 / 10
-	remainingSpace, err := strconv.ParseUint(userInfo.RemainingSpace, 10, 64)
+	remainingSpace, err := strconv.ParseUint(userInfo.RemainingSpace.String(), 10, 64)
 	if err != nil {
 		n.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, err))
 		c.JSON(http.StatusInternalServerError, ERR_InternalServer)
@@ -351,7 +352,7 @@ func (n *Node) putHandle(c *gin.Context) {
 		if blockNum <= 0 {
 			filename = fileHeder.Filename
 		}
-		if len(filename) > pattern.MaxBucketNameLength {
+		if len(filename) > sconfig.MaxBucketNameLength {
 			n.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, ERR_FileNameTooLang))
 			c.JSON(http.StatusBadRequest, ERR_FileNameTooLang)
 			return
@@ -565,8 +566,8 @@ func (n *Node) putHandle(c *gin.Context) {
 	c.JSON(http.StatusOK, roothash)
 }
 
-func (n *Node) deduplication(pkey []byte, segmentInfo []pattern.SegmentDataInfo, roothash, filename, bucketname string, filesize uint64) (bool, error) {
-	fmeta, err := n.QueryFileMetadata(roothash)
+func (n *Node) deduplication(pkey []byte, segmentInfo []chain.SegmentDataInfo, roothash, filename, bucketname string, filesize uint64) (bool, error) {
+	fmeta, err := n.QueryFile(roothash, -1)
 	if err == nil {
 		for _, v := range fmeta.Owner {
 			if sutils.CompareSlice(v.User[:], pkey) {
@@ -581,7 +582,7 @@ func (n *Node) deduplication(pkey []byte, segmentInfo []pattern.SegmentDataInfo,
 		return true, nil
 	}
 
-	order, err := n.QueryStorageOrder(roothash)
+	order, err := n.QueryDealMap(roothash, -1)
 	if err == nil {
 		if sutils.CompareSlice(order.User.User[:], pkey) {
 			return true, nil

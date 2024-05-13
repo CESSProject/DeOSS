@@ -11,7 +11,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/CESSProject/cess-go-sdk/core/pattern"
+	"github.com/CESSProject/cess-go-sdk/chain"
+	sconfig "github.com/CESSProject/cess-go-sdk/config"
 	"github.com/CESSProject/p2p-go/out"
 	"github.com/mr-tron/base58"
 )
@@ -34,8 +35,8 @@ func (n *Node) TaskMgt() {
 		case <-task_10S.C:
 			err := n.connectChain()
 			if err != nil {
-				n.Log("err", pattern.ERR_RPC_CONNECTION.Error())
-				out.Err(pattern.ERR_RPC_CONNECTION.Error())
+				n.Log("err", chain.ERR_RPC_CONNECTION.Error())
+				out.Err(chain.ERR_RPC_CONNECTION.Error())
 			}
 			count++
 			if count >= 4320 { //blacklist released every 12 hours
@@ -54,29 +55,29 @@ func (n *Node) TaskMgt() {
 
 func (n *Node) connectChain() error {
 	var err error
-	if !n.GetChainState() {
-		n.Log("err", fmt.Sprintf("[%s] %v", n.GetCurrentRpcAddr(), pattern.ERR_RPC_CONNECTION))
-		out.Err(fmt.Sprintf("[%s] %v", n.GetCurrentRpcAddr(), pattern.ERR_RPC_CONNECTION))
-		err = n.ReconnectRPC()
+	if !n.GetRpcState() {
+		n.Log("err", fmt.Sprintf("[%s] %v", n.GetCurrentRpcAddr(), chain.ERR_RPC_CONNECTION))
+		out.Err(fmt.Sprintf("[%s] %v", n.GetCurrentRpcAddr(), chain.ERR_RPC_CONNECTION))
+		err = n.ReconnectRpc()
 		if err != nil {
 			return err
 		}
 		out.Tip(fmt.Sprintf("[%s] rpc reconnection successful", n.GetCurrentRpcAddr()))
 		n.Log("info", fmt.Sprintf("[%s] rpc reconnection successful", n.GetCurrentRpcAddr()))
-		n.SetChainState(true)
+		n.SetRpcState(true)
 	}
 	return nil
 }
 
 func (n *Node) refreshMiner() {
-	sminerList, err := n.QueryAllSminerAccount()
+	sminerList, err := n.QueryAllMiner(-1)
 	if err == nil {
 		for i := 0; i < len(sminerList); i++ {
-			minerinfo, err := n.QueryStorageMiner(sminerList[i][:])
+			minerinfo, err := n.QueryMinerItems(sminerList[i][:], -1)
 			if err != nil {
 				continue
 			}
-			if minerinfo.IdleSpace.Uint64() >= pattern.FragmentSize {
+			if minerinfo.IdleSpace.Uint64() >= sconfig.FragmentSize {
 				n.SaveStoragePeer(base58.Encode([]byte(string(minerinfo.PeerId[:]))))
 			} else {
 				n.DeleteStoragePeer(base58.Encode([]byte(string(minerinfo.PeerId[:]))))

@@ -10,7 +10,7 @@ package configs
 // system
 const (
 	// name
-	Name = "DeOSS"
+	Name = "deoss"
 	// Name space
 	NameSpace = Name
 	// version

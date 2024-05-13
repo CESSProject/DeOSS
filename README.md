@@ -11,6 +11,7 @@ If you find any system errors or you have better suggestions, please submit an i
 wss://testnet-rpc0.cess.cloud/ws/
 wss://testnet-rpc1.cess.cloud/ws/
 wss://testnet-rpc2.cess.cloud/ws/
+wss://testnet-rpc3.cess.cloud/ws/
 ```
 ### CESS test network bootstrap node
 ```

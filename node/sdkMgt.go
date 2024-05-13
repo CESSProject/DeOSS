@@ -11,9 +11,8 @@ import (
 	"time"
 
 	"github.com/CESSProject/DeOSS/pkg/utils"
+	sconfig "github.com/CESSProject/cess-go-sdk/config"
 	"github.com/mr-tron/base58/base58"
-
-	"github.com/CESSProject/cess-go-sdk/core/pattern"
 )
 
 func (n *Node) sdkMgt(ch chan<- bool) {
@@ -30,16 +29,16 @@ func (n *Node) sdkMgt(ch chan<- bool) {
 	defer tick_60s.Stop()
 
 	for range tick_60s.C {
-		sminerList, err := n.QueryAllSminerAccount()
+		sminerList, err := n.QueryAllMiner(-1)
 		if err != nil {
 			continue
 		}
 		for i := 0; i < len(sminerList); i++ {
-			minerinfo, err := n.QueryStorageMiner(sminerList[i][:])
+			minerinfo, err := n.QueryMinerItems(sminerList[i][:], -1)
 			if err != nil {
 				continue
 			}
-			if minerinfo.IdleSpace.Uint64() >= pattern.FragmentSize {
+			if minerinfo.IdleSpace.Uint64() >= sconfig.FragmentSize {
 				n.SaveStoragePeer(base58.Encode([]byte(string(minerinfo.PeerId[:]))))
 			} else {
 				n.DeleteStoragePeer(base58.Encode([]byte(string(minerinfo.PeerId[:]))))
