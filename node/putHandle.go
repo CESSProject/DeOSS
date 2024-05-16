@@ -51,10 +51,20 @@ func init() {
 // putHandle
 func (n *Node) putHandle(c *gin.Context) {
 	if _, ok := <-max_concurrent_req_ch; !ok {
-		c.JSON(http.StatusTooManyRequests, "The server is busy, please try again later.")
+		c.JSON(http.StatusTooManyRequests, "service is busy, please try again later.")
 		return
 	}
 	defer func() { max_concurrent_req_ch <- true }()
+
+	if n.GetBalances() <= 1 {
+		c.JSON(http.StatusInternalServerError, "service balance is insufficient, please try again later.")
+		return
+	}
+
+	if !n.GetRpcState() {
+		c.JSON(http.StatusInternalServerError, "service rpc connection failed, please try again later.")
+		return
+	}
 
 	var (
 		ok       bool

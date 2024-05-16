@@ -66,8 +66,25 @@ type FileMetaData struct {
 	Owner       []RtnUserBrief
 }
 
+const max_concurrent_get = 30
+
+var max_concurrent_get_ch chan bool
+
+func init() {
+	max_concurrent_get_ch = make(chan bool, max_concurrent_get)
+	for i := 0; i < max_concurrent_get; i++ {
+		max_concurrent_get_ch <- true
+	}
+}
+
 // getHandle
 func (n *Node) getHandle(c *gin.Context) {
+	if _, ok := <-max_concurrent_get_ch; !ok {
+		c.JSON(http.StatusTooManyRequests, "service is busy, please try again later.")
+		return
+	}
+	defer func() { max_concurrent_get_ch <- true }()
+
 	clientIp := c.Request.Header.Get("X-Forwarded-For")
 	n.Query("info", fmt.Sprintf("[%s] %s", clientIp, INFO_GetRequest))
 
