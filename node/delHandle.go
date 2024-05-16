@@ -30,6 +30,16 @@ func (n *Node) delHandle(c *gin.Context) {
 		clientIp string
 	)
 
+	if n.GetBalances() <= 1 {
+		c.JSON(http.StatusInternalServerError, "service balance is insufficient, please try again later.")
+		return
+	}
+
+	if !n.GetRpcState() {
+		c.JSON(http.StatusInternalServerError, "service rpc connection failed, please try again later.")
+		return
+	}
+
 	clientIp = c.Request.Header.Get("X-Forwarded-For")
 	n.Del("info", fmt.Sprintf("[%v] %v", clientIp, INFO_DelRequest))
 	// verify the authorization

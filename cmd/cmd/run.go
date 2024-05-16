@@ -11,7 +11,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/CESSProject/DeOSS/configs"
@@ -45,7 +44,6 @@ func cmd_run_func(cmd *cobra.Command, args []string) {
 		fadebackDir  string
 		ufileDir     string
 		dfileDir     string
-		bootEnv      string
 		syncSt       chain.SysSyncState
 		peerRecord   = node.NewPeerRecord()
 		n            = node.New()
@@ -134,24 +132,6 @@ func cmd_run_func(cmd *cobra.Command, args []string) {
 	time.Sleep(time.Second)
 
 	out.Tip(fmt.Sprintf("chain network: %s", n.GetNetworkEnv()))
-	out.Tip(fmt.Sprintf("p2p network: %s", bootEnv))
-	if strings.Contains(bootEnv, "test") {
-		if !strings.Contains(n.GetNetworkEnv(), "test") {
-			out.Warn("chain and p2p are not in the same network")
-		}
-	}
-
-	if strings.Contains(bootEnv, "main") {
-		if !strings.Contains(n.GetNetworkEnv(), "main") {
-			out.Warn("chain and p2p are not in the same network")
-		}
-	}
-
-	if strings.Contains(bootEnv, "dev") {
-		if !strings.Contains(n.GetNetworkEnv(), "dev") {
-			out.Warn("chain and p2p are not in the same network")
-		}
-	}
 
 	if registerFlag {
 		_, err = n.RegisterOss(n.GetPeerPublickey(), n.GetDomainName())
