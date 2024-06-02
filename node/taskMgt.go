@@ -21,6 +21,7 @@ import (
 
 func (n *Node) TaskMgt() {
 	var (
+		err             error
 		ch_trackFile    = make(chan bool, 1)
 		ch_sdkMgt       = make(chan bool, 1)
 		ch_refreshMiner = make(chan bool, 1)
@@ -36,13 +37,17 @@ func (n *Node) TaskMgt() {
 	task_Minute := time.NewTicker(time.Duration(time.Second * 57))
 	defer task_Minute.Stop()
 	count := 0
+	chainState := true
 	for {
 		select {
 		case <-task_block.C:
-			err := n.connectChain()
-			if err != nil {
-				n.Log("err", schain.ERR_RPC_CONNECTION.Error())
-				out.Err(schain.ERR_RPC_CONNECTION.Error())
+			chainState = n.GetRpcState()
+			if !chainState {
+				err = n.ReconnectRpc()
+				if err != nil {
+					n.Log("err", schain.ERR_RPC_CONNECTION.Error())
+					out.Err(schain.ERR_RPC_CONNECTION.Error())
+				}
 			}
 			count++
 			if count >= 4320 { //blacklist released every 12 hours
