@@ -88,6 +88,12 @@ func (n *Node) putHandle(c *gin.Context) {
 	signature := c.Request.Header.Get(HTTPHeader_Signature)
 	bucketName := c.Request.Header.Get(HTTPHeader_BucketName)
 	cipher := c.Request.Header.Get(HTTPHeader_Cipher)
+
+	blockIdx, _ := strconv.Atoi(c.Request.Header.Get(HTTPHeader_BIdx))
+	blockNum, _ := strconv.Atoi(c.Request.Header.Get(HTTPHeader_BNum))
+	totalSize, _ := strconv.Atoi(c.Request.Header.Get(HTTPHeader_TSize))
+	filename = c.Request.Header.Get(HTTPHeader_Fname)
+
 	contentLength := c.Request.ContentLength
 	n.Upfile("info", fmt.Sprintf("[%v] Acc: %s", clientIp, account))
 	n.Upfile("info", fmt.Sprintf("[%v] EthAcc: %s", clientIp, ethAccount))
@@ -151,29 +157,31 @@ func (n *Node) putHandle(c *gin.Context) {
 	}
 
 	// verify the space is authorized
-	var flag bool
-	authAccs, err := n.QueryAuthorityList(pkey, -1)
-	if err != nil {
-		if err.Error() == chain.ERR_Empty {
-			n.Upfile("info", fmt.Sprintf("[%v] %v", clientIp, ERR_SpaceNotAuth))
-			c.JSON(http.StatusForbidden, ERR_SpaceNotAuth)
+	if blockNum <= 0 || (blockNum > 0 && blockIdx == 0) {
+		var flag bool
+		authAccs, err := n.QueryAuthorityList(pkey, -1)
+		if err != nil {
+			if err.Error() == chain.ERR_Empty {
+				n.Upfile("info", fmt.Sprintf("[%v] %v", clientIp, ERR_SpaceNotAuth))
+				c.JSON(http.StatusForbidden, ERR_SpaceNotAuth)
+				return
+			}
+			n.Upfile("info", fmt.Sprintf("[%v] %v", clientIp, err))
+			c.JSON(http.StatusInternalServerError, err.Error())
 			return
 		}
-		n.Upfile("info", fmt.Sprintf("[%v] %v", clientIp, err))
-		c.JSON(http.StatusInternalServerError, err.Error())
-		return
-	}
 
-	for _, v := range authAccs {
-		if sutils.CompareSlice(n.GetSignatureAccPulickey(), v[:]) {
-			flag = true
-			break
+		for _, v := range authAccs {
+			if sutils.CompareSlice(n.GetSignatureAccPulickey(), v[:]) {
+				flag = true
+				break
+			}
 		}
-	}
-	if !flag {
-		n.Upfile("info", fmt.Sprintf("[%v] %v", clientIp, ERR_SpaceNotAuth))
-		c.JSON(http.StatusForbidden, fmt.Sprintf("please authorize your space usage to %s", n.GetSignatureAcc()))
-		return
+		if !flag {
+			n.Upfile("info", fmt.Sprintf("[%v] %v", clientIp, ERR_SpaceNotAuth))
+			c.JSON(http.StatusForbidden, fmt.Sprintf("please authorize your space usage to %s", n.GetSignatureAcc()))
+			return
+		}
 	}
 
 	if contentLength == 0 {
@@ -254,10 +262,6 @@ func (n *Node) putHandle(c *gin.Context) {
 		return
 	}
 
-	blockIdx, _ := strconv.Atoi(c.Request.Header.Get(HTTPHeader_BIdx))
-	blockNum, _ := strconv.Atoi(c.Request.Header.Get(HTTPHeader_BNum))
-	totalSize, _ := strconv.Atoi(c.Request.Header.Get(HTTPHeader_TSize))
-	filename = c.Request.Header.Get(HTTPHeader_Fname)
 	var chunksInfo ChunksInfo
 	for blockNum <= 0 {
 		savedir = filepath.Join(n.GetDirs().FileDir, account, fmt.Sprintf("%s-%s", uuid.New().String(), uuid.New().String()))
