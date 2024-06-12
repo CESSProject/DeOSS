@@ -17,7 +17,8 @@ import (
 
 	"github.com/CESSProject/DeOSS/configs"
 	"github.com/CESSProject/DeOSS/pkg/utils"
-	"github.com/CESSProject/cess-go-sdk/core/pattern"
+	"github.com/CESSProject/cess-go-sdk/chain"
+	sconfig "github.com/CESSProject/cess-go-sdk/config"
 	"github.com/CESSProject/cess-go-sdk/core/process"
 	sutils "github.com/CESSProject/cess-go-sdk/utils"
 	"github.com/mr-tron/base58"
@@ -25,15 +26,15 @@ import (
 )
 
 type RecordInfo struct {
-	SegmentInfo []pattern.SegmentDataInfo `json:"segmentInfo"`
-	Owner       []byte                    `json:"owner"`
-	Roothash    string                    `json:"roothash"`
-	Filename    string                    `json:"filename"`
-	Buckname    string                    `json:"buckname"`
-	Filesize    uint64                    `json:"filesize"`
-	Putflag     bool                      `json:"putflag"`
-	Count       uint8                     `json:"count"`
-	Duplicate   bool                      `json:"duplicate"`
+	SegmentInfo []chain.SegmentDataInfo `json:"segmentInfo"`
+	Owner       []byte                  `json:"owner"`
+	Roothash    string                  `json:"roothash"`
+	Filename    string                  `json:"filename"`
+	Buckname    string                  `json:"buckname"`
+	Filesize    uint64                  `json:"filesize"`
+	Putflag     bool                    `json:"putflag"`
+	Count       uint8                   `json:"count"`
+	Duplicate   bool                    `json:"duplicate"`
 }
 
 // MinRecordInfoLength = len(json.Marshal(RecordInfo{}))
@@ -58,7 +59,7 @@ func (n *Node) tracker(ch chan<- bool) {
 		trackFiles, err = n.ListTrackFiles()
 		if err != nil {
 			n.Track("err", err.Error())
-			time.Sleep(pattern.BlockInterval)
+			time.Sleep(chain.BlockInterval)
 			continue
 		}
 		if len(trackFiles) == 0 {
@@ -78,7 +79,7 @@ func (n *Node) tracker(ch chan<- bool) {
 				}
 				n.Track("info", fmt.Sprintf("start track file: %s", filepath.Base(v)))
 				go func(file string) { n.trackFileThread(file) }(v)
-				time.Sleep(pattern.BlockInterval)
+				time.Sleep(chain.BlockInterval)
 			}
 		}
 		time.Sleep(time.Minute)
@@ -101,7 +102,7 @@ func (n *Node) trackFile(trackfile string) error {
 		err          error
 		roothash     string
 		recordFile   RecordInfo
-		storageOrder pattern.StorageOrder
+		storageOrder chain.StorageOrder
 	)
 	roothash = filepath.Base(trackfile)
 	for {
@@ -110,10 +111,10 @@ func (n *Node) trackFile(trackfile string) error {
 			return errors.Wrapf(err, "[ParseTrackFromFile]")
 		}
 
-		_, err = n.QueryFileMetadata(roothash)
+		_, err = n.QueryFile(roothash, -1)
 		if err != nil {
-			if err.Error() != pattern.ERR_Empty {
-				time.Sleep(time.Second * pattern.BlockInterval)
+			if err.Error() != chain.ERR_Empty {
+				time.Sleep(time.Second * chain.BlockInterval)
 				return errors.Wrapf(err, "[%s] [QueryFileMetadata]", roothash)
 			}
 		} else {
@@ -128,9 +129,9 @@ func (n *Node) trackFile(trackfile string) error {
 			return nil
 		}
 
-		storageOrder, err = n.QueryStorageOrder(roothash)
+		storageOrder, err = n.QueryDealMap(roothash, -1)
 		if err != nil {
-			if err.Error() != pattern.ERR_Empty {
+			if err.Error() != chain.ERR_Empty {
 				return errors.Wrapf(err, "[%s] [QueryStorageOrder]", roothash)
 			}
 			recordFile.Putflag = false
@@ -145,15 +146,15 @@ func (n *Node) trackFile(trackfile string) error {
 			}
 
 			// verify the space is authorized
-			authAccs, err := n.QueryAuthorizedAccounts(recordFile.Owner)
+			authAccs, err := n.QueryAuthorityList(recordFile.Owner, -1)
 			if err != nil {
-				if err.Error() != pattern.ERR_Empty {
+				if err.Error() != chain.ERR_Empty {
 					return errors.Wrapf(err, "[%s] [QuaryAuthorizedAccount]", roothash)
 				}
 			}
 			var flag bool
 			for _, v := range authAccs {
-				if n.GetSignatureAcc() == v {
+				if sutils.CompareSlice(n.GetSignatureAccPulickey(), v[:]) {
 					flag = true
 					break
 				}
@@ -180,8 +181,8 @@ func (n *Node) trackFile(trackfile string) error {
 				return errors.Wrapf(err, "[%s] [%s] [GenerateStorageOrder]", txhash, roothash)
 			}
 			n.Track("info", fmt.Sprintf("[%s] GenerateStorageOrder: %s", roothash, txhash))
-			time.Sleep(pattern.BlockInterval * 3)
-			storageOrder, err = n.QueryStorageOrder(roothash)
+			time.Sleep(chain.BlockInterval * 3)
+			storageOrder, err = n.QueryDealMap(roothash, -1)
 			if err != nil {
 				return errors.Wrapf(err, "[%s] [QueryStorageOrder]", roothash)
 			}
@@ -201,7 +202,7 @@ func (n *Node) trackFile(trackfile string) error {
 		// }
 
 		if recordFile.Duplicate {
-			_, err = n.QueryFileMetadata(roothash)
+			_, err = n.QueryFile(roothash, -1)
 			if err == nil {
 				_, err = n.GenerateStorageOrder(recordFile.Roothash, nil, recordFile.Owner, recordFile.Filename, recordFile.Buckname, recordFile.Filesize)
 				if err != nil {
@@ -216,9 +217,9 @@ func (n *Node) trackFile(trackfile string) error {
 				n.Track("info", fmt.Sprintf("[%s] Duplicate file declaration suc", roothash))
 				return nil
 			}
-			storageOrder, err = n.QueryStorageOrder(recordFile.Roothash)
+			storageOrder, err = n.QueryDealMap(recordFile.Roothash, -1)
 			if err != nil {
-				if err.Error() != pattern.ERR_Empty {
+				if err.Error() != chain.ERR_Empty {
 					return errors.Wrapf(err, "[%s] [QueryStorageOrder]", roothash)
 				}
 				n.Track("info", fmt.Sprintf("[%s] Duplicate file become primary file", roothash))
@@ -248,45 +249,39 @@ func (n *Node) trackFile(trackfile string) error {
 		}
 
 		err = n.storageData(recordFile.Roothash, recordFile.SegmentInfo, storageOrder.CompleteList)
+		n.FlushlistedPeerNodes(5*time.Second, n.GetDHTable()) //refresh the user-configured storage node list
 		if err != nil {
 			n.Track("err", err.Error())
-			time.Sleep(time.Minute * 3)
+			return err
 		} else {
 			n.Track("info", fmt.Sprintf("[%s] file transfer completed", roothash))
-			time.Sleep(time.Minute * 10)
+			time.Sleep(time.Minute * 3)
 		}
-		n.FlushlistedPeerNodes(5*time.Second, n.GetDHTable()) //refresh the user-configured storage node list
 	}
 }
 
-func (n *Node) storageData(roothash string, segment []pattern.SegmentDataInfo, completeList []pattern.CompleteInfo) error {
+func (n *Node) storageData(roothash string, segment []chain.SegmentDataInfo, completeList []chain.CompleteInfo) error {
 	var err error
 	var failed bool
 	var completed bool
-	var dataGroup = make(map[uint8][]string, len(segment[0].FragmentHash))
+	var dataGroup = make(map[uint8][]string, (sconfig.DataShards + sconfig.ParShards))
 	for index := 0; index < len(segment[0].FragmentHash); index++ {
-		dataGroup[uint8(index+1)] = make([]string, 0)
 		for i := 0; i < len(segment); i++ {
-			for j := 0; j < len(segment[i].FragmentHash); j++ {
-				if index == j {
-					dataGroup[uint8(index+1)] = append(dataGroup[uint8(index+1)], string(segment[i].FragmentHash[j]))
-					break
-				}
-			}
+			dataGroup[uint8(index+1)] = append(dataGroup[uint8(index+1)], string(segment[i].FragmentHash[index]))
 		}
 	}
 
 	//allpeers := n.GetAllStoragePeerId()
-	itor, err := n.NewPeersIterator(pattern.DataShards + pattern.ParShards)
+	itor, err := n.NewPeersIterator(sconfig.DataShards + sconfig.ParShards)
 	if err != nil {
 		return err
 	}
 
 	//n.Track("info", fmt.Sprintf("All storage peers: %v", allpeers))
-	var sucPeer = make(map[string]struct{}, pattern.DataShards+pattern.ParShards)
+	var sucPeer = make(map[string]struct{}, sconfig.DataShards+sconfig.ParShards)
 
 	for _, value := range completeList {
-		minfo, err := n.QueryStorageMiner(value.Miner[:])
+		minfo, err := n.QueryMinerItems(value.Miner[:], -1)
 		if err != nil {
 			continue
 		}
@@ -326,7 +321,7 @@ func (n *Node) storageData(roothash string, segment []pattern.SegmentDataInfo, c
 				for k := 0; k < 10; k++ {
 					err = n.WriteFileAction(peer.ID, roothash, v[j])
 					if err != nil {
-						time.Sleep(pattern.BlockInterval * 3)
+						time.Sleep(chain.BlockInterval * 3)
 						continue
 					}
 					failed = false

@@ -18,7 +18,7 @@ import (
 
 	"github.com/CESSProject/DeOSS/pkg/db"
 	"github.com/CESSProject/DeOSS/pkg/utils"
-	"github.com/CESSProject/cess-go-sdk/core/pattern"
+	"github.com/CESSProject/cess-go-sdk/chain"
 	"github.com/centrifuge/go-substrate-rpc-client/v4/types"
 )
 
@@ -83,10 +83,10 @@ func (n *Node) syncBlock(ch chan<- bool) {
 	}
 
 	for {
-		blockheight, err = n.QueryBlockHeight("")
+		blockheight, err = n.QueryBlockNumber("")
 		if err != nil {
 			n.Block("err", fmt.Sprintf("[QueryBlockHeight] %v", err))
-			time.Sleep(pattern.BlockInterval)
+			time.Sleep(chain.BlockInterval)
 			continue
 		}
 		break
@@ -97,14 +97,14 @@ func (n *Node) syncBlock(ch chan<- bool) {
 
 	for {
 		if retrievedBlock >= blockheight {
-			blockheight, err = n.QueryBlockHeight("")
+			blockheight, err = n.QueryBlockNumber("")
 			if err != nil {
 				n.Block("err", fmt.Sprintf("[QueryBlockHeight] %v", err))
-				time.Sleep(pattern.BlockInterval)
+				time.Sleep(chain.BlockInterval)
 				continue
 			}
 			if retrievedBlock >= blockheight {
-				time.Sleep(pattern.BlockInterval)
+				time.Sleep(chain.BlockInterval)
 				continue
 			}
 		}
@@ -112,7 +112,7 @@ func (n *Node) syncBlock(ch chan<- bool) {
 		blockhash, err = n.GetSubstrateAPI().RPC.Chain.GetBlockHash(uint64(retrievedBlock))
 		if err != nil {
 			n.Block("err", fmt.Sprintf("[GetBlockHash] %v", err))
-			time.Sleep(pattern.BlockInterval)
+			time.Sleep(chain.BlockInterval)
 			continue
 		}
 		n.Block("err", fmt.Sprintf("Start retrieving blocks: %d latest block: %d", retrievedBlock, blockheight))

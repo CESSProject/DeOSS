@@ -9,7 +9,8 @@ import (
 	"path/filepath"
 	"strconv"
 
-	"github.com/CESSProject/cess-go-sdk/core/pattern"
+	"github.com/CESSProject/cess-go-sdk/chain"
+	sconfig "github.com/CESSProject/cess-go-sdk/config"
 	sutils "github.com/CESSProject/cess-go-sdk/utils"
 	"github.com/gin-gonic/gin"
 )
@@ -88,9 +89,9 @@ func (n *Node) postRestoreHandle(c *gin.Context) {
 
 	// verify the space is authorized
 	var flag bool
-	authAccs, _ := n.QueryAuthorizedAccounts(pkey)
+	authAccs, _ := n.QueryAuthorityList(pkey, -1)
 	for _, v := range authAccs {
-		if n.GetSignatureAcc() == v {
+		if sutils.CompareSlice(n.GetSignatureAccPulickey(), v[:]) {
 			flag = true
 			break
 		}
@@ -102,9 +103,9 @@ func (n *Node) postRestoreHandle(c *gin.Context) {
 	}
 
 	// verify user space
-	userInfo, err := n.QueryUserSpaceSt(pkey)
+	userInfo, err := n.QueryUserOwnedSpace(pkey, -1)
 	if err != nil {
-		if err.Error() == pattern.ERR_Empty {
+		if err.Error() == chain.ERR_Empty {
 			n.Log("info", fmt.Sprintf("[%v] %v", clientIp, ERR_AccountNotExist))
 			c.JSON(http.StatusForbidden, ERR_AccountNotExist)
 			return
@@ -114,14 +115,14 @@ func (n *Node) postRestoreHandle(c *gin.Context) {
 		return
 	}
 
-	blockheight, err := n.QueryBlockHeight("")
+	blockheight, err := n.QueryBlockNumber("")
 	if err != nil {
 		n.Log("info", fmt.Sprintf("[%v] %v", clientIp, err))
 		c.JSON(http.StatusForbidden, ERR_RpcFailed)
 		return
 	}
 
-	if userInfo.Deadline < (blockheight + 100) {
+	if uint32(userInfo.Deadline) < (blockheight + 100) {
 		n.Log("info", fmt.Sprintf("[%v] %v [%d] [%d]", clientIp, ERR_SpaceExpiresSoon, userInfo.Deadline, blockheight))
 		c.JSON(http.StatusForbidden, ERR_SpaceExpiresSoon)
 		return
@@ -135,15 +136,15 @@ func (n *Node) postRestoreHandle(c *gin.Context) {
 			continue
 		}
 
-		count = fstat.Size() / pattern.SegmentSize
-		if fstat.Size()%pattern.SegmentSize != 0 {
+		count = fstat.Size() / sconfig.SegmentSize
+		if fstat.Size()%sconfig.SegmentSize != 0 {
 			count += 1
 		}
-		allUsedSpace += (count * pattern.SegmentSize)
+		allUsedSpace += (count * sconfig.SegmentSize)
 	}
 
 	usedSpace := allUsedSpace * 15 / 10
-	remainingSpace, err := strconv.ParseUint(userInfo.RemainingSpace, 10, 64)
+	remainingSpace, err := strconv.ParseUint(userInfo.RemainingSpace.String(), 10, 64)
 	if err != nil {
 		n.Log("err", fmt.Sprintf("[%v] %v", clientIp, err))
 		c.JSON(http.StatusInternalServerError, ERR_InternalServer)

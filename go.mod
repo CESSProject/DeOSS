@@ -3,7 +3,7 @@ module github.com/CESSProject/DeOSS
 go 1.20
 
 require (
-	github.com/CESSProject/cess-go-sdk v0.5.1-0.20240423020530-5725d75be835
+	github.com/CESSProject/cess-go-sdk v0.5.1-0.20240528040555-9bba052ce6b7
 	github.com/CESSProject/cess-go-tools v0.2.6
 	github.com/CESSProject/go-keyring v0.0.0-20220614131247-ee3a8da30fde
 	github.com/CESSProject/p2p-go v0.3.14
@@ -30,7 +30,6 @@ require (
 	github.com/vedhavyas/go-subkey/v2 v2.0.0
 	go.uber.org/zap v1.27.0
 	golang.org/x/crypto v0.22.0
-	golang.org/x/time v0.5.0
 )
 
 require (

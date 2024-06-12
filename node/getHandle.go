@@ -17,9 +17,10 @@ import (
 
 	"github.com/CESSProject/DeOSS/configs"
 	"github.com/CESSProject/DeOSS/pkg/utils"
+	"github.com/CESSProject/cess-go-sdk/chain"
+	sconfig "github.com/CESSProject/cess-go-sdk/config"
 	"github.com/CESSProject/cess-go-sdk/core/crypte"
 	"github.com/CESSProject/cess-go-sdk/core/erasure"
-	"github.com/CESSProject/cess-go-sdk/core/pattern"
 	sutils "github.com/CESSProject/cess-go-sdk/utils"
 	"github.com/gin-gonic/gin"
 	"github.com/mr-tron/base58"
@@ -65,8 +66,25 @@ type FileMetaData struct {
 	Owner       []RtnUserBrief
 }
 
+const max_concurrent_get = 30
+
+var max_concurrent_get_ch chan bool
+
+func init() {
+	max_concurrent_get_ch = make(chan bool, max_concurrent_get)
+	for i := 0; i < max_concurrent_get; i++ {
+		max_concurrent_get_ch <- true
+	}
+}
+
 // getHandle
 func (n *Node) getHandle(c *gin.Context) {
+	if _, ok := <-max_concurrent_get_ch; !ok {
+		c.JSON(http.StatusTooManyRequests, "service is busy, please try again later.")
+		return
+	}
+	defer func() { max_concurrent_get_ch <- true }()
+
 	clientIp := c.Request.Header.Get("X-Forwarded-For")
 	n.Query("info", fmt.Sprintf("[%s] %s", clientIp, INFO_GetRequest))
 
@@ -88,7 +106,7 @@ func (n *Node) getHandle(c *gin.Context) {
 
 	if queryName == "file" {
 		fid := c.Request.Header.Get(HTTPHeader_Fid)
-		if fid == "" || len(fid) != len(pattern.FileHash{}) {
+		if fid == "" || len(fid) != chain.FileHashLen {
 			n.Query("err", fmt.Sprintf("[%s] invalid fid: %s", clientIp, fid))
 			c.JSON(http.StatusBadRequest, "invalid fid")
 			return
@@ -103,7 +121,7 @@ func (n *Node) getHandle(c *gin.Context) {
 		return
 	}
 
-	if len(queryName) != len(pattern.FileHash{}) {
+	if len(queryName) != len(chain.FileHash{}) {
 		if account == "" {
 			n.Query("err", fmt.Sprintf("[%s] %s", clientIp, ERR_MissingAccount))
 			c.JSON(http.StatusBadRequest, ERR_MissingAccount)
@@ -118,9 +136,9 @@ func (n *Node) getHandle(c *gin.Context) {
 		// Query bucket
 		if sutils.CheckBucketName(queryName) {
 			n.Query("info", fmt.Sprintf("[%s] Query bucket [%s] info", clientIp, queryName))
-			bucketInfo, err := n.QueryBucketInfo(pkey, queryName)
+			bucketInfo, err := n.QueryBucket(pkey, queryName, -1)
 			if err != nil {
-				if err.Error() == pattern.ERR_Empty {
+				if err.Error() == chain.ERR_Empty {
 					n.Query("err", fmt.Sprintf("[%s] Query bucket [%s] info: NotFount", clientIp, queryName))
 					c.JSON(http.StatusNotFound, "NotFound")
 					return
@@ -130,9 +148,9 @@ func (n *Node) getHandle(c *gin.Context) {
 				return
 			}
 
-			filesHash := make([]string, len(bucketInfo.ObjectsList))
-			for i := 0; i < len(bucketInfo.ObjectsList); i++ {
-				filesHash[i] = string(bucketInfo.ObjectsList[i][:])
+			filesHash := make([]string, len(bucketInfo.FileList))
+			for i := 0; i < len(bucketInfo.FileList); i++ {
+				filesHash[i] = string(bucketInfo.FileList[i][:])
 			}
 
 			owners := make([]string, len(bucketInfo.Authority))
@@ -145,7 +163,7 @@ func (n *Node) getHandle(c *gin.Context) {
 				Owners []string
 				Files  []string
 			}{
-				Num:    len(bucketInfo.ObjectsList),
+				Num:    len(bucketInfo.FileList),
 				Owners: owners,
 				Files:  filesHash,
 			}
@@ -155,9 +173,9 @@ func (n *Node) getHandle(c *gin.Context) {
 		}
 		// Query bucket list
 		if queryName == "*" {
-			bucketList, err := n.QueryAllBucketString(pkey)
+			bucketList, err := n.QueryAllBucketName(pkey, -1)
 			if err != nil {
-				if err.Error() == pattern.ERR_Empty {
+				if err.Error() == chain.ERR_Empty {
 					n.Query("err", fmt.Sprintf("[%s] Query [%s] bucket list: NotFount", clientIp, account))
 					c.JSON(http.StatusNotFound, "NotFound")
 					return
@@ -182,17 +200,17 @@ func (n *Node) getHandle(c *gin.Context) {
 	if operation == "view" {
 		var fileMetadata FileMetaData
 		n.Query("info", fmt.Sprintf("[%s] Query file [%s] info", clientIp, queryName))
-		fmeta, err := n.QueryFileMetadata(queryName)
+		fmeta, err := n.QueryFile(queryName, -1)
 		if err != nil {
-			if err.Error() != pattern.ERR_Empty {
+			if err.Error() != chain.ERR_Empty {
 				n.Query("err", fmt.Sprintf("[%s] Query file [%s] info: %v", clientIp, queryName, err))
 				c.JSON(http.StatusInternalServerError, ERR_RpcFailed)
 				return
 			}
 
-			_, err = n.QueryStorageOrder(queryName)
+			_, err = n.QueryDealMap(queryName, -1)
 			if err != nil {
-				if err.Error() != pattern.ERR_Empty {
+				if err.Error() != chain.ERR_Empty {
 					n.Query("err", fmt.Sprintf("[%s] Query file [%s] info: %v", clientIp, queryName, err))
 					c.JSON(http.StatusInternalServerError, ERR_RpcFailed)
 					return
@@ -266,16 +284,16 @@ func (n *Node) getHandle(c *gin.Context) {
 		}
 
 		var completion bool
-		fmeta, err := n.QueryFileMetadata(queryName)
+		fmeta, err := n.QueryFile(queryName, -1)
 		if err != nil {
-			if err.Error() != pattern.ERR_Empty {
+			if err.Error() != chain.ERR_Empty {
 				n.Query("err", fmt.Sprintf("[%s] Query file [%s] info: %v", clientIp, queryName, err))
 				c.JSON(http.StatusInternalServerError, ERR_RpcFailed)
 				return
 			}
-			order, err := n.QueryStorageOrder(queryName)
+			order, err := n.QueryDealMap(queryName, -1)
 			if err != nil {
-				if err.Error() != pattern.ERR_Empty {
+				if err.Error() != chain.ERR_Empty {
 					n.Query("err", fmt.Sprintf("[%s] Query file [%s] info: %v", clientIp, queryName, err))
 					c.JSON(http.StatusInternalServerError, ERR_RpcFailed)
 					return
@@ -302,7 +320,7 @@ func (n *Node) getHandle(c *gin.Context) {
 		}
 
 		fpath = filepath.Join(n.GetDirs().FileDir, queryName)
-		peerList, _ := n.QueryAllDeOSSPeerId()
+		peerList, _ := n.QueryAllOssPeerId(-1)
 		if len(peerList) > 0 {
 			for _, v := range peerList {
 				addr, err := n.GetPeer(v)
@@ -371,7 +389,7 @@ func (n *Node) fetchFiles(roothash, dir, cipher string) (string, error) {
 	}
 	defer f.Close()
 
-	fmeta, err := n.QueryFileMetadata(roothash)
+	fmeta, err := n.QueryFile(roothash, -1)
 	if err != nil {
 		return "", err
 	}
@@ -399,7 +417,7 @@ func (n *Node) fetchFiles(roothash, dir, cipher string) (string, error) {
 	for _, segment := range fmeta.SegmentList {
 		fragmentpaths := make([]string, 0)
 		for _, fragment := range segment.FragmentList {
-			miner, err := n.QueryStorageMiner(fragment.Miner[:])
+			miner, err := n.QueryMinerItems(fragment.Miner[:], -1)
 			if err != nil {
 				return "", err
 			}
@@ -413,13 +431,13 @@ func (n *Node) fetchFiles(roothash, dir, cipher string) (string, error) {
 				continue
 			}
 			fragmentpath := filepath.Join(dir, string(fragment.Hash[:]))
-			err = n.ReadFileAction(addr.ID, roothash, string(fragment.Hash[:]), fragmentpath, pattern.FragmentSize)
+			err = n.ReadFileAction(addr.ID, roothash, string(fragment.Hash[:]), fragmentpath, sconfig.FragmentSize)
 			if err != nil {
 				continue
 			}
 			fragmentpaths = append(fragmentpaths, fragmentpath)
 			segmentpath := filepath.Join(dir, string(segment.Hash[:]))
-			if len(fragmentpaths) >= pattern.DataShards {
+			if len(fragmentpaths) >= sconfig.DataShards {
 				err = erasure.RSRestore(segmentpath, fragmentpaths)
 				if err != nil {
 					return "", err
@@ -449,9 +467,9 @@ func (n *Node) fetchFiles(roothash, dir, cipher string) (string, error) {
 				}
 				if (writecount + 1) >= len(fmeta.SegmentList) {
 					if cipher != "" {
-						f.Write(buf[:(fmeta.FileSize.Uint64() - uint64(writecount*(pattern.SegmentSize-16)))])
+						f.Write(buf[:(fmeta.FileSize.Uint64() - uint64(writecount*(sconfig.SegmentSize-16)))])
 					} else {
-						f.Write(buf[:(fmeta.FileSize.Uint64() - uint64(writecount*pattern.SegmentSize))])
+						f.Write(buf[:(fmeta.FileSize.Uint64() - uint64(writecount*sconfig.SegmentSize))])
 					}
 				} else {
 					f.Write(buf)
@@ -468,7 +486,7 @@ func (n *Node) fetchFiles(roothash, dir, cipher string) (string, error) {
 	return userfile, nil
 }
 
-// func (n *Node) downloadFromBlock(segmentList []pattern.SegmentList) ([]string, error) {
+// func (n *Node) downloadFromBlock(segmentList []chain.SegmentList) ([]string, error) {
 // 	var segmentPaths = make([]string, len(segmentList))
 // 	var fragmentsData = make([][]byte, len(segmentList[0].FragmentHash))
 // 	for sk, segment := range segmentList {
