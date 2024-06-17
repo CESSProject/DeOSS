@@ -10,6 +10,7 @@ package node
 import (
 	"encoding/json"
 	"io/fs"
+	"log"
 
 	"fmt"
 	"io"
@@ -189,7 +190,7 @@ func checkAuth(n *Node, c *gin.Context, pkey []byte, clientIp string) bool {
 func checkExpiredFiles(rootDir string) bool {
 	entries, err := os.ReadDir(rootDir)
 	if err != nil {
-		return false
+		return true
 	}
 	count := 0
 	var chunkInfo ChunksInfo
@@ -203,6 +204,7 @@ func checkExpiredFiles(rootDir string) bool {
 		}
 		count++
 		if count >= 10 {
+			log.Print("user uploading files ", count)
 			return false
 		}
 		buf, err := os.ReadFile(metaPath)
@@ -384,7 +386,6 @@ func (n *Node) putHandle(c *gin.Context) {
 			c.JSON(http.StatusInternalServerError, ERR_InternalServer)
 			return
 		}
-
 		_, err = io.Copy(f, formfile)
 		if err != nil {
 			f.Close()
@@ -403,19 +404,8 @@ func (n *Node) putChunksHandle(c *gin.Context) {
 		pkey       []byte
 		chunksInfo ChunksInfo
 	)
-	if _, ok := <-max_concurrent_req_ch; !ok {
-		c.JSON(http.StatusTooManyRequests, "service is busy, please try again later.")
-		return
-	}
-	defer func() { max_concurrent_req_ch <- true }()
 
-	if n.GetBalances() <= 1 {
-		c.JSON(http.StatusInternalServerError, "service balance is insufficient, please try again later.")
-		return
-	}
-
-	if !n.GetRpcState() {
-		c.JSON(http.StatusInternalServerError, "service rpc connection failed, please try again later.")
+	if !checkDeOSSStatus(n, c) {
 		return
 	}
 
@@ -438,7 +428,6 @@ func (n *Node) putChunksHandle(c *gin.Context) {
 	if err == nil {
 		if uint64(contentLength) > uint64(mem*90/100) {
 			if uint64(contentLength) < MaxMemUsed {
-				n.Upfile("err", fmt.Sprintf("[%v] %v, size: [%d] mem: [%d]", clientIp, ERR_SysMemNoLeft, contentLength, mem))
 				c.JSON(http.StatusForbidden, ERR_SysMemNoLeft)
 				return
 			}
@@ -450,7 +439,6 @@ func (n *Node) putChunksHandle(c *gin.Context) {
 		freeSpace, err := utils.GetDirFreeSpace("/tmp")
 		if err == nil {
 			if uint64(contentLength+sconfig.SIZE_1MiB*16) > freeSpace {
-				n.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, ERR_DeviceSpaceNoLeft))
 				c.JSON(http.StatusForbidden, ERR_DeviceSpaceNoLeft)
 				return
 			}
@@ -465,7 +453,6 @@ func (n *Node) putChunksHandle(c *gin.Context) {
 	//get chunks info record
 	fdir, err := sutils.CalcSHA256(append([]byte(bucketName+filename), []byte(account)...))
 	if err != nil {
-		n.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, err.Error()))
 		c.JSON(http.StatusInternalServerError, ERR_InternalServer)
 		return
 	}
@@ -474,7 +461,6 @@ func (n *Node) putChunksHandle(c *gin.Context) {
 	if err != nil {
 		err = os.MkdirAll(savedir, 0755)
 		if err != nil {
-			n.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, err.Error()))
 			c.JSON(http.StatusInternalServerError, ERR_InternalServer)
 			return
 		}
@@ -483,7 +469,6 @@ func (n *Node) putChunksHandle(c *gin.Context) {
 	fpath := filepath.Join(savedir, filename)
 	_, err = os.Stat(filepath.Join(savedir, "chunk-info"))
 	if err != nil {
-
 		if blockNum <= 0 {
 			c.JSON(http.StatusForbidden, "bad block number")
 			return
@@ -492,7 +477,7 @@ func (n *Node) putChunksHandle(c *gin.Context) {
 			c.JSON(http.StatusForbidden, "bad file total size")
 			return
 		}
-		if checkSapce(n, c, pkey, clientIp, int64(totalSize), 14400) {
+		if !checkSapce(n, c, pkey, clientIp, int64(totalSize), 14400) {
 			return
 		}
 		if !checkAuth(n, c, pkey, clientIp) {
@@ -524,7 +509,7 @@ func (n *Node) putChunksHandle(c *gin.Context) {
 	}
 
 	if chunksInfo.SavedBlocks[blockIdx] {
-		c.JSON(http.StatusBadRequest, fmt.Sprint("chunk ", blockIdx, " already exists"))
+		c.JSON(http.StatusOK, fmt.Sprint("chunk ", blockIdx, " already exists"))
 		return
 	}
 
@@ -549,7 +534,7 @@ func (n *Node) putChunksHandle(c *gin.Context) {
 			return
 		}
 		// save body content
-		err = sutils.WriteBufToFile(buf, fmt.Sprintf("chunk-file-%d", blockIdx))
+		err = sutils.WriteBufToFile(buf, fmt.Sprintf("%s-CESS-chunk-file-%d", fileHeder.Filename, blockIdx))
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, ERR_InternalServer)
 			return
@@ -579,25 +564,7 @@ func (n *Node) putChunksHandle(c *gin.Context) {
 		f.Close()
 	}
 
-	if blockNum > 0 && blockIdx < blockNum-1 {
-		jbytes, err := json.Marshal(chunksInfo)
-		if err != nil {
-			n.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, err.Error()))
-			c.JSON(http.StatusInternalServerError, ERR_InternalServer)
-			return
-		}
-		err = sutils.WriteBufToFile(jbytes, filepath.Join(savedir, "chunk-info"))
-		if err != nil {
-			n.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, err))
-			c.JSON(http.StatusInternalServerError, ERR_InternalServer)
-			return
-		}
-		n.Upfile("info", fmt.Sprintf("[%v] uploaded file block %d/%d successfully", clientIp, blockIdx, blockNum))
-		c.JSON(http.StatusOK, blockIdx)
-		return
-	}
-
-	if chunksInfo.BlockNum == chunksInfo.Finished {
+	if chunksInfo.BlockNum == chunksInfo.Finished+1 {
 		defer os.RemoveAll(savedir)
 		// combine chunks
 		var size int64
