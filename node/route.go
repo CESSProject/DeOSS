@@ -19,6 +19,7 @@ func (n *Node) addRoute() {
 	n.Engine.GET("/restore", n.getRestoreHandle)
 
 	n.Engine.PUT("/", n.putHandle)
+	n.Engine.PUT("/chunks", n.putChunksHandle)
 
 	n.Engine.DELETE(fmt.Sprintf("/:%s", HTTP_ParameterName), n.delHandle)
 
