@@ -33,9 +33,9 @@ type RtnFileType struct {
 }
 
 type RtnUserBrief struct {
-	User       string
-	FileName   string
-	BucketName string
+	User       string `json:"user"`
+	FileName   string `json:"file_name"`
+	BucketName string `json:"bucket_name"`
 }
 
 // file block info
