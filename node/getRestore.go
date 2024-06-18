@@ -20,6 +20,9 @@ func (n *Node) getRestoreHandle(c *gin.Context) {
 	)
 
 	clientIp = c.Request.Header.Get("X-Forwarded-For")
+	if clientIp == "" || clientIp == " " {
+		clientIp = c.ClientIP()
+	}
 	n.Query("info", fmt.Sprintf("[%s] %s", clientIp, INFO_GetRestoreRequest))
 
 	account := c.Request.Header.Get(HTTPHeader_Account)

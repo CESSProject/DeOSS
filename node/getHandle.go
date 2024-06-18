@@ -86,6 +86,9 @@ func (n *Node) getHandle(c *gin.Context) {
 	defer func() { max_concurrent_get_ch <- true }()
 
 	clientIp := c.Request.Header.Get("X-Forwarded-For")
+	if clientIp == "" || clientIp == " " {
+		clientIp = c.ClientIP()
+	}
 	n.Query("info", fmt.Sprintf("[%s] %s", clientIp, INFO_GetRequest))
 
 	cipher := c.Request.Header.Get(HTTPHeader_Cipher)
