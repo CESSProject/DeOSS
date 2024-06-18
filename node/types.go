@@ -33,10 +33,11 @@ const (
 )
 
 const (
-	HTTP_ParameterName = "name"
-	FormFileKey1       = "file"
-	FormFileKey2       = "File"
-	FormFileKey3       = "FILE"
+	HTTP_ParameterName     = "name"
+	HTTP_ParameterName_Fid = "fid"
+	FormFileKey1           = "file"
+	FormFileKey2           = "File"
+	FormFileKey3           = "FILE"
 )
 
 const TokenDated = 60 * 60 * 24 * 30

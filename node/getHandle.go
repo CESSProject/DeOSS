@@ -19,7 +19,6 @@ import (
 	"github.com/CESSProject/DeOSS/pkg/utils"
 	"github.com/CESSProject/cess-go-sdk/chain"
 	sconfig "github.com/CESSProject/cess-go-sdk/config"
-	"github.com/CESSProject/cess-go-sdk/core/crypte"
 	"github.com/CESSProject/cess-go-sdk/core/erasure"
 	sutils "github.com/CESSProject/cess-go-sdk/utils"
 	"github.com/gin-gonic/gin"
@@ -377,8 +376,7 @@ func (n *Node) getHandle(c *gin.Context) {
 
 func (n *Node) fetchFiles(roothash, dir, cipher string) (string, error) {
 	var (
-		acc          string
-		segmentspath = make([]string, 0)
+		acc string
 	)
 	userfile := filepath.Join(dir, roothash)
 	_, err := os.Stat(userfile)
@@ -417,70 +415,64 @@ func (n *Node) fetchFiles(roothash, dir, cipher string) (string, error) {
 		}
 	}(dir)
 
+	var segmentspath = make([]string, 0)
+	fragmentpaths := make([]string, sconfig.DataShards+sconfig.ParShards)
+
 	for _, segment := range fmeta.SegmentList {
-		fragmentpaths := make([]string, 0)
-		for _, fragment := range segment.FragmentList {
-			miner, err := n.QueryMinerItems(fragment.Miner[:], -1)
-			if err != nil {
-				return "", err
-			}
-			peerid := base58.Encode([]byte(string(miner.PeerId[:])))
-			addr, err := n.GetPeer(peerid)
-			if err != nil {
-				continue
-			}
-			err = n.Connect(context.TODO(), addr)
-			if err != nil {
-				continue
-			}
+		for k, fragment := range segment.FragmentList {
 			fragmentpath := filepath.Join(dir, string(fragment.Hash[:]))
-			err = n.ReadFileAction(addr.ID, roothash, string(fragment.Hash[:]), fragmentpath, sconfig.FragmentSize)
-			if err != nil {
-				continue
-			}
-			fragmentpaths = append(fragmentpaths, fragmentpath)
-			segmentpath := filepath.Join(dir, string(segment.Hash[:]))
-			if len(fragmentpaths) >= sconfig.DataShards {
-				err = erasure.RSRestore(segmentpath, fragmentpaths)
+			fragmentpaths[k] = fragmentpath
+			if string(fragment.Hash[:]) != "080acf35a507ac9849cfcba47dc2ad83e01b75663a516279c8b9d243b719643e" {
+				miner, err := n.QueryMinerItems(fragment.Miner[:], -1)
 				if err != nil {
 					return "", err
 				}
-				segmentspath = append(segmentspath, segmentpath)
-				break
+				peerid := base58.Encode([]byte(string(miner.PeerId[:])))
+				addr, err := n.GetPeer(peerid)
+				if err != nil {
+					continue
+				}
+				err = n.Connect(context.TODO(), addr)
+				if err != nil {
+					continue
+				}
+				err = n.ReadFileAction(addr.ID, roothash, string(fragment.Hash[:]), fragmentpath, sconfig.FragmentSize)
+				if err != nil {
+					continue
+				}
+			} else {
+				_, err = os.Stat(fragmentpath)
+				if err != nil {
+					ff, _ := os.Create(fragmentpath)
+					ff.Write(make([]byte, sconfig.FragmentSize))
+					ff.Close()
+				}
 			}
 		}
+		segmentpath := filepath.Join(dir, string(segment.Hash[:]))
+		err = erasure.RSRestore(segmentpath, fragmentpaths)
+		if err != nil {
+			return "", err
+		}
+		segmentspath = append(segmentspath, segmentpath)
 	}
 
 	if len(segmentspath) != len(fmeta.SegmentList) {
 		return "", errors.New("download failed")
 	}
 	var writecount = 0
-	for i := 0; i < len(fmeta.SegmentList); i++ {
-		for j := 0; j < len(segmentspath); j++ {
-			if string(fmeta.SegmentList[i].Hash[:]) == filepath.Base(segmentspath[j]) {
-				buf, err := os.ReadFile(segmentspath[j])
-				if err != nil {
-					return "", err
-				}
-				if cipher != "" {
-					buf, err = crypte.AesCbcDecrypt(buf, []byte(cipher))
-					if err != nil {
-						return "", err
-					}
-				}
-				if (writecount + 1) >= len(fmeta.SegmentList) {
-					if cipher != "" {
-						f.Write(buf[:(fmeta.FileSize.Uint64() - uint64(writecount*(sconfig.SegmentSize-16)))])
-					} else {
-						f.Write(buf[:(fmeta.FileSize.Uint64() - uint64(writecount*sconfig.SegmentSize))])
-					}
-				} else {
-					f.Write(buf)
-				}
-				writecount++
-				break
-			}
+	for i := 0; i < len(segmentspath); i++ {
+		buf, err := os.ReadFile(segmentspath[i])
+		if err != nil {
+			fmt.Println("segmentspath not equal fmeta segmentspath")
+			os.Exit(0)
 		}
+		if (writecount + 1) >= len(fmeta.SegmentList) {
+			f.Write(buf[:(fmeta.FileSize.Uint64() - uint64(writecount*sconfig.SegmentSize))])
+		} else {
+			f.Write(buf)
+		}
+		writecount++
 	}
 	if writecount != len(fmeta.SegmentList) {
 		return "", errors.New("write failed")

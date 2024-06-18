@@ -18,6 +18,8 @@ func (n *Node) addRoute() {
 
 	n.Engine.GET("/restore", n.getRestoreHandle)
 
+	n.Engine.GET(fmt.Sprintf("/download/:%s", HTTP_ParameterName_Fid), n.downloadFileHandle)
+
 	n.Engine.PUT("/", n.putHandle)
 	n.Engine.PUT("/chunks", n.putChunksHandle)
 
