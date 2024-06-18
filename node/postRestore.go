@@ -22,6 +22,9 @@ type RestoreList struct {
 // getHandle
 func (n *Node) postRestoreHandle(c *gin.Context) {
 	clientIp := c.Request.Header.Get("X-Forwarded-For")
+	if clientIp == "" || clientIp == " " {
+		clientIp = c.ClientIP()
+	}
 	n.Query("info", fmt.Sprintf("[%s] %s", clientIp, INFO_PostRestoreRequest))
 	var err error
 	var pkey []byte

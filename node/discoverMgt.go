@@ -28,29 +28,20 @@ func Subscribe(ctx context.Context, h host.Host, bootnode string, callback func(
 		findpeer peer.AddrInfo
 	)
 
-	fmt.Println("start subscribe...")
+	out.Ok("start subscribe...")
 
 	gossipSub, err := pubsub.NewGossipSub(ctx, h)
 	if err != nil {
 		return
 	}
 
-	if strings.Contains(bootnode, "12D3KooWRm2sQg65y2ZgCUksLsjWmKbBtZ4HRRsGLxbN76XTtC8T") {
-		room = fmt.Sprintf("%s-12D3KooWRm2sQg65y2ZgCUksLsjWmKbBtZ4HRRsGLxbN76XTtC8T", core.NetworkRoom)
-	} else if strings.Contains(bootnode, "12D3KooWEGeAp1MvvUrBYQtb31FE1LPg7aHsd1LtTXn6cerZTBBd") {
-		room = fmt.Sprintf("%s-12D3KooWEGeAp1MvvUrBYQtb31FE1LPg7aHsd1LtTXn6cerZTBBd", core.NetworkRoom)
-	} else if strings.Contains(bootnode, "12D3KooWGDk9JJ5F6UPNuutEKSbHrTXnF5eSn3zKaR27amgU6o9S") {
-		room = fmt.Sprintf("%s-12D3KooWGDk9JJ5F6UPNuutEKSbHrTXnF5eSn3zKaR27amgU6o9S", core.NetworkRoom)
-	} else if strings.Contains(bootnode, "12D3KooWS8a18xoBzwkmUsgGBctNo6QCr6XCpUDR946mTBBUTe83") {
-		room = fmt.Sprintf("%s-12D3KooWS8a18xoBzwkmUsgGBctNo6QCr6XCpUDR946mTBBUTe83", core.NetworkRoom)
-	} else if strings.Contains(bootnode, "12D3KooWDWeiiqbpNGAqA5QbDTdKgTtwX8LCShWkTpcyxpRf2jA9") {
-		room = fmt.Sprintf("%s-12D3KooWDWeiiqbpNGAqA5QbDTdKgTtwX8LCShWkTpcyxpRf2jA9", core.NetworkRoom)
-	} else if strings.Contains(bootnode, "12D3KooWNcTWWuUWKhjTVDF1xZ38yCoHXoF4aDjnbjsNpeVwj33U") {
-		room = fmt.Sprintf("%s-12D3KooWNcTWWuUWKhjTVDF1xZ38yCoHXoF4aDjnbjsNpeVwj33U", core.NetworkRoom)
+	data := strings.Split(bootnode, "/p2p/")
+	if len(data) > 1 {
+		room = fmt.Sprintf("%s-%s", core.NetworkRoom, data[len(data)-1])
 	} else {
 		room = core.NetworkRoom
 	}
-	fmt.Println("room: ", room)
+
 	// setup local mDNS discovery
 	if err := setupDiscovery(h); err != nil {
 		return
