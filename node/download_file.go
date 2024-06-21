@@ -38,18 +38,16 @@ func (n *Node) downloadFileHandle(c *gin.Context) {
 
 	//fpath := utils.FindFile(n.GetDirs().FileDir, queryName)
 	fpath, err := n.GetCacheRecord(fid) //query file from cache
-	if err != nil {
-		n.Query("err", fmt.Sprintf("[%s] Query file [%s] info from cache: %v", clientIp, fid, err))
-		c.JSON(http.StatusNotFound, ERR_NotFound)
-	}
-	fstat, err := os.Stat(fpath)
 	if err == nil {
-		if fstat.Size() > 0 {
-			n.Query("info", fmt.Sprintf("[%s] Download file [%s] from cache", clientIp, fid))
-			c.File(fpath)
-			return
-		} else {
-			os.Remove(fpath)
+		fstat, err := os.Stat(fpath)
+		if err == nil {
+			if fstat.Size() > 0 {
+				n.Query("info", fmt.Sprintf("[%s] Download file [%s] from cache", clientIp, fid))
+				c.File(fpath)
+				return
+			} else {
+				os.Remove(fpath)
+			}
 		}
 	}
 
