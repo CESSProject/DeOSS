@@ -284,9 +284,12 @@ func (n *Node) putChunksHandle(c *gin.Context) {
 			if isSplit == "true" {
 				beSplit = true
 			}
+			log.Println("savedir", savedir, "cipher", cipher)
+			log.Println("filename", filename, "archiveFormat", archiveFormat, "issplit", beSplit)
 			if err = cansproto.ArchiveCanFile(savedir, filename, archiveFormat, cipher != "", beSplit,
 				func(s string) string {
 					ss := strings.Split(s, CHUNK_FILE_FLAG)
+					log.Println("entry path:", s)
 					return ss[0]
 				}, nil); err != nil {
 				c.JSON(http.StatusInternalServerError, err.Error())
@@ -389,21 +392,21 @@ func (n *Node) getCanFileHandle(c *gin.Context) {
 	fdir := filepath.Join(n.GetDirs().FileDir, fid)
 	if _, err := os.Stat(fdir); err != nil {
 		if err = os.MkdirAll(fdir, 0755); err != nil {
-			c.JSON(http.StatusInternalServerError, err)
+			c.JSON(http.StatusInternalServerError, err.Error())
 			return
 		}
 	}
 
 	var boxMeta cansproto.BoxMetadata
-	if mpath, err := n.GetCacheRecord(fmt.Sprintf("%s%s", fid, FILE_METADATA_KEY)); err == nil {
+	if mpath, err := n.GetCacheRecord(fmt.Sprintf("%s%s", fid, FILE_METADATA_KEY)); err == nil && mpath != "" {
 		data, err := os.ReadFile(mpath)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, err)
+			c.JSON(http.StatusInternalServerError, err.Error())
 			return
 		}
 		err = json.Unmarshal(data, &boxMeta)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, err)
+			c.JSON(http.StatusInternalServerError, err.Error())
 			return
 		}
 	}
@@ -411,7 +414,7 @@ func (n *Node) getCanFileHandle(c *gin.Context) {
 	if boxMeta.FileName == "" {
 		segment0, err := n.GetSegment(fdir, fid, 0)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, err)
+			c.JSON(http.StatusInternalServerError, err.Error())
 			return
 		}
 		if segment0 == "" {
@@ -420,21 +423,21 @@ func (n *Node) getCanFileHandle(c *gin.Context) {
 		}
 		bytes, err := os.ReadFile(segment0)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, err)
+			c.JSON(http.StatusInternalServerError, err.Error())
 			return
 		}
 		boxMeta, err = cansproto.ParseCanBoxMetadata(bytes)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, err)
+			c.JSON(http.StatusInternalServerError, err.Error())
 			return
 		}
 		jbytes, err := json.Marshal(boxMeta)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, err)
+			c.JSON(http.StatusInternalServerError, err.Error())
 			return
 		}
 		if err = n.SaveDataToCache(fmt.Sprintf("%s%s", fid, FILE_METADATA_KEY), jbytes); err != nil {
-			c.JSON(http.StatusInternalServerError, err)
+			c.JSON(http.StatusInternalServerError, err.Error())
 			return
 		}
 	}
@@ -442,7 +445,7 @@ func (n *Node) getCanFileHandle(c *gin.Context) {
 	if reqParams.SubFile == "" {
 		segmenti, err := n.GetSegment(fdir, fid, reqParams.SegmentIndex)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, err)
+			c.JSON(http.StatusInternalServerError, err.Error())
 			return
 		}
 		if segmenti == "" {
@@ -453,7 +456,7 @@ func (n *Node) getCanFileHandle(c *gin.Context) {
 		if reqParams.Cipher != "" {
 			err = DecryptSegment(segmenti, reqParams.Cipher)
 			if err != nil {
-				c.JSON(http.StatusInternalServerError, err)
+				c.JSON(http.StatusInternalServerError, err.Error())
 				return
 			}
 		}
@@ -474,7 +477,7 @@ cans:
 	if record >= 0 {
 		segmenti, err := n.GetSegment(fdir, fid, record)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, err)
+			c.JSON(http.StatusInternalServerError, err.Error())
 			return
 		}
 		if segmenti == "" {
@@ -484,7 +487,7 @@ cans:
 		if reqParams.Cipher != "" {
 			err = DecryptSegment(segmenti, reqParams.Cipher)
 			if err != nil {
-				c.JSON(http.StatusInternalServerError, err)
+				c.JSON(http.StatusInternalServerError, err.Error())
 				return
 			}
 		}
