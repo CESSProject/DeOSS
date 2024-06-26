@@ -268,20 +268,17 @@ func (n *Node) getHandle(c *gin.Context) {
 		var size uint64
 		n.Query("info", fmt.Sprintf("[%s] Download file [%s]", clientIp, queryName))
 
-		//fpath := utils.FindFile(n.GetDirs().FileDir, queryName)
-		fpath, err := n.GetCacheRecord(queryName) //query file from cache
-		if err != nil {
-			n.Query("err", fmt.Sprintf("[%s] Query file [%s] info from cache: %v", clientIp, queryName, err))
-			c.JSON(http.StatusNotFound, ERR_NotFound)
-		}
-		fstat, err := os.Stat(fpath)
-		if err == nil {
-			if fstat.Size() > 0 {
-				n.Query("info", fmt.Sprintf("[%s] Download file [%s] from cache", clientIp, queryName))
-				c.File(fpath)
-				return
-			} else {
-				os.Remove(fpath)
+		//query file from cache
+		if fpath, err := n.GetCacheRecord(queryName); err == nil {
+			fstat, err := os.Stat(fpath)
+			if err == nil {
+				if fstat.Size() > 0 {
+					n.Query("info", fmt.Sprintf("[%s] Download file [%s] from cache", clientIp, queryName))
+					c.File(fpath)
+					return
+				} else {
+					os.Remove(fpath)
+				}
 			}
 		}
 
@@ -305,23 +302,13 @@ func (n *Node) getHandle(c *gin.Context) {
 				return
 			} else {
 				size = order.FileSize.Uint64()
-				// segments, err := n.downloadFromBlock(order.NeededList)
-				// if err != nil {
-				// 	n.Query("err", fmt.Sprintf("[%s] downloadFromBlock [%s] info: Not found", clientIp, queryName))
-				// 	c.JSON(404, "failed")
-				// } else {
-				// 	n.Query("info", fmt.Sprintf("[%s] Download file [%s] suc", clientIp, queryName))
-				// 	c.JSON(200, "suc")
-				// }
-				// _ = segments
-				// return
 			}
 		} else {
 			completion = true
 			size = fmeta.FileSize.Uint64()
 		}
 
-		fpath = filepath.Join(n.GetDirs().FileDir, queryName)
+		fpath := filepath.Join(n.GetDirs().FileDir, queryName)
 		peerList, _ := n.QueryAllOssPeerId(-1)
 		if len(peerList) > 0 {
 			for _, v := range peerList {
