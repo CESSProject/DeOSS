@@ -15,8 +15,8 @@ import (
 
 func TestNewLogs(t *testing.T) {
 	log_files := make(map[string]string, 2)
-	log_files["info"] = "./info.log"
-	log_files["err"] = "./err.log"
+	log_files["log"] = "log.log"
+	log_files["panic"] = "panic.log"
 	_, err := NewLogs(log_files)
 	assert.NoError(t, err)
 }

@@ -11,6 +11,7 @@ package node
 const (
 	HTTPHeader_Authorization = "Authorization"
 	HTTPHeader_BucketName    = "BucketName"
+	HTTPHeader_Territory     = "Territory"
 	HTTPHeader_Account       = "Account"
 	HTTPHeader_EthAccount    = "EthAcc"
 	HTTPHeader_Digest        = "Digest"
@@ -33,11 +34,12 @@ const (
 )
 
 const (
-	HTTP_ParameterName     = "name"
-	HTTP_ParameterName_Fid = "fid"
-	FormFileKey1           = "file"
-	FormFileKey2           = "File"
-	FormFileKey3           = "FILE"
+	HTTP_ParameterName       = "name"
+	HTTP_ParameterName_Fid   = "fid"
+	HTTP_Parameter_BucketNme = "bucket_name"
+	FormFileKey1             = "file"
+	FormFileKey2             = "File"
+	FormFileKey3             = "FILE"
 )
 
 const TokenDated = 60 * 60 * 24 * 30
@@ -66,14 +68,18 @@ const (
 	ERR_EmptyBucketName       = "Invalid.EmptyBucketName"
 	ERR_UnauthorizedSpace     = "UnauthorizedSpace"
 	ERR_EmptyFile             = "InvalidBody.EmptyFile"
+	ERR_EmptyBody             = "InvalidBody.EmptyBody"
 	ERR_ReadBody              = "InvalidBody.ReadErr"
 	ERR_ParseBody             = "InvalidBody.ParseErr"
 	//ERR_SpaceExpired          = "space expired"
-	ERR_NotEnoughSpace = "not enough account space"
+	ERR_NotEnoughSpace             = "not enough account space"
+	ERR_InsufficientTerritorySpace = "insufficient territory space"
 
-	ERR_InternalServer  = "InternalError"
-	ERR_FileNameTooLang = "The file name length cannot exceed 63 characters"
-	ERR_NoSpace         = "please purchase space first"
+	ERR_InternalServer   = "InternalError"
+	ERR_FileNameTooLang  = "The file name length cannot exceed 63 characters"
+	ERR_FileNameTooShort = "The file name must be at least 3 characters long"
+	ERR_NoSpace          = "please purchase space first"
+	ERR_NoTerritory      = "please purchase territory first"
 )
 
 const (
@@ -92,11 +98,12 @@ const (
 
 	ERR_HeaderFieldBucketName = "HeaderErr_InvalidBucketName"
 
-	ERR_AccountNotExist   = "account does not exist"
-	ERR_RpcFailed         = "rpc connection failed"
-	ERR_SpaceExpiresSoon  = "space expires soon"
-	ERR_SpaceNotAuth      = "space is not authorized"
-	ERR_DeviceSpaceNoLeft = "no space left on the server device"
+	ERR_AccountNotExist      = "account does not exist"
+	ERR_RpcFailed            = "rpc connection failed"
+	ERR_SpaceExpiresSoon     = "space expires soon"
+	ERR_TerritoryExpiresSoon = "territory expires soon"
+	ERR_SpaceNotAuth         = "space is not authorized"
+	ERR_DeviceSpaceNoLeft    = "no space left on the server device"
 
 	ERR_SysMemNoLeft = "server unsupported file size"
 
@@ -108,4 +115,17 @@ const (
 	Cache_UserFiles       = "userfiles:"
 	Cache_UserDeleteFiles = "userdeletefiles:"
 	Cache_WantFiles       = "wantfiles:"
+)
+
+type DuplicateType uint8
+
+const (
+	// not duplicate
+	Duplicate0 DuplicateType = 0
+
+	// not in file.owners
+	Duplicate1 DuplicateType = 1
+
+	// in file.owners
+	Duplicate2 DuplicateType = 2
 )

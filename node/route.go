@@ -23,7 +23,9 @@ func (n *Node) addRoute() {
 	n.Engine.GET(fmt.Sprintf("/canfiles/:%s", HTTP_ParameterName_Fid), n.getCanFileHandle)
 	n.Engine.GET(fmt.Sprintf("/open/:%s", HTTP_ParameterName_Fid), n.openFileHandle)
 
-	n.Engine.PUT("/", n.putHandle)
+	n.Engine.PUT("/bucket", n.put_bucket)
+	n.Engine.PUT("/file", n.put_file)
+	n.Engine.PUT("/object", n.put_object)
 	n.Engine.PUT("/chunks", n.putChunksHandle)
 
 	n.Engine.DELETE(fmt.Sprintf("/:%s", HTTP_ParameterName), n.delHandle)

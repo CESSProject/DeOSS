@@ -10,9 +10,10 @@ package node
 import (
 	"fmt"
 	"math"
-	"math/big"
+	"strconv"
 	"time"
 
+	"github.com/CESSProject/cess-go-sdk/chain"
 	schain "github.com/CESSProject/cess-go-sdk/chain"
 	sconfig "github.com/CESSProject/cess-go-sdk/config"
 	"github.com/CESSProject/p2p-go/out"
@@ -114,17 +115,19 @@ func (n *Node) refreshSelf() error {
 	if err != nil {
 		return err
 	}
-	if len(accInfo.Data.Free.Bytes()) <= 0 {
+
+	free := accInfo.Data.Free.String()
+	if len(free) <= len(chain.TokenPrecision_CESS) {
 		n.SetBalances(0)
-	} else {
-		free_bi, _ := new(big.Int).SetString(accInfo.Data.Free.String(), 10)
-		minBanlance_bi, _ := new(big.Int).SetString(schain.MinTransactionBalance, 10)
-		free_bi = free_bi.Div(free_bi, minBanlance_bi)
-		if free_bi.IsUint64() {
-			n.SetBalances(free_bi.Uint64())
-		} else {
-			n.SetBalances(math.MaxUint64)
-		}
+		return nil
 	}
+
+	free = free[:len(free)-len(chain.TokenPrecision_CESS)]
+	free_uint, err := strconv.ParseUint(free, 10, 64)
+	if err != nil {
+		n.SetBalances(math.MaxUint64)
+		return nil
+	}
+	n.SetBalances(free_uint)
 	return nil
 }

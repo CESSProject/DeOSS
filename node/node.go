@@ -207,35 +207,38 @@ func (n *Node) SetDfileDir(dir string) {
 	n.dfileDir = dir
 }
 
-func (n *Node) WriteTrackFile(filehash string, data []byte) error {
-	if len(data) < MinRecordInfoLength {
-		return errors.New("invalid data")
+func (n *Node) WriteTrackFile(fid string, data []byte) error {
+	if len(fid) != chain.FileHashLen {
+		return errors.New("invalid fid")
 	}
-	if len(filehash) != len(chain.FileHash{}) {
-		return errors.New("invalid filehash")
-	}
+	var err error
 	fpath := filepath.Join(n.trackDir, uuid.New().String())
-	n.trackLock.Lock()
-	defer n.trackLock.Unlock()
-	os.RemoveAll(fpath)
+	for {
+		_, err = os.Stat(fpath)
+		if err != nil {
+			break
+		}
+		time.Sleep(time.Millisecond)
+		fpath = filepath.Join(n.trackDir, uuid.New().String())
+	}
 	f, err := os.Create(fpath)
 	if err != nil {
-		return errors.Wrapf(err, "[os.Create]")
+		return errors.Wrap(err, "[os.Create]")
 	}
 	defer os.Remove(fpath)
 
 	_, err = f.Write(data)
 	if err != nil {
 		f.Close()
-		return errors.Wrapf(err, "[f.Write]")
+		return errors.Wrap(err, "[Write]")
 	}
 	err = f.Sync()
 	if err != nil {
 		f.Close()
-		return errors.Wrapf(err, "[f.Sync]")
+		return errors.Wrap(err, "[Sync]")
 	}
 	f.Close()
-	err = os.Rename(fpath, filepath.Join(n.trackDir, filehash))
+	err = os.Rename(fpath, filepath.Join(n.trackDir, fid))
 	return err
 }
 

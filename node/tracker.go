@@ -26,15 +26,16 @@ import (
 )
 
 type RecordInfo struct {
-	SegmentInfo []chain.SegmentDataInfo `json:"segmentInfo"`
-	Owner       []byte                  `json:"owner"`
-	Roothash    string                  `json:"roothash"`
-	Filename    string                  `json:"filename"`
-	Buckname    string                  `json:"buckname"`
-	Filesize    uint64                  `json:"filesize"`
-	Putflag     bool                    `json:"putflag"`
-	Count       uint8                   `json:"count"`
-	Duplicate   bool                    `json:"duplicate"`
+	Segment       []chain.SegmentDataInfo `json:"segment"`
+	Owner         []byte                  `json:"owner"`
+	Fid           string                  `json:"fid"`
+	FileName      string                  `json:"file_name"`
+	BucketName    string                  `json:"bucket_name"`
+	TerritoryName string                  `json:"territory_name"`
+	FileSize      uint64                  `json:"file_size"`
+	//Count         uint8                   `json:"count"`
+	PutFlag bool `json:"put_flag"`
+	// Duplicate bool `json:"duplicate"`
 }
 
 // MinRecordInfoLength = len(json.Marshal(RecordInfo{}))
