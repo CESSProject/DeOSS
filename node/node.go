@@ -9,8 +9,6 @@ package node
 
 import (
 	"encoding/json"
-	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 	"sync"
@@ -26,16 +24,9 @@ import (
 	"github.com/CESSProject/cess-go-tools/cacher"
 	"github.com/CESSProject/cess-go-tools/scheduler"
 	"github.com/CESSProject/p2p-go/core"
-	"github.com/CESSProject/p2p-go/out"
-	"github.com/gin-contrib/cors"
-	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 )
-
-type Oss interface {
-	Run()
-}
 
 type Node struct {
 	signkey            []byte
@@ -59,7 +50,6 @@ type Node struct {
 	PeerRecord
 	*chain.ChainClient
 	*core.PeerNode
-	*gin.Engine
 	cacher.FileCache
 	scheduler.Selector
 }
@@ -80,66 +70,66 @@ func New() *Node {
 	}
 }
 
-func (n *Node) Run() {
-	gin.SetMode(gin.ReleaseMode)
-	n.Engine = gin.Default()
-	config := cors.DefaultConfig()
-	config.AllowAllOrigins = true
-	config.AllowMethods = []string{"HEAD", "GET", "POST", "PUT", "DELETE", "OPTIONS"}
-	config.AddAllowHeaders(
-		configs.Header_Auth,
-		configs.Header_Account,
-		configs.Header_BucketName,
-		"*",
-	)
-	n.Engine.MaxMultipartMemory = MaxMemUsed
-	n.Engine.Use(cors.New(config))
-	// Add route
-	n.addRoute()
-	// Task management
-	go n.TaskMgt()
-	out.Tip(fmt.Sprintf("Listening on port: %d", n.GetHttpPort()))
-	// Run
-	err := n.Engine.Run(fmt.Sprintf(":%d", n.GetHttpPort()))
-	if err != nil {
-		log.Fatalf("err: %v", err)
-	}
-}
+// func (n *Node) Run() {
+// 	gin.SetMode(gin.ReleaseMode)
+// 	n.Engine = gin.Default()
+// 	config := cors.DefaultConfig()
+// 	config.AllowAllOrigins = true
+// 	config.AllowMethods = []string{"HEAD", "GET", "POST", "PUT", "DELETE", "OPTIONS"}
+// 	config.AddAllowHeaders(
+// 		configs.Header_Auth,
+// 		configs.Header_Account,
+// 		configs.Header_BucketName,
+// 		"*",
+// 	)
+// 	n.Engine.MaxMultipartMemory = MaxMemUsed
+// 	n.Engine.Use(cors.New(config))
+// 	// Add route
+// 	n.addRoute()
+// 	// Task management
+// 	go n.TaskMgt()
+// 	out.Tip(fmt.Sprintf("Listening on port: %d", n.GetHttpPort()))
+// 	// Run
+// 	err := n.Engine.Run(fmt.Sprintf(":%d", n.GetHttpPort()))
+// 	if err != nil {
+// 		log.Fatalf("err: %v", err)
+// 	}
+// }
 
-func (n *Node) Run2(port int, workspace string) {
-	var err error
-	if workspace == "" {
-		workspace, err = os.Getwd()
-		if err != nil {
-			log.Fatal(err)
-		}
-	}
-	gin.SetMode(gin.DebugMode)
-	n.Engine = gin.Default()
-	n.Engine.LoadHTMLGlob("templates/*")
-	n.Engine.Static("/static", "./static")
-	config := cors.DefaultConfig()
-	config.AllowAllOrigins = true
-	config.AllowMethods = []string{"HEAD", "GET", "POST", "PUT", "DELETE", "OPTIONS"}
-	config.AddAllowHeaders(
-		configs.Header_Auth,
-		configs.Header_Account,
-		configs.Header_BucketName,
-		"*",
-	)
-	n.Engine.MaxMultipartMemory = MaxMemUsed
-	n.Engine.Use(cors.New(config))
-	// Add route
-	n.addRoute()
-	// Task management
-	// go n.TaskMgt()
-	out.Tip(fmt.Sprintf("Listening on port: %d", port))
-	// Run
-	err = n.Engine.Run(fmt.Sprintf(":%d", port))
-	if err != nil {
-		log.Fatalf("err: %v", err)
-	}
-}
+// func (n *Node) Run2(port int, workspace string) {
+// 	var err error
+// 	if workspace == "" {
+// 		workspace, err = os.Getwd()
+// 		if err != nil {
+// 			log.Fatal(err)
+// 		}
+// 	}
+// 	gin.SetMode(gin.DebugMode)
+// 	n.Engine = gin.Default()
+// 	n.Engine.LoadHTMLGlob("templates/*")
+// 	n.Engine.Static("/static", "./static")
+// 	config := cors.DefaultConfig()
+// 	config.AllowAllOrigins = true
+// 	config.AllowMethods = []string{"HEAD", "GET", "POST", "PUT", "DELETE", "OPTIONS"}
+// 	config.AddAllowHeaders(
+// 		configs.Header_Auth,
+// 		configs.Header_Account,
+// 		configs.Header_BucketName,
+// 		"*",
+// 	)
+// 	n.Engine.MaxMultipartMemory = MaxMemUsed
+// 	n.Engine.Use(cors.New(config))
+// 	// Add route
+// 	n.addRoute()
+// 	// Task management
+// 	// go n.TaskMgt()
+// 	out.Tip(fmt.Sprintf("Listening on port: %d", port))
+// 	// Run
+// 	err = n.Engine.Run(fmt.Sprintf(":%d", port))
+// 	if err != nil {
+// 		log.Fatalf("err: %v", err)
+// 	}
+// }
 
 func (n *Node) InitFileCache(exp time.Duration, maxSpace int64, cacheDir string) {
 	n.FileCache = cacher.NewCacher(exp, maxSpace, cacheDir)

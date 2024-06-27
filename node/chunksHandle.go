@@ -69,7 +69,7 @@ func init() {
 	chunkReq = make(map[string]int64, 10)
 }
 
-func (n *Node) putChunksHandle(c *gin.Context) {
+func (n *Node) PutChunksHandle(c *gin.Context) {
 	account := c.Request.Header.Get(HTTPHeader_Account)
 	chunkReqLock.Lock()
 	_, ok := chunkReq[account]
@@ -377,7 +377,7 @@ func (n *Node) putChunksHandle(c *gin.Context) {
 	n.fileProcess(filename, bucketName, fpath, account, cipher, pkey, c)
 }
 
-func (n *Node) getCanFileHandle(c *gin.Context) {
+func (n *Node) GetCanFileHandle(c *gin.Context) {
 	if _, ok := <-max_concurrent_get_ch; !ok {
 		c.JSON(http.StatusTooManyRequests, "server is busy, please try again later.")
 		return

@@ -23,7 +23,7 @@ type DelList struct {
 }
 
 // delHandle is used to delete buckets or files
-func (n *Node) delHandle(c *gin.Context) {
+func (n *Node) DelHandle(c *gin.Context) {
 	var (
 		err      error
 		txHash   string

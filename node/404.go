@@ -6,7 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func (n *Node) notFoundHandler(c *gin.Context) {
+func (n *Node) NotFoundHandler(c *gin.Context) {
 	clientIp := c.ClientIP()
 	log.Printf("[%s] %s", clientIp, c.Request.URL.Path)
 

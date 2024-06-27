@@ -77,7 +77,7 @@ func init() {
 }
 
 // getHandle
-func (n *Node) getHandle(c *gin.Context) {
+func (n *Node) GetHandle(c *gin.Context) {
 	if _, ok := <-max_concurrent_get_ch; !ok {
 		c.JSON(http.StatusTooManyRequests, "service is busy, please try again later.")
 		return

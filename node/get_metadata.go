@@ -24,7 +24,7 @@ type Metadata struct {
 }
 
 // getHandle
-func (n *Node) getMetadataHandle(c *gin.Context) {
+func (n *Node) GetMetadataHandle(c *gin.Context) {
 	clientIp := c.Request.Header.Get("X-Forwarded-For")
 	if clientIp == "" || clientIp == " " {
 		clientIp = c.ClientIP()

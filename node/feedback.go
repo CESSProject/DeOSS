@@ -18,7 +18,7 @@ import (
 )
 
 // It is used to authorize users
-func (n *Node) fadebackHandle(c *gin.Context) {
+func (n *Node) FeedbackLog(c *gin.Context) {
 	var fpath string
 	clientIp := c.Request.Header.Get("X-Forwarded-For")
 	formfile, fileHeder, err := c.Request.FormFile("file")

@@ -39,7 +39,7 @@ func init() {
 	}
 }
 
-func (n *Node) put_file(c *gin.Context) {
+func (n *Node) Put_file(c *gin.Context) {
 	account := c.Request.Header.Get(HTTPHeader_Account)
 	if account != "cXkdXokcMa32BAYkmsGjhRGA2CYmLUN2pq69U8k9taXsQPHGp" &&
 		account != "cXic3WhctsJ9cExmjE9vog49xaLuVbDLcFi2odeEnvV5Sbq4f" {

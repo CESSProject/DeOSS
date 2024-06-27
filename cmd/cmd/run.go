@@ -8,9 +8,14 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
+	"log"
+	"net/http"
 	"os"
+	"os/signal"
 	"path/filepath"
+	"syscall"
 	"time"
 
 	"github.com/CESSProject/DeOSS/configs"
@@ -26,6 +31,8 @@ import (
 	p2pgo "github.com/CESSProject/p2p-go"
 	"github.com/CESSProject/p2p-go/core"
 	"github.com/CESSProject/p2p-go/out"
+	"github.com/gin-contrib/cors"
+	"github.com/gin-gonic/gin"
 	"github.com/howeyc/gopass"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/pkg/errors"
@@ -201,8 +208,36 @@ func cmd_run_func(cmd *cobra.Command, args []string) {
 	n.PeerRecord = peerRecord
 	out.Tip(n.Workspace())
 
-	// run
-	n.Run()
+	server, err := buildHttpServer(n)
+	if err != nil {
+		log.Fatalf("[buildHttpServer] %v", err)
+	}
+	go func() {
+		if err = server.ListenAndServe(); err != nil {
+			log.Fatalf("[ListenAndServe] %v", err)
+		}
+	}()
+
+	// tasks
+	go n.TaskMgt()
+
+	out.Tip(fmt.Sprintf("Listening on port: %d", n.GetHttpPort()))
+
+	// Wait for interrupt signal to gracefully shutdown the server with
+	// a timeout of 5 seconds.
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	sig := <-quit
+	log.Println("Received an exit signal: ", sig.String())
+
+	// The context is used to inform the server it has 5 seconds to finish
+	// the request it is currently handling
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := server.Shutdown(ctx); err != nil {
+		log.Fatal("Server forced to shutdown: ", err)
+	}
+	log.Println("Server has exited")
 }
 
 func buildConfigFile(cmd *cobra.Command) (confile.Confile, error) {
@@ -412,4 +447,43 @@ func buildLogs(logDir string) (logger.Logger, error) {
 		logs_info[v] = filepath.Join(logDir, v+".log")
 	}
 	return logger.NewLogs(logs_info)
+}
+
+func buildHttpServer(n *node.Node) (*http.Server, error) {
+	gin.SetMode(gin.ReleaseMode)
+	ginsrv := gin.Default()
+	ginConfig := cors.DefaultConfig()
+	ginConfig.AllowAllOrigins = true
+	ginConfig.AddAllowHeaders("*")
+	ginsrv.Use(cors.New(ginConfig))
+
+	// route
+	ginsrv.POST("/feedback/log", n.FeedbackLog)
+	ginsrv.POST("/restore", n.RestoreFile)
+
+	ginsrv.GET(fmt.Sprintf("/:%s", node.HTTP_ParameterName), n.GetHandle)
+	ginsrv.GET("/restore", n.GetRestoreHandle)
+	ginsrv.GET(fmt.Sprintf("/metedata/:%s", node.HTTP_ParameterName_Fid), n.GetMetadataHandle)
+	ginsrv.GET(fmt.Sprintf("/download/:%s", node.HTTP_ParameterName_Fid), n.DownloadFileHandle)
+	ginsrv.GET(fmt.Sprintf("/canfiles/:%s", node.HTTP_ParameterName_Fid), n.GetCanFileHandle)
+	ginsrv.GET(fmt.Sprintf("/open/:%s", node.HTTP_ParameterName_Fid), n.OpenFileHandle)
+
+	ginsrv.PUT("/bucket", n.Put_bucket)
+	ginsrv.PUT("/file", n.Put_file)
+	ginsrv.PUT("/object", n.Put_object)
+	ginsrv.PUT("/chunks", n.PutChunksHandle)
+
+	ginsrv.DELETE(fmt.Sprintf("/:%s", node.HTTP_ParameterName), n.DelHandle)
+	ginsrv.DELETE("/", n.DelHandle)
+
+	ginsrv.GET("/404", n.NotFoundHandler)
+
+	// http server
+	return &http.Server{
+		Addr:           fmt.Sprintf(":%d", n.GetHttpPort()),
+		Handler:        ginsrv,
+		ReadTimeout:    time.Duration(30) * time.Second,
+		WriteTimeout:   time.Duration(30) * time.Second,
+		MaxHeaderBytes: 1024 * 1024,
+	}, nil
 }

@@ -18,7 +18,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func (n *Node) downloadFileHandle(c *gin.Context) {
+func (n *Node) DownloadFileHandle(c *gin.Context) {
 	if _, ok := <-max_concurrent_get_ch; !ok {
 		c.JSON(http.StatusTooManyRequests, "server is busy, please try again later.")
 		return

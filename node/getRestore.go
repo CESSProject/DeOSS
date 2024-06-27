@@ -12,7 +12,7 @@ import (
 )
 
 // getHandle
-func (n *Node) getRestoreHandle(c *gin.Context) {
+func (n *Node) GetRestoreHandle(c *gin.Context) {
 	var (
 		err      error
 		clientIp string

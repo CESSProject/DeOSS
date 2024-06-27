@@ -20,7 +20,7 @@ type RestoreList struct {
 }
 
 // getHandle
-func (n *Node) postRestoreHandle(c *gin.Context) {
+func (n *Node) RestoreFile(c *gin.Context) {
 	clientIp := c.Request.Header.Get("X-Forwarded-For")
 	if clientIp == "" || clientIp == " " {
 		clientIp = c.ClientIP()

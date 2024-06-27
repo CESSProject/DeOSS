@@ -17,7 +17,9 @@ import (
 	"github.com/pkg/errors"
 )
 
-func (n *Node) put_bucket(c *gin.Context) {
+func (n *Node) Put_bucket(c *gin.Context) {
+	defer c.Request.Body.Close()
+
 	account := c.Request.Header.Get(HTTPHeader_Account)
 	if _, ok := <-max_concurrent_req_ch; !ok {
 		c.JSON(http.StatusTooManyRequests, "service is busy, please try again later.")
@@ -67,15 +69,13 @@ func (n *Node) put_bucket(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, err.Error())
 		return
 	}
-	n.Logput("info", clientIp+" create bucket ["+bucketName+"] suc: "+blockHash)
+	n.Logput("info", clientIp+" create bucket ["+bucketName+"] suc, and the bloack hash is: "+blockHash)
 
 	if len(blockHash) != (chain.FileHashLen + 2) {
 		c.JSON(http.StatusOK, "bucket already exists")
 	} else {
 		c.JSON(http.StatusOK, map[string]string{"block hash:": blockHash})
 	}
-	return
-
 }
 
 func verifySignature(n *Node, account, ethAccount, message, signature string) ([]byte, int, error) {
