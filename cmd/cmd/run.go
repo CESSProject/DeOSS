@@ -463,10 +463,10 @@ func buildHttpServer(n *node.Node) (*http.Server, error) {
 
 	ginsrv.GET(fmt.Sprintf("/:%s", node.HTTP_ParameterName), n.GetHandle)
 	ginsrv.GET("/restore", n.GetRestoreHandle)
-	ginsrv.GET(fmt.Sprintf("/metedata/:%s", node.HTTP_ParameterName_Fid), n.GetMetadataHandle)
+	ginsrv.GET(fmt.Sprintf("/metedata/:%s", node.HTTP_ParameterName_Fid), n.Get_metadata)
 	ginsrv.GET(fmt.Sprintf("/download/:%s", node.HTTP_ParameterName_Fid), n.DownloadFileHandle)
 	ginsrv.GET(fmt.Sprintf("/canfiles/:%s", node.HTTP_ParameterName_Fid), n.GetCanFileHandle)
-	ginsrv.GET(fmt.Sprintf("/open/:%s", node.HTTP_ParameterName_Fid), n.OpenFileHandle)
+	ginsrv.GET(fmt.Sprintf("/open/:%s", node.HTTP_ParameterName_Fid), n.Preview_file)
 
 	ginsrv.PUT("/bucket", n.Put_bucket)
 	ginsrv.PUT("/file", n.Put_file)

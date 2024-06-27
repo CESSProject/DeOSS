@@ -8,7 +8,6 @@
 package node
 
 import (
-	"fmt"
 	"net/http"
 
 	"github.com/CESSProject/cess-go-sdk/chain"
@@ -24,22 +23,21 @@ type Metadata struct {
 }
 
 // getHandle
-func (n *Node) GetMetadataHandle(c *gin.Context) {
+func (n *Node) Get_metadata(c *gin.Context) {
 	clientIp := c.Request.Header.Get("X-Forwarded-For")
-	if clientIp == "" || clientIp == " " {
+	if clientIp == "" {
 		clientIp = c.ClientIP()
 	}
 
 	fid := c.Param(HTTP_ParameterName_Fid)
-	n.Query("info", fmt.Sprintf("[%s] get meta data: %s", clientIp, fid))
+	n.Logget("info", clientIp+" get metadata of the file: "+fid)
 
 	var fileMetadata Metadata
 	fileMetadata.Fid = fid
-	n.Query("info", fmt.Sprintf("[%s] Query file [%s] info", clientIp, fid))
 	fmeta, err := n.QueryFile(fid, -1)
 	if err != nil {
 		if err.Error() != chain.ERR_Empty {
-			n.Query("err", fmt.Sprintf("[%s] Query file [%s] info: %v", clientIp, fid, err))
+			n.Logget("err", clientIp+" QueryFile failed: "+err.Error())
 			c.JSON(http.StatusInternalServerError, ERR_RpcFailed)
 			return
 		}
@@ -47,12 +45,12 @@ func (n *Node) GetMetadataHandle(c *gin.Context) {
 		dealmap, err := n.QueryDealMap(fid, -1)
 		if err != nil {
 			if err.Error() != chain.ERR_Empty {
-				n.Query("err", fmt.Sprintf("[%s] Query file [%s] info: %v", clientIp, fid, err))
+				n.Logget("err", clientIp+" QueryDealMap failed: "+err.Error())
 				c.JSON(http.StatusInternalServerError, ERR_RpcFailed)
 				return
 			}
 			if !n.HasTrackFile(fid) {
-				n.Query("err", fmt.Sprintf("[%s] Query file [%s] info: NotFount", clientIp, fid))
+				n.Logget("err", clientIp+" not found the file: "+fid)
 				c.JSON(http.StatusNotFound, "NotFound")
 				return
 			}
@@ -64,7 +62,7 @@ func (n *Node) GetMetadataHandle(c *gin.Context) {
 			FileName:   string(dealmap.User.FileName),
 			BucketName: string(dealmap.User.BucketName),
 		})
-		n.Query("info", fmt.Sprintf("[%s] Query file [%s] metadata suc", clientIp, fid))
+		n.Logget("info", clientIp+" get metadata from dealmap suc of the file: "+fid)
 		c.JSON(http.StatusOK, fileMetadata)
 		return
 	}
@@ -76,7 +74,6 @@ func (n *Node) GetMetadataHandle(c *gin.Context) {
 		fileMetadata.Owner[i].FileName = string(fmeta.Owner[i].FileName)
 		fileMetadata.Owner[i].User, _ = sutils.EncodePublicKeyAsCessAccount(fmeta.Owner[i].User[:])
 	}
-
-	n.Query("info", fmt.Sprintf("[%s] Query file [%s] metadata suc", clientIp, fid))
+	n.Logget("info", clientIp+" get metadata from file suc of the file: "+fid)
 	c.JSON(http.StatusOK, fileMetadata)
 }

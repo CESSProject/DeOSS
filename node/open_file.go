@@ -23,25 +23,24 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func (n *Node) OpenFileHandle(c *gin.Context) {
+func (n *Node) Preview_file(c *gin.Context) {
 	if _, ok := <-max_concurrent_get_ch; !ok {
 		c.JSON(http.StatusTooManyRequests, "server is busy, please try again later.")
 		return
 	}
 	defer func() { max_concurrent_get_ch <- true }()
 
-	var err error
-	var size uint64
 	fid := c.Param(HTTP_ParameterName_Fid)
 	cipher := c.Request.Header.Get(HTTPHeader_Cipher)
 	clientIp := c.Request.Header.Get("X-Forwarded-For")
-	if clientIp == "" || clientIp == " " {
+	if clientIp == "" {
 		clientIp = c.ClientIP()
 	}
 
-	n.Query("info", fmt.Sprintf("[%s] will open the file: %s", clientIp, fid))
+	n.Logopen("info", clientIp+" will open the file: "+fid)
 
 	var ok bool
+	var size uint64
 	var completion bool
 	var fext string
 	var fname string
@@ -49,18 +48,18 @@ func (n *Node) OpenFileHandle(c *gin.Context) {
 	fmeta, err := n.QueryFile(fid, -1)
 	if err != nil {
 		if err.Error() != chain.ERR_Empty {
-			n.Query("err", fmt.Sprintf("[%s] Query file [%s] info: %v", clientIp, fid, err))
+			n.Logopen("err", fmt.Sprintf("[%s] Query file [%s] info: %v", clientIp, fid, err))
 			c.JSON(http.StatusInternalServerError, ERR_RpcFailed)
 			return
 		}
 		order, err := n.QueryDealMap(fid, -1)
 		if err != nil {
 			if err.Error() != chain.ERR_Empty {
-				n.Query("err", fmt.Sprintf("[%s] Query file [%s] info: %v", clientIp, fid, err))
+				n.Logopen("err", fmt.Sprintf("[%s] Query file [%s] info: %v", clientIp, fid, err))
 				c.JSON(http.StatusInternalServerError, ERR_RpcFailed)
 				return
 			}
-			n.Query("err", fmt.Sprintf("[%s] Query file [%s] info: Not found", clientIp, fid))
+			n.Logopen("err", fmt.Sprintf("[%s] Query file [%s] info: Not found", clientIp, fid))
 			c.JSON(http.StatusNotFound, ERR_NotFound)
 			return
 		}
@@ -96,13 +95,13 @@ func (n *Node) OpenFileHandle(c *gin.Context) {
 	//fpath := utils.FindFile(n.GetDirs().FileDir, queryName)
 	fpath, err := n.GetCacheRecord(fid) //query file from cache
 	if err != nil {
-		n.Query("err", fmt.Sprintf("[%s] The file [%s] was not found in the cache: %v", clientIp, fid, err))
+		n.Logopen("err", fmt.Sprintf("[%s] The file [%s] was not found in the cache: %v", clientIp, fid, err))
 	}
 
 	fstat, err := os.Stat(fpath)
 	if err == nil {
 		if fstat.Size() > 0 {
-			n.Query("info", fmt.Sprintf("[%s] return the file [%s] from cache", clientIp, fid))
+			n.Logopen("info", fmt.Sprintf("[%s] return the file [%s] from cache", clientIp, fid))
 			c.Header("Content-length", fmt.Sprintf("%d", fstat.Size()))
 			switch strings.ToLower(fext) {
 			case ".mp4", ".mov", ".avi", ".asf", ".asx", ".rm", ".rmvb", ".3gp", ".m4v", ".wmv", ".mkv", ".flv", ".f4v", ".vob", ".mpeg",
@@ -148,13 +147,13 @@ func (n *Node) OpenFileHandle(c *gin.Context) {
 		c.File(fpath)
 		err = n.MoveFileToCache(fid, fpath) // add file to cache
 		if err != nil {
-			n.Query("err", fmt.Sprintf("[%s] add file [%s] to cache error [%v]", clientIp, fid, err))
+			n.Logopen("err", fmt.Sprintf("[%s] add file [%s] to cache error [%v]", clientIp, fid, err))
 		}
 		return
 	}
 
 	if !completion {
-		n.Query("err", fmt.Sprintf("[%s] download file [%s] : %v", clientIp, fid, "The file is being stored, please download it from the gateway where you uploaded it."))
+		n.Logopen("err", fmt.Sprintf("[%s] download file [%s] : %v", clientIp, fid, "The file is being stored, please download it from the gateway where you uploaded it."))
 		c.JSON(http.StatusNotFound, "The file is being stored, please download it from the gateway where you uploaded it.")
 		return
 	}
@@ -162,19 +161,19 @@ func (n *Node) OpenFileHandle(c *gin.Context) {
 	// download from miner
 	fpath, err = n.fetchFiles(fid, n.GetDirs().FileDir, cipher)
 	if err != nil {
-		n.Query("err", fmt.Sprintf("[%s] Download file [%s] : %v", clientIp, fid, err))
+		n.Logopen("err", fmt.Sprintf("[%s] Download file [%s] : %v", clientIp, fid, err))
 		c.JSON(http.StatusInternalServerError, "File download failed, please try again later.")
 		return
 	}
-	n.Query("info", fmt.Sprintf("[%s] Download file [%s] suc", clientIp, fid))
+	n.Logopen("info", fmt.Sprintf("[%s] Download file [%s] suc", clientIp, fid))
 	fstat, err = os.Stat(fpath)
 	if err == nil {
 		if fstat.Size() > 0 {
 			err = n.MoveFileToCache(fid, fpath) // add file to cache
 			if err != nil {
-				n.Query("err", fmt.Sprintf("[%s] add file [%s] to cache error [%v]", clientIp, fid, err))
+				n.Logopen("err", fmt.Sprintf("[%s] add file [%s] to cache error [%v]", clientIp, fid, err))
 			}
-			n.Query("info", fmt.Sprintf("[%s] return the file [%s] from cache", clientIp, fid))
+			n.Logopen("info", fmt.Sprintf("[%s] return the file [%s] from cache", clientIp, fid))
 			c.Header("Content-length", fmt.Sprintf("%d", fstat.Size()))
 			switch strings.ToLower(fext) {
 			case ".mp4", ".mov", ".avi", ".asf", ".asx", ".rm", ".rmvb", ".3gp", ".m4v", ".wmv", ".mkv", ".flv", ".f4v", ".vob", ".mpeg",
