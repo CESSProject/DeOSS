@@ -57,7 +57,7 @@ func (n *Node) Put_file(c *gin.Context) {
 	if clientIp == "" {
 		clientIp = c.ClientIP()
 	}
-	bucketName := c.Request.Header.Get(HTTPHeader_BucketName)
+	bucketName := c.Request.Header.Get(HTTPHeader_Bucket)
 	territoryName := c.Request.Header.Get(HTTPHeader_Territory)
 	cipher := c.Request.Header.Get(HTTPHeader_Cipher)
 	ethAccount := c.Request.Header.Get(HTTPHeader_EthAccount)
@@ -98,7 +98,7 @@ func (n *Node) Put_file(c *gin.Context) {
 		return
 	}
 
-	_, fpath, code, err := createCacheDir(n, account)
+	cacheDir, fpath, code, err := createCacheDir(n, account)
 	if err != nil {
 		n.Logput("err", clientIp+" createCacheDir: "+err.Error())
 		c.JSON(code, err)
@@ -112,9 +112,9 @@ func (n *Node) Put_file(c *gin.Context) {
 		return
 	}
 
-	segment, fid, err := process.ShardedEncryptionProcessing(fpath, cipher)
+	segment, fid, err := process.FullProcessing(fpath, cipher, cacheDir)
 	if err != nil {
-		n.Logput("err", clientIp+" ShardedEncryptionProcessing: "+err.Error())
+		n.Logput("err", clientIp+" FullProcessing: "+err.Error())
 		c.JSON(http.StatusInternalServerError, err)
 		return
 	}
@@ -128,14 +128,15 @@ func (n *Node) Put_file(c *gin.Context) {
 		return
 	}
 
+	err = os.Rename(fpath, filepath.Join(n.GetDirs().FileDir, fid))
+	if err != nil {
+		n.Logput("err", clientIp+" Rename: "+err.Error())
+		c.JSON(http.StatusInternalServerError, err)
+		return
+	}
+
 	switch duplicate {
 	case Duplicate1:
-		err = os.Rename(fpath, filepath.Join(n.GetDirs().FileDir, fid))
-		if err != nil {
-			n.Logput("err", clientIp+" Rename: "+err.Error())
-			c.JSON(http.StatusInternalServerError, err)
-			return
-		}
 		blockhash, err := n.PlaceStorageOrder(fid, filename, bucketName, territoryName, segment, pkey, uint64(contentLength))
 		if err != nil {
 			n.Logput("err", clientIp+" PlaceStorageOrder: "+err.Error())
@@ -146,12 +147,6 @@ func (n *Node) Put_file(c *gin.Context) {
 		c.JSON(http.StatusOK, map[string]string{"fid": fid})
 		return
 	case Duplicate2:
-		err = os.Rename(fpath, filepath.Join(n.GetDirs().FileDir, fid))
-		if err != nil {
-			n.Logput("err", clientIp+" Rename: "+err.Error())
-			c.JSON(http.StatusInternalServerError, err)
-			return
-		}
 		n.Logput("info", clientIp+" duplicate file: "+fid)
 		c.JSON(http.StatusOK, map[string]string{"fid": fid})
 		return

@@ -32,12 +32,6 @@ type RtnFileType struct {
 	BlockInfo  []RtnBlockInfo
 }
 
-type RtnUserBrief struct {
-	User       string `json:"user"`
-	FileName   string `json:"file_name"`
-	BucketName string `json:"bucket_name"`
-}
-
 // file block info
 type RtnBlockInfo struct {
 	MinerId  uint64

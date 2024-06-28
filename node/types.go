@@ -10,7 +10,7 @@ package node
 // HTTP HEADER
 const (
 	HTTPHeader_Authorization = "Authorization"
-	HTTPHeader_BucketName    = "BucketName"
+	HTTPHeader_Bucket        = "Bucket"
 	HTTPHeader_Territory     = "Territory"
 	HTTPHeader_Account       = "Account"
 	HTTPHeader_EthAccount    = "EthAcc"
@@ -19,7 +19,7 @@ const (
 	HTTPHeader_Message       = "Message"
 	HTTPHeader_Signature     = "Signature"
 	HTTPHeader_Fid           = "Fid"
-	HTTPHeader_Cipher        = "cipher"
+	HTTPHeader_Cipher        = "Cipher"
 	HTTPHeader_BIdx          = "BlockIndex"
 	HTTPHeader_BNum          = "BlockNumber"
 	HTTPHeader_Fname         = "FileName"

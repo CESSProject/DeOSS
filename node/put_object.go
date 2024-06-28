@@ -41,7 +41,7 @@ func (n *Node) Put_object(c *gin.Context) {
 		clientIp = c.ClientIP()
 	}
 
-	bucketName := c.Request.Header.Get(HTTPHeader_BucketName)
+	bucketName := c.Request.Header.Get(HTTPHeader_Bucket)
 	filename := c.Request.Header.Get(HTTPHeader_Fname)
 	territoryName := c.Request.Header.Get(HTTPHeader_Territory)
 	cipher := c.Request.Header.Get(HTTPHeader_Cipher)
@@ -88,7 +88,7 @@ func (n *Node) Put_object(c *gin.Context) {
 		filename = "object"
 	}
 
-	_, fpath, code, err := createCacheDir(n, account)
+	cacheDir, fpath, code, err := createCacheDir(n, account)
 	if err != nil {
 		n.Logput("err", clientIp+" createCacheDir: "+err.Error())
 		c.JSON(code, err)
@@ -102,9 +102,9 @@ func (n *Node) Put_object(c *gin.Context) {
 		return
 	}
 
-	segmentInfo, fid, err := process.ShardedEncryptionProcessing(fpath, cipher)
+	segmentInfo, fid, err := process.FullProcessing(fpath, cipher, cacheDir)
 	if err != nil {
-		n.Logput("err", clientIp+" ShardedEncryptionProcessing: "+err.Error())
+		n.Logput("err", clientIp+" FullProcessing: "+err.Error())
 		c.JSON(http.StatusInternalServerError, err)
 		return
 	}

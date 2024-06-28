@@ -35,7 +35,7 @@ func (n *Node) Put_bucket(c *gin.Context) {
 	if clientIp == "" {
 		clientIp = c.ClientIP()
 	}
-	bucketName := c.Request.Header.Get(HTTPHeader_BucketName)
+	bucketName := c.Request.Header.Get(HTTPHeader_Bucket)
 	ethAccount := c.Request.Header.Get(HTTPHeader_EthAccount)
 	message := c.Request.Header.Get(HTTPHeader_Message)
 	signature := c.Request.Header.Get(HTTPHeader_Signature)

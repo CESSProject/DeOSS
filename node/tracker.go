@@ -50,7 +50,7 @@ func (n *Node) tracker(ch chan<- bool) {
 		}
 	}()
 
-	n.Track("info", ">>>>> start tracker <<<<<")
+	n.Logtrack("info", ">>>>> start tracker <<<<<")
 
 	var err error
 	var processNum int
@@ -59,7 +59,7 @@ func (n *Node) tracker(ch chan<- bool) {
 	for {
 		trackFiles, err = n.ListTrackFiles()
 		if err != nil {
-			n.Track("err", err.Error())
+			n.Logtrack("err", err.Error())
 			time.Sleep(chain.BlockInterval)
 			continue
 		}
@@ -78,7 +78,7 @@ func (n *Node) tracker(ch chan<- bool) {
 				if err != nil {
 					continue
 				}
-				n.Track("info", fmt.Sprintf("start track file: %s", filepath.Base(v)))
+				n.Logtrack("info", fmt.Sprintf("start track file: %s", filepath.Base(v)))
 				go func(file string) { n.trackFileThread(file) }(v)
 				time.Sleep(chain.BlockInterval)
 			}
@@ -93,9 +93,9 @@ func (n *Node) trackFileThread(trackFile string) {
 	}()
 	err := n.trackFile(trackFile)
 	if err != nil {
-		n.Track("err", err.Error())
+		n.Logtrack("err", err.Error())
 	}
-	n.Track("info", fmt.Sprintf("end track file: %s", filepath.Base(trackFile)))
+	n.Logtrack("info", fmt.Sprintf("end track file: %s", filepath.Base(trackFile)))
 }
 
 func (n *Node) trackFile(trackfile string) error {
@@ -119,7 +119,7 @@ func (n *Node) trackFile(trackfile string) error {
 				return errors.Wrapf(err, "[%s] [QueryFileMetadata]", roothash)
 			}
 		} else {
-			n.Track("info", fmt.Sprintf("[%s] storage successful", roothash))
+			n.Logtrack("info", fmt.Sprintf("[%s] storage successful", roothash))
 			if len(recordFile.SegmentInfo) > 0 {
 				baseDir := filepath.Dir(recordFile.SegmentInfo[0].SegmentHash)
 				//os.Rename(filepath.Join(baseDir, roothash), filepath.Join(n.GetDirs().FileDir, roothash))
@@ -181,7 +181,7 @@ func (n *Node) trackFile(trackfile string) error {
 			if err != nil {
 				return errors.Wrapf(err, "[%s] [%s] [GenerateStorageOrder]", txhash, roothash)
 			}
-			n.Track("info", fmt.Sprintf("[%s] GenerateStorageOrder: %s", roothash, txhash))
+			n.Logtrack("info", fmt.Sprintf("[%s] GenerateStorageOrder: %s", roothash, txhash))
 			time.Sleep(chain.BlockInterval * 3)
 			storageOrder, err = n.QueryDealMap(roothash, -1)
 			if err != nil {
@@ -215,7 +215,7 @@ func (n *Node) trackFile(trackfile string) error {
 					os.RemoveAll(baseDir)
 				}
 				n.DeleteTrackFile(roothash)
-				n.Track("info", fmt.Sprintf("[%s] Duplicate file declaration suc", roothash))
+				n.Logtrack("info", fmt.Sprintf("[%s] Duplicate file declaration suc", roothash))
 				return nil
 			}
 			storageOrder, err = n.QueryDealMap(recordFile.Roothash, -1)
@@ -223,7 +223,7 @@ func (n *Node) trackFile(trackfile string) error {
 				if err.Error() != chain.ERR_Empty {
 					return errors.Wrapf(err, "[%s] [QueryStorageOrder]", roothash)
 				}
-				n.Track("info", fmt.Sprintf("[%s] Duplicate file become primary file", roothash))
+				n.Logtrack("info", fmt.Sprintf("[%s] Duplicate file become primary file", roothash))
 				recordFile.Duplicate = false
 				recordFile.Putflag = false
 				b, err := json.Marshal(&recordFile)
@@ -252,10 +252,10 @@ func (n *Node) trackFile(trackfile string) error {
 		err = n.storageData(recordFile.Roothash, recordFile.SegmentInfo, storageOrder.CompleteList)
 		n.FlushlistedPeerNodes(5*time.Second, n.GetDHTable()) //refresh the user-configured storage node list
 		if err != nil {
-			n.Track("err", err.Error())
+			n.Logtrack("err", err.Error())
 			return err
 		} else {
-			n.Track("info", fmt.Sprintf("[%s] file transfer completed", roothash))
+			n.Logtrack("info", fmt.Sprintf("[%s] file transfer completed", roothash))
 			time.Sleep(time.Minute * 3)
 		}
 	}
@@ -294,7 +294,7 @@ func (n *Node) storageData(roothash string, segment []chain.SegmentDataInfo, com
 		for _, value := range completeList {
 			if uint8(value.Index) == index {
 				completed = true
-				n.Track("info", fmt.Sprintf("[%s] The %dth batch fragments already report", roothash, index))
+				n.Logtrack("info", fmt.Sprintf("[%s] The %dth batch fragments already report", roothash, index))
 				break
 			}
 		}
@@ -303,7 +303,7 @@ func (n *Node) storageData(roothash string, segment []chain.SegmentDataInfo, com
 			continue
 		}
 
-		n.Track("info", fmt.Sprintf("[%s] Prepare to transfer the %dth batch of fragments (%d)", roothash, index, len(v)))
+		n.Logtrack("info", fmt.Sprintf("[%s] Prepare to transfer the %dth batch of fragments (%d)", roothash, index, len(v)))
 		//utils.RandSlice(allpeers)
 		for peer, ok := itor.GetPeer(); ok; peer, ok = itor.GetPeer() {
 			failed = true
@@ -317,7 +317,7 @@ func (n *Node) storageData(roothash string, segment []chain.SegmentDataInfo, com
 				continue
 			}
 
-			n.Track("info", fmt.Sprintf("[%s] Will transfer to %s", roothash, peer.ID.String()))
+			n.Logtrack("info", fmt.Sprintf("[%s] Will transfer to %s", roothash, peer.ID.String()))
 			for j := 0; j < len(v); j++ {
 				for k := 0; k < 10; k++ {
 					err = n.WriteFileAction(peer.ID, roothash, v[j])
@@ -329,16 +329,16 @@ func (n *Node) storageData(roothash string, segment []chain.SegmentDataInfo, com
 					break
 				}
 				if failed {
-					n.Track("err", fmt.Sprintf("[%s] transfer to %s failed: %v", roothash, peer.ID.String(), err))
+					n.Logtrack("err", fmt.Sprintf("[%s] transfer to %s failed: %v", roothash, peer.ID.String(), err))
 					n.Feedback(peer.ID.String(), false)
 					break
 				}
-				n.Track("info", fmt.Sprintf("[%s] The %dth fragment of the %dth batch is transferred to %s", roothash, j, index, peer.ID.String()))
+				n.Logtrack("info", fmt.Sprintf("[%s] The %dth fragment of the %dth batch is transferred to %s", roothash, j, index, peer.ID.String()))
 			}
 			if !failed {
 				sucPeer[peer.ID.String()] = struct{}{}
 				n.Feedback(peer.ID.String(), true)
-				n.Track("info", fmt.Sprintf("[%s] The %dth batch of fragments is transferred to %s", roothash, index, peer.ID.String()))
+				n.Logtrack("info", fmt.Sprintf("[%s] The %dth batch of fragments is transferred to %s", roothash, index, peer.ID.String()))
 				break
 			}
 		}

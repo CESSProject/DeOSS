@@ -9,7 +9,6 @@ package node
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -18,7 +17,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func (n *Node) DownloadFileHandle(c *gin.Context) {
+func (n *Node) Download_file(c *gin.Context) {
 	if _, ok := <-max_concurrent_get_ch; !ok {
 		c.JSON(http.StatusTooManyRequests, "server is busy, please try again later.")
 		return
@@ -34,44 +33,52 @@ func (n *Node) DownloadFileHandle(c *gin.Context) {
 		clientIp = c.ClientIP()
 	}
 
-	n.Query("info", fmt.Sprintf("[%s] will download the file: %s", clientIp, fid))
+	n.Logdown("info", clientIp+" download the file: "+fid)
 
-	//fpath := utils.FindFile(n.GetDirs().FileDir, queryName)
-	fpath, err := n.GetCacheRecord(fid) //query file from cache
+	fpath := filepath.Join(n.GetDirs().FileDir, fid)
+	fstat, err := os.Stat(fpath)
+	if err == nil {
+		if fstat.Size() > 0 {
+			n.Logdown("info", clientIp+" download the file from local: "+fid)
+			c.File(fpath)
+			return
+		}
+		os.Remove(fpath)
+	}
+
+	fpath, err = n.GetCacheRecord(fid)
 	if err == nil {
 		fstat, err := os.Stat(fpath)
 		if err == nil {
 			if fstat.Size() > 0 {
-				n.Query("info", fmt.Sprintf("[%s] Download file [%s] from cache", clientIp, fid))
+				n.Logdown("info", clientIp+" download the file from cache: "+fid)
 				c.File(fpath)
 				return
-			} else {
-				os.Remove(fpath)
 			}
+			os.Remove(fpath)
 		}
 	}
 
-	var completion bool
+	completion := false
 	fmeta, err := n.QueryFile(fid, -1)
 	if err != nil {
 		if err.Error() != chain.ERR_Empty {
-			n.Query("err", fmt.Sprintf("[%s] Query file [%s] info: %v", clientIp, fid, err))
+			n.Logdown("err", clientIp+" QueryFile failed: "+err.Error())
 			c.JSON(http.StatusInternalServerError, ERR_RpcFailed)
 			return
 		}
 		order, err := n.QueryDealMap(fid, -1)
 		if err != nil {
 			if err.Error() != chain.ERR_Empty {
-				n.Query("err", fmt.Sprintf("[%s] Query file [%s] info: %v", clientIp, fid, err))
+				n.Logdown("err", clientIp+" QueryDealMap failed: "+err.Error())
 				c.JSON(http.StatusInternalServerError, ERR_RpcFailed)
 				return
 			}
-			n.Query("err", fmt.Sprintf("[%s] Query file [%s] info: Not found", clientIp, fid))
+			n.Logdown("info", clientIp+" the file is not recorded on the chain: "+fid)
 			c.JSON(http.StatusNotFound, ERR_NotFound)
 			return
-		} else {
-			size = order.FileSize.Uint64()
 		}
+		size = order.FileSize.Uint64()
 	} else {
 		completion = true
 		size = fmeta.FileSize.Uint64()
@@ -98,28 +105,28 @@ func (n *Node) DownloadFileHandle(c *gin.Context) {
 		c.File(fpath)
 		err = n.MoveFileToCache(fid, fpath) // add file to cache
 		if err != nil {
-			n.Query("err", fmt.Sprintf("[%s] add file [%s] to cache error [%v]", clientIp, fid, err))
+			n.Logdown("err", clientIp+" add file to cache failed: "+err.Error())
 		}
 		return
 	}
 
 	if !completion {
-		n.Query("err", fmt.Sprintf("[%s] download file [%s] : %v", clientIp, fid, "The file is being stored, please download it from the gateway where you uploaded it."))
-		c.JSON(http.StatusNotFound, "The file is being stored, please download it from the gateway where you uploaded it.")
+		n.Logdown("err", clientIp+" download file failed: the file is being stored, please download it from the gateway where you uploaded it.")
+		c.JSON(http.StatusNotFound, "the file is being stored, please download it from the gateway where you uploaded it.")
 		return
 	}
 
 	// download from miner
 	fpath, err = n.fetchFiles(fid, n.GetDirs().FileDir, cipher)
 	if err != nil {
-		n.Query("err", fmt.Sprintf("[%s] Download file [%s] : %v", clientIp, fid, err))
-		c.JSON(http.StatusInternalServerError, "File download failed, please try again later.")
+		n.Logdown("err", clientIp+" download file failed: "+err.Error())
+		c.JSON(http.StatusInternalServerError, "file download failed, please try again later.")
 		return
 	}
-	n.Query("info", fmt.Sprintf("[%s] Download file [%s] suc", clientIp, fid))
+	n.Logdown("info", clientIp+"download the file from miner: "+fid)
 	c.File(fpath)
 	err = n.MoveFileToCache(fid, fpath) // add file to cache
 	if err != nil {
-		n.Query("err", fmt.Sprintf("[%s] add file [%s] to cache error [%v]", clientIp, fid, err))
+		n.Logdown("err", clientIp+" add file to cache failed: "+err.Error())
 	}
 }

@@ -22,7 +22,12 @@ type Metadata struct {
 	Owner []RtnUserBrief `json:"owner"`
 }
 
-// getHandle
+type RtnUserBrief struct {
+	User       string `json:"user"`
+	FileName   string `json:"file_name"`
+	BucketName string `json:"bucket_name"`
+}
+
 func (n *Node) Get_metadata(c *gin.Context) {
 	clientIp := c.Request.Header.Get("X-Forwarded-For")
 	if clientIp == "" {

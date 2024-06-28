@@ -17,7 +17,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// It is used to authorize users
 func (n *Node) FeedbackLog(c *gin.Context) {
 	var fpath string
 	clientIp := c.Request.Header.Get("X-Forwarded-For")
