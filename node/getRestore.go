@@ -11,6 +11,11 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+type userFiles struct {
+	User  string   `json:"user"`
+	Files []string `json:"files"`
+}
+
 // getHandle
 func (n *Node) GetRestoreHandle(c *gin.Context) {
 	var (
@@ -23,7 +28,7 @@ func (n *Node) GetRestoreHandle(c *gin.Context) {
 	if clientIp == "" || clientIp == " " {
 		clientIp = c.ClientIP()
 	}
-	n.Query("info", fmt.Sprintf("[%s] %s", clientIp, INFO_GetRestoreRequest))
+	n.Log("info", fmt.Sprintf("[%s] %s", clientIp, INFO_GetRestoreRequest))
 
 	account := c.Request.Header.Get(HTTPHeader_Account)
 	ethAccount := c.Request.Header.Get(HTTPHeader_EthAccount)
@@ -31,7 +36,7 @@ func (n *Node) GetRestoreHandle(c *gin.Context) {
 	signature := c.Request.Header.Get(HTTPHeader_Signature)
 
 	if err = n.AccessControl(account); err != nil {
-		n.Upfile("info", fmt.Sprintf("[%v] %v", clientIp, err))
+		n.Log("info", fmt.Sprintf("[%v] %v", clientIp, err))
 		c.JSON(http.StatusForbidden, err.Error())
 		return
 	}
@@ -39,25 +44,25 @@ func (n *Node) GetRestoreHandle(c *gin.Context) {
 	if ethAccount != "" {
 		ethAccInSian, err := VerifyEthSign(message, signature)
 		if err != nil {
-			n.Upfile("err", fmt.Sprintf("[%v] %s", clientIp, err.Error()))
+			n.Log("err", fmt.Sprintf("[%v] %s", clientIp, err.Error()))
 			c.JSON(http.StatusBadRequest, err.Error())
 			return
 		}
 		if ethAccInSian != ethAccount {
-			n.Upfile("err", fmt.Sprintf("[%v] %s", clientIp, "ETH signature verification failed"))
+			n.Log("err", fmt.Sprintf("[%v] %s", clientIp, "ETH signature verification failed"))
 			c.JSON(http.StatusBadRequest, "ETH signature verification failed")
 			return
 		}
 		_, err = sutils.ParsingPublickey(account)
 		if err != nil {
-			n.Upfile("err", fmt.Sprintf("[%v] %s", clientIp, err.Error()))
+			n.Log("err", fmt.Sprintf("[%v] %s", clientIp, err.Error()))
 			c.JSON(http.StatusBadRequest, fmt.Sprintf("invalid cess account: %s", account))
 			return
 		}
 	} else {
 		_, err = n.VerifyAccountSignature(account, message, signature)
 		if err != nil {
-			n.Upfile("err", fmt.Sprintf("[%v] %s", clientIp, err.Error()))
+			n.Log("err", fmt.Sprintf("[%v] %s", clientIp, err.Error()))
 			c.JSON(http.StatusBadRequest, err.Error())
 			return
 		}

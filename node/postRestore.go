@@ -7,9 +7,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"strconv"
 
-	"github.com/CESSProject/cess-go-sdk/chain"
 	sconfig "github.com/CESSProject/cess-go-sdk/config"
 	sutils "github.com/CESSProject/cess-go-sdk/utils"
 	"github.com/gin-gonic/gin"
@@ -25,16 +23,17 @@ func (n *Node) RestoreFile(c *gin.Context) {
 	if clientIp == "" || clientIp == " " {
 		clientIp = c.ClientIP()
 	}
-	n.Query("info", fmt.Sprintf("[%s] %s", clientIp, INFO_PostRestoreRequest))
+	n.Log("info", fmt.Sprintf("[%s] %s", clientIp, INFO_PostRestoreRequest))
 	var err error
 	var pkey []byte
 	account := c.Request.Header.Get(HTTPHeader_Account)
+	territoryName := c.Request.Header.Get(HTTPHeader_Territory)
 	ethAccount := c.Request.Header.Get(HTTPHeader_EthAccount)
 	message := c.Request.Header.Get(HTTPHeader_Message)
 	signature := c.Request.Header.Get(HTTPHeader_Signature)
 
 	if err = n.AccessControl(account); err != nil {
-		n.Upfile("info", fmt.Sprintf("[%v] %v", clientIp, err))
+		n.Log("info", fmt.Sprintf("[%v] %v", clientIp, err))
 		c.JSON(http.StatusForbidden, err.Error())
 		return
 	}
@@ -42,25 +41,25 @@ func (n *Node) RestoreFile(c *gin.Context) {
 	if ethAccount != "" {
 		ethAccInSian, err := VerifyEthSign(message, signature)
 		if err != nil {
-			n.Upfile("err", fmt.Sprintf("[%v] %s", clientIp, err.Error()))
+			n.Log("err", fmt.Sprintf("[%v] %s", clientIp, err.Error()))
 			c.JSON(http.StatusBadRequest, err.Error())
 			return
 		}
 		if ethAccInSian != ethAccount {
-			n.Upfile("err", fmt.Sprintf("[%v] %s", clientIp, "ETH signature verification failed"))
+			n.Log("err", fmt.Sprintf("[%v] %s", clientIp, "ETH signature verification failed"))
 			c.JSON(http.StatusBadRequest, "ETH signature verification failed")
 			return
 		}
 		pkey, err = sutils.ParsingPublickey(account)
 		if err != nil {
-			n.Upfile("err", fmt.Sprintf("[%v] %s", clientIp, err.Error()))
+			n.Log("err", fmt.Sprintf("[%v] %s", clientIp, err.Error()))
 			c.JSON(http.StatusBadRequest, fmt.Sprintf("invalid cess account: %s", account))
 			return
 		}
 	} else {
 		pkey, err = n.VerifyAccountSignature(account, message, signature)
 		if err != nil {
-			n.Upfile("err", fmt.Sprintf("[%v] %s", clientIp, err.Error()))
+			n.Log("err", fmt.Sprintf("[%v] %s", clientIp, err.Error()))
 			c.JSON(http.StatusBadRequest, err.Error())
 			return
 		}
@@ -83,7 +82,7 @@ func (n *Node) RestoreFile(c *gin.Context) {
 	n.Log("info", fmt.Sprintf("[%v] restored files: %v", clientIp, restoreList.Files))
 
 	// verify the bucket name
-	bucketName := c.Request.Header.Get(HTTPHeader_BucketName)
+	bucketName := c.Request.Header.Get(HTTPHeader_Bucket)
 	if !sutils.CheckBucketName(bucketName) {
 		n.Log("info", fmt.Sprintf("[%v] %v", clientIp, ERR_HeaderFieldBucketName))
 		c.JSON(http.StatusBadRequest, ERR_HeaderFieldBucketName)
@@ -105,32 +104,6 @@ func (n *Node) RestoreFile(c *gin.Context) {
 		return
 	}
 
-	// verify user space
-	userInfo, err := n.QueryUserOwnedSpace(pkey, -1)
-	if err != nil {
-		if err.Error() == chain.ERR_Empty {
-			n.Log("info", fmt.Sprintf("[%v] %v", clientIp, ERR_AccountNotExist))
-			c.JSON(http.StatusForbidden, ERR_AccountNotExist)
-			return
-		}
-		n.Log("err", fmt.Sprintf("[%v] %v", clientIp, err))
-		c.JSON(http.StatusForbidden, ERR_RpcFailed)
-		return
-	}
-
-	blockheight, err := n.QueryBlockNumber("")
-	if err != nil {
-		n.Log("info", fmt.Sprintf("[%v] %v", clientIp, err))
-		c.JSON(http.StatusForbidden, ERR_RpcFailed)
-		return
-	}
-
-	if uint32(userInfo.Deadline) < (blockheight + 100) {
-		n.Log("info", fmt.Sprintf("[%v] %v [%d] [%d]", clientIp, ERR_SpaceExpiresSoon, userInfo.Deadline, blockheight))
-		c.JSON(http.StatusForbidden, ERR_SpaceExpiresSoon)
-		return
-	}
-
 	var allUsedSpace int64
 	var count int64
 	for i := 0; i < len(restoreList.Files); i++ {
@@ -146,17 +119,10 @@ func (n *Node) RestoreFile(c *gin.Context) {
 		allUsedSpace += (count * sconfig.SegmentSize)
 	}
 
-	usedSpace := allUsedSpace * 15 / 10
-	remainingSpace, err := strconv.ParseUint(userInfo.RemainingSpace.String(), 10, 64)
+	code, err := checkSapce(n, c, pkey, territoryName, allUsedSpace, 1000)
 	if err != nil {
-		n.Log("err", fmt.Sprintf("[%v] %v", clientIp, err))
-		c.JSON(http.StatusInternalServerError, ERR_InternalServer)
-		return
-	}
-
-	if usedSpace > int64(remainingSpace) {
-		n.Log("info", fmt.Sprintf("[%v] %v", clientIp, ERR_NotEnoughSpace))
-		c.JSON(http.StatusForbidden, ERR_NotEnoughSpace)
+		n.Log("info", fmt.Sprintf("[%v] %v", clientIp, ERR_AccountNotExist))
+		c.JSON(code, err)
 		return
 	}
 
@@ -166,15 +132,14 @@ func (n *Node) RestoreFile(c *gin.Context) {
 			continue
 		}
 		var recordInfo = &RecordInfo{
-			SegmentInfo: nil,
-			Owner:       pkey,
-			Roothash:    restoreList.Files[i],
-			Filename:    "empty",
-			Buckname:    bucketName,
-			Filesize:    uint64(fstat.Size()),
-			Putflag:     false,
-			Count:       0,
-			Duplicate:   false,
+			Segment:       nil,
+			Owner:         pkey,
+			Fid:           restoreList.Files[i],
+			FileName:      "empty",
+			BucketName:    bucketName,
+			TerritoryName: territoryName,
+			FileSize:      uint64(fstat.Size()),
+			PutFlag:       false,
 		}
 
 		b, err := json.Marshal(recordInfo)

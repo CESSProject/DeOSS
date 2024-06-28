@@ -32,10 +32,10 @@ type RecordInfo struct {
 	FileName      string                  `json:"file_name"`
 	BucketName    string                  `json:"bucket_name"`
 	TerritoryName string                  `json:"territory_name"`
+	CacheDir      string                  `json:"cache_dir"`
+	Cipher        string                  `json:"cipher"`
 	FileSize      uint64                  `json:"file_size"`
-	//Count         uint8                   `json:"count"`
-	PutFlag bool `json:"put_flag"`
-	// Duplicate bool `json:"duplicate"`
+	PutFlag       bool                    `json:"put_flag"`
 }
 
 // MinRecordInfoLength = len(json.Marshal(RecordInfo{}))
@@ -116,14 +116,12 @@ func (n *Node) trackFile(trackfile string) error {
 		if err != nil {
 			if err.Error() != chain.ERR_Empty {
 				time.Sleep(time.Second * chain.BlockInterval)
-				return errors.Wrapf(err, "[%s] [QueryFileMetadata]", roothash)
+				return errors.Wrapf(err, "[%s] [QueryFile]", roothash)
 			}
 		} else {
 			n.Logtrack("info", fmt.Sprintf("[%s] storage successful", roothash))
-			if len(recordFile.SegmentInfo) > 0 {
-				baseDir := filepath.Dir(recordFile.SegmentInfo[0].SegmentHash)
-				//os.Rename(filepath.Join(baseDir, roothash), filepath.Join(n.GetDirs().FileDir, roothash))
-				os.RemoveAll(filepath.Join(n.GetDirs().FileDir, roothash))
+			if len(recordFile.Segment) > 0 {
+				baseDir := filepath.Dir(recordFile.Segment[0].FragmentHash[0])
 				os.RemoveAll(baseDir)
 			}
 			n.DeleteTrackFile(roothash) // if storage successfully ,remove track file
@@ -135,8 +133,7 @@ func (n *Node) trackFile(trackfile string) error {
 			if err.Error() != chain.ERR_Empty {
 				return errors.Wrapf(err, "[%s] [QueryStorageOrder]", roothash)
 			}
-			recordFile.Putflag = false
-			recordFile.Count = 0
+			recordFile.PutFlag = false
 			b, err := json.Marshal(&recordFile)
 			if err != nil {
 				return errors.Wrapf(err, "[%s] [json.Marshal]", roothash)
@@ -161,8 +158,8 @@ func (n *Node) trackFile(trackfile string) error {
 				}
 			}
 			if !flag {
-				if len(recordFile.SegmentInfo) > 0 {
-					baseDir := filepath.Dir(recordFile.SegmentInfo[0].SegmentHash)
+				if len(recordFile.Segment) > 0 {
+					baseDir := filepath.Dir(recordFile.Segment[0].FragmentHash[0])
 					os.RemoveAll(baseDir)
 				}
 				n.DeleteTrackFile(roothash)
@@ -170,13 +167,14 @@ func (n *Node) trackFile(trackfile string) error {
 				return errors.Errorf("[%s] user [%s] deauthorization", roothash, user)
 			}
 
-			txhash, err := n.GenerateStorageOrder(
+			txhash, err := n.PlaceStorageOrder(
 				roothash,
-				recordFile.SegmentInfo,
+				recordFile.FileName,
+				recordFile.BucketName,
+				recordFile.TerritoryName,
+				recordFile.Segment,
 				recordFile.Owner,
-				recordFile.Filename,
-				recordFile.Buckname,
-				recordFile.Filesize,
+				recordFile.FileSize,
 			)
 			if err != nil {
 				return errors.Wrapf(err, "[%s] [%s] [GenerateStorageOrder]", txhash, roothash)
@@ -189,67 +187,24 @@ func (n *Node) trackFile(trackfile string) error {
 			}
 		}
 
-		if roothash != recordFile.Roothash {
+		if roothash != recordFile.Fid {
 			n.DeleteTrackFile(roothash)
-			return errors.Errorf("[%s] Recorded filehash [%s] error", roothash, recordFile.Roothash)
+			n.Logtrack("info", fmt.Sprintf("[%s] invalid track file: %s", roothash, recordFile.Fid))
+			return errors.Errorf("[%s] Recorded filehash [%s] error", roothash, recordFile.Fid)
 		}
 
-		// if recordFile.Putflag {
-		// 	if storageorder.AssignedMiner != nil {
-		// 		if uint8(storageorder.Count) == recordFile.Count {
-		// 			return nil
-		// 		}
-		// 	}
-		// }
-
-		if recordFile.Duplicate {
-			_, err = n.QueryFile(roothash, -1)
-			if err == nil {
-				_, err = n.GenerateStorageOrder(recordFile.Roothash, nil, recordFile.Owner, recordFile.Filename, recordFile.Buckname, recordFile.Filesize)
-				if err != nil {
-					return errors.Wrapf(err, " [%s] [GenerateStorageOrder]", roothash)
-				}
-				if len(recordFile.SegmentInfo) > 0 {
-					baseDir := filepath.Dir(recordFile.SegmentInfo[0].SegmentHash)
-					os.Rename(filepath.Join(baseDir, roothash), filepath.Join(n.GetDirs().FileDir, roothash))
-					os.RemoveAll(baseDir)
-				}
-				n.DeleteTrackFile(roothash)
-				n.Logtrack("info", fmt.Sprintf("[%s] Duplicate file declaration suc", roothash))
-				return nil
-			}
-			storageOrder, err = n.QueryDealMap(recordFile.Roothash, -1)
+		if recordFile.Segment == nil {
+			resegmentInfo, reHash, err := process.FullProcessing(filepath.Join(n.GetDirs().FileDir, roothash), recordFile.Cipher, recordFile.CacheDir)
 			if err != nil {
-				if err.Error() != chain.ERR_Empty {
-					return errors.Wrapf(err, "[%s] [QueryStorageOrder]", roothash)
-				}
-				n.Logtrack("info", fmt.Sprintf("[%s] Duplicate file become primary file", roothash))
-				recordFile.Duplicate = false
-				recordFile.Putflag = false
-				b, err := json.Marshal(&recordFile)
-				if err != nil {
-					return errors.Wrapf(err, "[%s] [json.Marshal]", roothash)
-				}
-				err = n.WriteTrackFile(roothash, b)
-				if err != nil {
-					return errors.Wrapf(err, "[%s] [WriteTrackFile]", roothash)
-				}
-			}
-			return nil
-		}
-
-		if recordFile.SegmentInfo == nil {
-			resegmentInfo, reHash, err := process.ShardedEncryptionProcessing(filepath.Join(n.GetDirs().FileDir, roothash), "")
-			if err != nil {
-				return errors.Wrapf(err, "[ShardedEncryptionProcessing]")
+				return errors.Wrapf(err, "[FullProcessing]")
 			}
 			if reHash != roothash {
 				return errors.Wrapf(err, "The re-stored file hash is not consistent, please store it separately and specify the original encryption key.")
 			}
-			recordFile.SegmentInfo = resegmentInfo
+			recordFile.Segment = resegmentInfo
 		}
 
-		err = n.storageData(recordFile.Roothash, recordFile.SegmentInfo, storageOrder.CompleteList)
+		err = n.storageData(recordFile.Fid, recordFile.Segment, storageOrder.CompleteList)
 		n.FlushlistedPeerNodes(5*time.Second, n.GetDHTable()) //refresh the user-configured storage node list
 		if err != nil {
 			n.Logtrack("err", err.Error())

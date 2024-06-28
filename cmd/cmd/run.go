@@ -461,7 +461,6 @@ func buildHttpServer(n *node.Node) (*http.Server, error) {
 	ginsrv.POST("/feedback/log", n.FeedbackLog)
 	ginsrv.POST("/restore", n.RestoreFile)
 
-	ginsrv.GET(fmt.Sprintf("/:%s", node.HTTP_ParameterName), n.GetHandle)
 	ginsrv.GET("/restore", n.GetRestoreHandle)
 	ginsrv.GET("/version", n.Get_version)
 	ginsrv.GET("/bucket", n.Get_bucket)
@@ -475,9 +474,8 @@ func buildHttpServer(n *node.Node) (*http.Server, error) {
 	ginsrv.PUT("/object", n.Put_object)
 	ginsrv.PUT("/chunks", n.PutChunksHandle)
 
-	ginsrv.DELETE(fmt.Sprintf("/file/:%s", node.HTTP_ParameterName), n.DelHandle)
-	ginsrv.DELETE(fmt.Sprintf("/bucket/:%s", node.HTTP_ParameterName), n.DelHandle)
-	ginsrv.DELETE("/", n.DelHandle)
+	ginsrv.DELETE(fmt.Sprintf("/file/:%s", node.HTTP_ParameterName), n.Delete_file)
+	ginsrv.DELETE(fmt.Sprintf("/bucket/:%s", node.HTTP_ParameterName), n.Delete_bucket)
 
 	ginsrv.GET("/404", n.NotFoundHandler)
 

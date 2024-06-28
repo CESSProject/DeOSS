@@ -152,7 +152,7 @@ func (n *Node) Put_file(c *gin.Context) {
 		return
 	}
 
-	code, err = saveToTrackFile(n, fid, filename, bucketName, territoryName, segment, pkey, uint64(contentLength))
+	code, err = saveToTrackFile(n, fid, filename, bucketName, territoryName, cacheDir, cipher, segment, pkey, uint64(contentLength))
 	if err != nil {
 		n.Logput("err", clientIp+" saveToTrackFile: "+err.Error())
 		c.JSON(code, err)

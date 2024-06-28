@@ -147,7 +147,7 @@ func (n *Node) Put_object(c *gin.Context) {
 		return
 	}
 
-	code, err = saveToTrackFile(n, fid, filename, bucketName, territoryName, segmentInfo, pkey, uint64(contentLength))
+	code, err = saveToTrackFile(n, fid, filename, bucketName, territoryName, cacheDir, cipher, segmentInfo, pkey, uint64(contentLength))
 	if err != nil {
 		n.Logput("err", clientIp+" saveToTrackFile: "+err.Error())
 		c.JSON(code, err)
@@ -201,7 +201,7 @@ func checkDuplicates(n *Node, fid string, pkey []byte) (DuplicateType, int, erro
 	return Duplicate1, http.StatusOK, nil
 }
 
-func saveToTrackFile(n *Node, fid, file_name, bucket_name, territory_name string, segment []chain.SegmentDataInfo, pkey []byte, size uint64) (int, error) {
+func saveToTrackFile(n *Node, fid, file_name, bucket_name, territory_name, cacheDir, cipher string, segment []chain.SegmentDataInfo, pkey []byte, size uint64) (int, error) {
 	var recordInfo = &RecordInfo{
 		Segment:       segment,
 		Owner:         pkey,
@@ -209,6 +209,8 @@ func saveToTrackFile(n *Node, fid, file_name, bucket_name, territory_name string
 		FileName:      file_name,
 		BucketName:    bucket_name,
 		TerritoryName: territory_name,
+		CacheDir:      cacheDir,
+		Cipher:        cipher,
 		FileSize:      size,
 		PutFlag:       false,
 	}

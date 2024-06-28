@@ -9,13 +9,30 @@ package node
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
 
 	"github.com/CESSProject/cess-go-sdk/chain"
+	sconfig "github.com/CESSProject/cess-go-sdk/config"
+	"github.com/CESSProject/cess-go-sdk/core/erasure"
+	sutils "github.com/CESSProject/cess-go-sdk/utils"
 	"github.com/gin-gonic/gin"
+	"github.com/mr-tron/base58"
+	"github.com/pkg/errors"
 )
+
+const max_concurrent_get = 30
+
+var max_concurrent_get_ch chan bool
+
+func init() {
+	max_concurrent_get_ch = make(chan bool, max_concurrent_get)
+	for i := 0; i < max_concurrent_get; i++ {
+		max_concurrent_get_ch <- true
+	}
+}
 
 func (n *Node) Download_file(c *gin.Context) {
 	if _, ok := <-max_concurrent_get_ch; !ok {
@@ -129,4 +146,111 @@ func (n *Node) Download_file(c *gin.Context) {
 	if err != nil {
 		n.Logdown("err", clientIp+" add file to cache failed: "+err.Error())
 	}
+}
+
+func (n *Node) fetchFiles(roothash, dir, cipher string) (string, error) {
+	var (
+		acc string
+	)
+	userfile := filepath.Join(dir, roothash)
+	_, err := os.Stat(userfile)
+	if err == nil {
+		return userfile, nil
+	}
+	os.MkdirAll(dir, 0755)
+	f, err := os.Create(userfile)
+	if err != nil {
+		return "", err
+	}
+	defer f.Close()
+
+	fmeta, err := n.QueryFile(roothash, -1)
+	if err != nil {
+		return "", err
+	}
+
+	for _, v := range fmeta.Owner {
+		acc, err = sutils.EncodePublicKeyAsCessAccount(v.User[:])
+		if err != nil {
+			continue
+		}
+		_, err = os.Stat(filepath.Join(n.GetDirs().FileDir, acc, roothash, roothash))
+		if err == nil {
+			return filepath.Join(n.GetDirs().FileDir, acc, roothash, roothash), nil
+		}
+	}
+
+	defer func(basedir string) {
+		for _, segment := range fmeta.SegmentList {
+			os.Remove(filepath.Join(basedir, string(segment.Hash[:])))
+			for _, fragment := range segment.FragmentList {
+				os.Remove(filepath.Join(basedir, string(fragment.Hash[:])))
+			}
+		}
+	}(dir)
+
+	var segmentspath = make([]string, 0)
+	fragmentpaths := make([]string, sconfig.DataShards+sconfig.ParShards)
+
+	for _, segment := range fmeta.SegmentList {
+		for k, fragment := range segment.FragmentList {
+			fragmentpath := filepath.Join(dir, string(fragment.Hash[:]))
+			fragmentpaths[k] = fragmentpath
+			if string(fragment.Hash[:]) != "080acf35a507ac9849cfcba47dc2ad83e01b75663a516279c8b9d243b719643e" {
+				miner, err := n.QueryMinerItems(fragment.Miner[:], -1)
+				if err != nil {
+					return "", err
+				}
+				peerid := base58.Encode([]byte(string(miner.PeerId[:])))
+				addr, err := n.GetPeer(peerid)
+				if err != nil {
+					continue
+				}
+				err = n.Connect(context.TODO(), addr)
+				if err != nil {
+					continue
+				}
+				err = n.ReadFileAction(addr.ID, roothash, string(fragment.Hash[:]), fragmentpath, sconfig.FragmentSize)
+				if err != nil {
+					continue
+				}
+			} else {
+				_, err = os.Stat(fragmentpath)
+				if err != nil {
+					ff, _ := os.Create(fragmentpath)
+					ff.Write(make([]byte, sconfig.FragmentSize))
+					ff.Close()
+				}
+			}
+		}
+		segmentpath := filepath.Join(dir, string(segment.Hash[:]))
+		err = erasure.RSRestore(segmentpath, fragmentpaths)
+		if err != nil {
+			return "", err
+		}
+		segmentspath = append(segmentspath, segmentpath)
+	}
+
+	if len(segmentspath) != len(fmeta.SegmentList) {
+		return "", errors.New("download failed")
+	}
+	var writecount = 0
+	for i := 0; i < len(segmentspath); i++ {
+		buf, err := os.ReadFile(segmentspath[i])
+		if err != nil {
+			fmt.Println("segmentspath not equal fmeta segmentspath")
+			os.Exit(0)
+		}
+		if (writecount + 1) >= len(fmeta.SegmentList) {
+			f.Write(buf[:(fmeta.FileSize.Uint64() - uint64(writecount*sconfig.SegmentSize))])
+		} else {
+			f.Write(buf)
+		}
+		writecount++
+	}
+	if writecount != len(fmeta.SegmentList) {
+		return "", errors.New("write failed")
+	}
+
+	return userfile, nil
 }
