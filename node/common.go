@@ -253,8 +253,9 @@ func (n *Node) verifySR25519Signature(account, message, signature string) ([]byt
 
 func (n *Node) AccessControl(account string) error {
 	if account == "" {
-		return errors.New("missing CESS account")
+		return errors.New("missing account in header")
 	}
+
 	err := sutils.VerityAddress(account, sutils.CessPrefix)
 	if err != nil {
 		return fmt.Errorf("%s is not a CESS account, no permissions", account)

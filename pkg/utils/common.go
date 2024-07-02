@@ -16,6 +16,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"runtime/debug"
+	"strings"
 
 	"github.com/pkg/errors"
 	"github.com/shirou/gopsutil/disk"
@@ -31,6 +32,16 @@ func RecoverError(err interface{}) string {
 		fmt.Fprintf(buf, "%v\n", string(debug.Stack()))
 	}
 	return buf.String()
+}
+
+func StringBuilder(cap int, p ...string) string {
+	var b strings.Builder
+	b.Grow(cap)
+	l := len(p)
+	for i := 0; i < l; i++ {
+		b.WriteString(" " + p[i])
+	}
+	return b.String()
 }
 
 // InterfaceIsNIL returns the comparison between i and nil

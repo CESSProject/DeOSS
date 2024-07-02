@@ -8,11 +8,11 @@
 package node
 
 import (
-	"fmt"
 	"math"
-	"math/big"
+	"strconv"
 	"time"
 
+	"github.com/CESSProject/cess-go-sdk/chain"
 	schain "github.com/CESSProject/cess-go-sdk/chain"
 	sconfig "github.com/CESSProject/cess-go-sdk/config"
 	"github.com/CESSProject/p2p-go/out"
@@ -23,19 +23,22 @@ func (n *Node) TaskMgt() {
 	var (
 		err             error
 		ch_trackFile    = make(chan bool, 1)
-		ch_sdkMgt       = make(chan bool, 1)
 		ch_refreshMiner = make(chan bool, 1)
 	)
 
-	go n.refreshMiner(ch_refreshMiner)
-	go n.tracker(ch_trackFile)
-	go n.sdkMgt(ch_sdkMgt)
+	ch_trackFile <- true
 
-	task_block := time.NewTicker(time.Duration(time.Second * 6))
+	task_block := time.NewTicker(time.Duration(time.Second * 27))
 	defer task_block.Stop()
 
-	task_Minute := time.NewTicker(time.Duration(time.Second * 57))
+	task_Minute := time.NewTicker(time.Duration(time.Second * 59))
 	defer task_Minute.Stop()
+
+	task_Hour := time.NewTicker(time.Duration(time.Second * 3599))
+	defer task_Hour.Stop()
+
+	go n.RefreshMiner(ch_refreshMiner)
+
 	count := 0
 	chainState := true
 	for {
@@ -56,42 +59,26 @@ func (n *Node) TaskMgt() {
 			}
 
 		case <-task_Minute.C:
-			err := n.refreshSelf()
+			if len(ch_trackFile) > 0 {
+				<-ch_trackFile
+				go n.Tracker(ch_trackFile)
+			}
+
+			err := n.RefreshSelf()
 			if err != nil {
 				n.Log("err", err.Error())
 			}
 
-		case <-ch_trackFile:
-			go n.tracker(ch_trackFile)
-
-		default:
-			if time.Now().Hour()%5 == 0 {
-				if len(ch_refreshMiner) > 0 {
-					<-ch_refreshMiner
-					go n.refreshMiner(ch_refreshMiner)
-				}
+		case <-task_Hour.C:
+			if len(ch_refreshMiner) > 0 {
+				<-ch_refreshMiner
+				go n.RefreshMiner(ch_refreshMiner)
 			}
 		}
 	}
 }
 
-func (n *Node) connectChain() error {
-	var err error
-	if !n.GetRpcState() {
-		n.Log("err", fmt.Sprintf("[%s] %v", n.GetCurrentRpcAddr(), schain.ERR_RPC_CONNECTION))
-		out.Err(fmt.Sprintf("[%s] %v", n.GetCurrentRpcAddr(), schain.ERR_RPC_CONNECTION))
-		err = n.ReconnectRpc()
-		if err != nil {
-			return err
-		}
-		out.Tip(fmt.Sprintf("[%s] rpc reconnection successful", n.GetCurrentRpcAddr()))
-		n.Log("info", fmt.Sprintf("[%s] rpc reconnection successful", n.GetCurrentRpcAddr()))
-		n.SetRpcState(true)
-	}
-	return nil
-}
-
-func (n *Node) refreshMiner(ch chan<- bool) {
+func (n *Node) RefreshMiner(ch chan<- bool) {
 	defer func() { ch <- true }()
 	sminerList, err := n.QueryAllMiner(-1)
 	if err == nil {
@@ -109,22 +96,24 @@ func (n *Node) refreshMiner(ch chan<- bool) {
 	}
 }
 
-func (n *Node) refreshSelf() error {
+func (n *Node) RefreshSelf() error {
 	accInfo, err := n.QueryAccountInfoByAccountID(n.GetSignatureAccPulickey(), -1)
 	if err != nil {
 		return err
 	}
-	if len(accInfo.Data.Free.Bytes()) <= 0 {
+
+	free := accInfo.Data.Free.String()
+	if len(free) <= len(chain.TokenPrecision_CESS) {
 		n.SetBalances(0)
-	} else {
-		free_bi, _ := new(big.Int).SetString(accInfo.Data.Free.String(), 10)
-		minBanlance_bi, _ := new(big.Int).SetString(schain.MinTransactionBalance, 10)
-		free_bi = free_bi.Div(free_bi, minBanlance_bi)
-		if free_bi.IsUint64() {
-			n.SetBalances(free_bi.Uint64())
-		} else {
-			n.SetBalances(math.MaxUint64)
-		}
+		return nil
 	}
+
+	free = free[:len(free)-len(chain.TokenPrecision_CESS)]
+	free_uint, err := strconv.ParseUint(free, 10, 64)
+	if err != nil {
+		n.SetBalances(math.MaxUint64)
+		return nil
+	}
+	n.SetBalances(free_uint)
 	return nil
 }

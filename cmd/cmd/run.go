@@ -9,6 +9,7 @@ package cmd
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"time"
@@ -42,10 +43,7 @@ func cmd_run_func(cmd *cobra.Command, args []string) {
 		dbDir        string
 		trackDir     string
 		fadebackDir  string
-		ufileDir     string
-		dfileDir     string
 		syncSt       chain.SysSyncState
-		peerRecord   = node.NewPeerRecord()
 		n            = node.New()
 	)
 	ctx := cmd.Context()
@@ -82,6 +80,12 @@ func cmd_run_func(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 	defer n.ChainClient.Close()
+
+	err = n.InitExtrinsicsName()
+	if err != nil {
+		log.Println("The rpc address does not match the software version, please check the rpc address.")
+		os.Exit(1)
+	}
 
 	for {
 		syncSt, err = n.SystemSyncState()
@@ -123,7 +127,7 @@ func cmd_run_func(cmd *cobra.Command, args []string) {
 		ctx, n.PeerNode.GetHost(),
 		n.PeerNode.GetBootnode(),
 		func(p peer.AddrInfo) {
-			peerRecord.SavePeer(p)
+			n.SavePeer(p)
 			if n.HasStoragePeer(p.ID.String()) {
 				n.FlushPeerNodes(scheduler.DEFAULT_TIMEOUT, p)
 			}
@@ -152,15 +156,13 @@ func cmd_run_func(cmd *cobra.Command, args []string) {
 		}
 	}
 
-	logDir, dbDir, trackDir, fadebackDir, ufileDir, dfileDir, err = buildDir(n.Workspace())
+	logDir, dbDir, trackDir, fadebackDir, err = buildDir(n.Workspace())
 	if err != nil {
 		out.Err(err.Error())
 		os.Exit(1)
 	}
 	n.SetTrackDir(trackDir)
 	n.SetFadebackDir(fadebackDir)
-	n.SetUfileDir(ufileDir)
-	n.SetDfileDir(dfileDir)
 
 	//init DeOSS extension components
 	cacheDir := n.Confile.GetCacheDir()
@@ -198,10 +200,8 @@ func cmd_run_func(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
-	n.PeerRecord = peerRecord
 	out.Tip(n.Workspace())
 
-	// run
 	n.Run()
 }
 
@@ -364,42 +364,42 @@ func buildAuthenticationConfig(cmd *cobra.Command) (confile.Confile, error) {
 	return cfg, nil
 }
 
-func buildDir(workspace string) (string, string, string, string, string, string, error) {
+func buildDir(workspace string) (string, string, string, string, error) {
 	logDir := filepath.Join(workspace, configs.Log)
 	if err := os.MkdirAll(logDir, 0755); err != nil {
-		return "", "", "", "", "", "", err
+		return "", "", "", "", err
 	}
 
 	cacheDir := filepath.Join(workspace, configs.Db)
 	if err := os.MkdirAll(cacheDir, 0755); err != nil {
-		return "", "", "", "", "", "", err
+		return "", "", "", "", err
 	}
 
 	trackDir := filepath.Join(workspace, configs.Track)
 	if err := os.MkdirAll(trackDir, 0755); err != nil {
-		return "", "", "", "", "", "", err
+		return "", "", "", "", err
 	}
 
 	feedbackDir := filepath.Join(workspace, configs.Feedback)
 	if err := os.MkdirAll(feedbackDir, 0755); err != nil {
-		return "", "", "", "", "", "", err
+		return "", "", "", "", err
 	}
 
 	ufileDir := filepath.Join(workspace, configs.Ufile)
 	if err := os.MkdirAll(ufileDir, 0755); err != nil {
-		return "", "", "", "", "", "", err
+		return "", "", "", "", err
 	}
 	dfileDir := filepath.Join(workspace, configs.Dfile)
 	if err := os.MkdirAll(dfileDir, 0755); err != nil {
-		return "", "", "", "", "", "", err
+		return "", "", "", "", err
 	}
 
 	//make file cache dir
 	fileCache := filepath.Join(workspace, configs.FILE_CACHE)
 	if err := os.MkdirAll(fileCache, 0755); err != nil {
-		return "", "", "", "", "", "", err
+		return "", "", "", "", err
 	}
-	return logDir, cacheDir, trackDir, feedbackDir, ufileDir, dfileDir, nil
+	return logDir, cacheDir, trackDir, feedbackDir, nil
 }
 
 func buildCache(cacheDir string) (db.Cache, error) {

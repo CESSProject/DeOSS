@@ -26,22 +26,23 @@ import (
 )
 
 type RecordInfo struct {
-	SegmentInfo []chain.SegmentDataInfo `json:"segmentInfo"`
-	Owner       []byte                  `json:"owner"`
-	Roothash    string                  `json:"roothash"`
-	Filename    string                  `json:"filename"`
-	Buckname    string                  `json:"buckname"`
-	Filesize    uint64                  `json:"filesize"`
-	Putflag     bool                    `json:"putflag"`
-	Count       uint8                   `json:"count"`
-	Duplicate   bool                    `json:"duplicate"`
+	Segment       []chain.SegmentDataInfo `json:"segment"`
+	Owner         []byte                  `json:"owner"`
+	Fid           string                  `json:"fid"`
+	FileName      string                  `json:"file_name"`
+	BucketName    string                  `json:"bucket_name"`
+	TerritoryName string                  `json:"territory_name"`
+	CacheDir      string                  `json:"cache_dir"`
+	Cipher        string                  `json:"cipher"`
+	FileSize      uint64                  `json:"file_size"`
+	PutFlag       bool                    `json:"put_flag"`
 }
 
 // MinRecordInfoLength = len(json.Marshal(RecordInfo{}))
 const MinRecordInfoLength = 132
 
 // tracker
-func (n *Node) tracker(ch chan<- bool) {
+func (n *Node) Tracker(ch chan<- bool) {
 	defer func() {
 		ch <- true
 		if err := recover(); err != nil {
@@ -49,7 +50,7 @@ func (n *Node) tracker(ch chan<- bool) {
 		}
 	}()
 
-	n.Track("info", ">>>>> start tracker <<<<<")
+	n.Logtrack("info", ">>>>> start tracker <<<<<")
 
 	var err error
 	var processNum int
@@ -58,7 +59,7 @@ func (n *Node) tracker(ch chan<- bool) {
 	for {
 		trackFiles, err = n.ListTrackFiles()
 		if err != nil {
-			n.Track("err", err.Error())
+			n.Logtrack("err", err.Error())
 			time.Sleep(chain.BlockInterval)
 			continue
 		}
@@ -77,7 +78,7 @@ func (n *Node) tracker(ch chan<- bool) {
 				if err != nil {
 					continue
 				}
-				n.Track("info", fmt.Sprintf("start track file: %s", filepath.Base(v)))
+				n.Logtrack("info", fmt.Sprintf("start track file: %s", filepath.Base(v)))
 				go func(file string) { n.trackFileThread(file) }(v)
 				time.Sleep(chain.BlockInterval)
 			}
@@ -92,9 +93,9 @@ func (n *Node) trackFileThread(trackFile string) {
 	}()
 	err := n.trackFile(trackFile)
 	if err != nil {
-		n.Track("err", err.Error())
+		n.Logtrack("err", err.Error())
 	}
-	n.Track("info", fmt.Sprintf("end track file: %s", filepath.Base(trackFile)))
+	n.Logtrack("info", fmt.Sprintf("end track file: %s", filepath.Base(trackFile)))
 }
 
 func (n *Node) trackFile(trackfile string) error {
@@ -115,14 +116,12 @@ func (n *Node) trackFile(trackfile string) error {
 		if err != nil {
 			if err.Error() != chain.ERR_Empty {
 				time.Sleep(time.Second * chain.BlockInterval)
-				return errors.Wrapf(err, "[%s] [QueryFileMetadata]", roothash)
+				return errors.Wrapf(err, "[%s] [QueryFile]", roothash)
 			}
 		} else {
-			n.Track("info", fmt.Sprintf("[%s] storage successful", roothash))
-			if len(recordFile.SegmentInfo) > 0 {
-				baseDir := filepath.Dir(recordFile.SegmentInfo[0].SegmentHash)
-				//os.Rename(filepath.Join(baseDir, roothash), filepath.Join(n.GetDirs().FileDir, roothash))
-				os.RemoveAll(filepath.Join(n.GetDirs().FileDir, roothash))
+			n.Logtrack("info", fmt.Sprintf("[%s] storage successful", roothash))
+			if len(recordFile.Segment) > 0 {
+				baseDir := filepath.Dir(recordFile.Segment[0].FragmentHash[0])
 				os.RemoveAll(baseDir)
 			}
 			n.DeleteTrackFile(roothash) // if storage successfully ,remove track file
@@ -134,8 +133,7 @@ func (n *Node) trackFile(trackfile string) error {
 			if err.Error() != chain.ERR_Empty {
 				return errors.Wrapf(err, "[%s] [QueryStorageOrder]", roothash)
 			}
-			recordFile.Putflag = false
-			recordFile.Count = 0
+			recordFile.PutFlag = false
 			b, err := json.Marshal(&recordFile)
 			if err != nil {
 				return errors.Wrapf(err, "[%s] [json.Marshal]", roothash)
@@ -160,8 +158,8 @@ func (n *Node) trackFile(trackfile string) error {
 				}
 			}
 			if !flag {
-				if len(recordFile.SegmentInfo) > 0 {
-					baseDir := filepath.Dir(recordFile.SegmentInfo[0].SegmentHash)
+				if len(recordFile.Segment) > 0 {
+					baseDir := filepath.Dir(recordFile.Segment[0].FragmentHash[0])
 					os.RemoveAll(baseDir)
 				}
 				n.DeleteTrackFile(roothash)
@@ -169,18 +167,19 @@ func (n *Node) trackFile(trackfile string) error {
 				return errors.Errorf("[%s] user [%s] deauthorization", roothash, user)
 			}
 
-			txhash, err := n.GenerateStorageOrder(
+			txhash, err := n.PlaceStorageOrder(
 				roothash,
-				recordFile.SegmentInfo,
+				recordFile.FileName,
+				recordFile.BucketName,
+				recordFile.TerritoryName,
+				recordFile.Segment,
 				recordFile.Owner,
-				recordFile.Filename,
-				recordFile.Buckname,
-				recordFile.Filesize,
+				recordFile.FileSize,
 			)
 			if err != nil {
 				return errors.Wrapf(err, "[%s] [%s] [GenerateStorageOrder]", txhash, roothash)
 			}
-			n.Track("info", fmt.Sprintf("[%s] GenerateStorageOrder: %s", roothash, txhash))
+			n.Logtrack("info", fmt.Sprintf("[%s] GenerateStorageOrder: %s", roothash, txhash))
 			time.Sleep(chain.BlockInterval * 3)
 			storageOrder, err = n.QueryDealMap(roothash, -1)
 			if err != nil {
@@ -188,73 +187,30 @@ func (n *Node) trackFile(trackfile string) error {
 			}
 		}
 
-		if roothash != recordFile.Roothash {
+		if roothash != recordFile.Fid {
 			n.DeleteTrackFile(roothash)
-			return errors.Errorf("[%s] Recorded filehash [%s] error", roothash, recordFile.Roothash)
+			n.Logtrack("info", fmt.Sprintf("[%s] invalid track file: %s", roothash, recordFile.Fid))
+			return errors.Errorf("[%s] Recorded filehash [%s] error", roothash, recordFile.Fid)
 		}
 
-		// if recordFile.Putflag {
-		// 	if storageorder.AssignedMiner != nil {
-		// 		if uint8(storageorder.Count) == recordFile.Count {
-		// 			return nil
-		// 		}
-		// 	}
-		// }
-
-		if recordFile.Duplicate {
-			_, err = n.QueryFile(roothash, -1)
-			if err == nil {
-				_, err = n.GenerateStorageOrder(recordFile.Roothash, nil, recordFile.Owner, recordFile.Filename, recordFile.Buckname, recordFile.Filesize)
-				if err != nil {
-					return errors.Wrapf(err, " [%s] [GenerateStorageOrder]", roothash)
-				}
-				if len(recordFile.SegmentInfo) > 0 {
-					baseDir := filepath.Dir(recordFile.SegmentInfo[0].SegmentHash)
-					os.Rename(filepath.Join(baseDir, roothash), filepath.Join(n.GetDirs().FileDir, roothash))
-					os.RemoveAll(baseDir)
-				}
-				n.DeleteTrackFile(roothash)
-				n.Track("info", fmt.Sprintf("[%s] Duplicate file declaration suc", roothash))
-				return nil
-			}
-			storageOrder, err = n.QueryDealMap(recordFile.Roothash, -1)
+		if recordFile.Segment == nil {
+			resegmentInfo, reHash, err := process.FullProcessing(filepath.Join(n.GetDirs().FileDir, roothash), recordFile.Cipher, recordFile.CacheDir)
 			if err != nil {
-				if err.Error() != chain.ERR_Empty {
-					return errors.Wrapf(err, "[%s] [QueryStorageOrder]", roothash)
-				}
-				n.Track("info", fmt.Sprintf("[%s] Duplicate file become primary file", roothash))
-				recordFile.Duplicate = false
-				recordFile.Putflag = false
-				b, err := json.Marshal(&recordFile)
-				if err != nil {
-					return errors.Wrapf(err, "[%s] [json.Marshal]", roothash)
-				}
-				err = n.WriteTrackFile(roothash, b)
-				if err != nil {
-					return errors.Wrapf(err, "[%s] [WriteTrackFile]", roothash)
-				}
-			}
-			return nil
-		}
-
-		if recordFile.SegmentInfo == nil {
-			resegmentInfo, reHash, err := process.ShardedEncryptionProcessing(filepath.Join(n.GetDirs().FileDir, roothash), "")
-			if err != nil {
-				return errors.Wrapf(err, "[ShardedEncryptionProcessing]")
+				return errors.Wrapf(err, "[FullProcessing]")
 			}
 			if reHash != roothash {
 				return errors.Wrapf(err, "The re-stored file hash is not consistent, please store it separately and specify the original encryption key.")
 			}
-			recordFile.SegmentInfo = resegmentInfo
+			recordFile.Segment = resegmentInfo
 		}
 
-		err = n.storageData(recordFile.Roothash, recordFile.SegmentInfo, storageOrder.CompleteList)
+		err = n.storageData(recordFile.Fid, recordFile.Segment, storageOrder.CompleteList)
 		n.FlushlistedPeerNodes(5*time.Second, n.GetDHTable()) //refresh the user-configured storage node list
 		if err != nil {
-			n.Track("err", err.Error())
+			n.Logtrack("err", err.Error())
 			return err
 		} else {
-			n.Track("info", fmt.Sprintf("[%s] file transfer completed", roothash))
+			n.Logtrack("info", fmt.Sprintf("[%s] file transfer completed", roothash))
 			time.Sleep(time.Minute * 3)
 		}
 	}
@@ -271,13 +227,12 @@ func (n *Node) storageData(roothash string, segment []chain.SegmentDataInfo, com
 		}
 	}
 
-	//allpeers := n.GetAllStoragePeerId()
+	// allpeers := n.GetAllStoragePeerId()
 	itor, err := n.NewPeersIterator(sconfig.DataShards + sconfig.ParShards)
 	if err != nil {
 		return err
 	}
 
-	//n.Track("info", fmt.Sprintf("All storage peers: %v", allpeers))
 	var sucPeer = make(map[string]struct{}, sconfig.DataShards+sconfig.ParShards)
 
 	for _, value := range completeList {
@@ -293,7 +248,7 @@ func (n *Node) storageData(roothash string, segment []chain.SegmentDataInfo, com
 		for _, value := range completeList {
 			if uint8(value.Index) == index {
 				completed = true
-				n.Track("info", fmt.Sprintf("[%s] The %dth batch fragments already report", roothash, index))
+				n.Logtrack("info", fmt.Sprintf("[%s] The %dth batch fragments already report", roothash, index))
 				break
 			}
 		}
@@ -302,7 +257,7 @@ func (n *Node) storageData(roothash string, segment []chain.SegmentDataInfo, com
 			continue
 		}
 
-		n.Track("info", fmt.Sprintf("[%s] Prepare to transfer the %dth batch of fragments (%d)", roothash, index, len(v)))
+		n.Logtrack("info", fmt.Sprintf("[%s] Prepare to transfer the %dth batch of fragments (%d)", roothash, index, len(v)))
 		//utils.RandSlice(allpeers)
 		for peer, ok := itor.GetPeer(); ok; peer, ok = itor.GetPeer() {
 			failed = true
@@ -316,7 +271,7 @@ func (n *Node) storageData(roothash string, segment []chain.SegmentDataInfo, com
 				continue
 			}
 
-			n.Track("info", fmt.Sprintf("[%s] Will transfer to %s", roothash, peer.ID.String()))
+			n.Logtrack("info", fmt.Sprintf("[%s] Will transfer to %s", roothash, peer.ID.String()))
 			for j := 0; j < len(v); j++ {
 				for k := 0; k < 10; k++ {
 					err = n.WriteFileAction(peer.ID, roothash, v[j])
@@ -328,16 +283,16 @@ func (n *Node) storageData(roothash string, segment []chain.SegmentDataInfo, com
 					break
 				}
 				if failed {
-					n.Track("err", fmt.Sprintf("[%s] transfer to %s failed: %v", roothash, peer.ID.String(), err))
+					n.Logtrack("err", fmt.Sprintf("[%s] transfer to %s failed: %v", roothash, peer.ID.String(), err))
 					n.Feedback(peer.ID.String(), false)
 					break
 				}
-				n.Track("info", fmt.Sprintf("[%s] The %dth fragment of the %dth batch is transferred to %s", roothash, j, index, peer.ID.String()))
+				n.Logtrack("info", fmt.Sprintf("[%s] The %dth fragment of the %dth batch is transferred to %s", roothash, j, index, peer.ID.String()))
 			}
 			if !failed {
 				sucPeer[peer.ID.String()] = struct{}{}
 				n.Feedback(peer.ID.String(), true)
-				n.Track("info", fmt.Sprintf("[%s] The %dth batch of fragments is transferred to %s", roothash, index, peer.ID.String()))
+				n.Logtrack("info", fmt.Sprintf("[%s] The %dth batch of fragments is transferred to %s", roothash, index, peer.ID.String()))
 				break
 			}
 		}

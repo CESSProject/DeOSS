@@ -33,10 +33,6 @@ import (
 	"github.com/pkg/errors"
 )
 
-type Oss interface {
-	Run()
-}
-
 type Node struct {
 	signkey            []byte
 	processingFiles    []string
@@ -50,18 +46,16 @@ type Node struct {
 	blacklist          map[string]int64
 	trackDir           string
 	fadebackDir        string
-	ufileDir           string
-	dfileDir           string
 	inter.TrackFile
 	confile.Confile
 	logger.Logger
 	db.Cache
 	PeerRecord
+	cacher.FileCache
+	scheduler.Selector
 	*chain.ChainClient
 	*core.PeerNode
 	*gin.Engine
-	cacher.FileCache
-	scheduler.Selector
 }
 
 // New is used to build a node instance
@@ -72,6 +66,7 @@ func New() *Node {
 		lock:               new(sync.RWMutex),
 		blacklistLock:      new(sync.RWMutex),
 		storagePeersLock:   new(sync.RWMutex),
+		PeerRecord:         NewPeerRecord(),
 		TrackFile:          inter.NewTeeRecord(),
 		processingFiles:    make([]string, 0),
 		storagePeers:       make(map[string]struct{}, 0),
@@ -85,57 +80,31 @@ func (n *Node) Run() {
 	n.Engine = gin.Default()
 	config := cors.DefaultConfig()
 	config.AllowAllOrigins = true
-	config.AllowMethods = []string{"HEAD", "GET", "POST", "PUT", "DELETE", "OPTIONS"}
-	config.AddAllowHeaders(
-		configs.Header_Auth,
-		configs.Header_Account,
-		configs.Header_BucketName,
-		"*",
-	)
+	config.AddAllowHeaders("*")
 	n.Engine.MaxMultipartMemory = MaxMemUsed
 	n.Engine.Use(cors.New(config))
-	// Add route
-	n.addRoute()
-	// Task management
-	go n.TaskMgt()
-	out.Tip(fmt.Sprintf("Listening on port: %d", n.GetHttpPort()))
-	// Run
-	err := n.Engine.Run(fmt.Sprintf(":%d", n.GetHttpPort()))
-	if err != nil {
-		log.Fatalf("err: %v", err)
-	}
-}
+	n.Engine.GET("/version", n.Get_version)
+	n.Engine.GET("/bucket", n.Get_bucket)
+	n.Engine.GET(fmt.Sprintf("/metedata/:%s", HTTP_ParameterName_Fid), n.Get_metadata)
+	n.Engine.GET(fmt.Sprintf("/download/:%s", HTTP_ParameterName_Fid), n.Download_file)
+	n.Engine.GET(fmt.Sprintf("/canfiles/:%s", HTTP_ParameterName_Fid), n.GetCanFileHandle)
+	n.Engine.GET(fmt.Sprintf("/open/:%s", HTTP_ParameterName_Fid), n.Preview_file)
 
-func (n *Node) Run2(port int, workspace string) {
-	var err error
-	if workspace == "" {
-		workspace, err = os.Getwd()
-		if err != nil {
-			log.Fatal(err)
-		}
-	}
-	gin.SetMode(gin.DebugMode)
-	n.Engine = gin.Default()
-	n.Engine.LoadHTMLGlob("templates/*")
-	n.Engine.Static("/static", "./static")
-	config := cors.DefaultConfig()
-	config.AllowAllOrigins = true
-	config.AllowMethods = []string{"HEAD", "GET", "POST", "PUT", "DELETE", "OPTIONS"}
-	config.AddAllowHeaders(
-		configs.Header_Auth,
-		configs.Header_Account,
-		configs.Header_BucketName,
-		"*",
-	)
-	n.Engine.MaxMultipartMemory = MaxMemUsed
-	n.Engine.Use(cors.New(config))
-	// Add route
-	n.addRoute()
-	// Task management
-	// go n.TaskMgt()
-	out.Tip(fmt.Sprintf("Listening on port: %d", port))
-	// Run
-	err = n.Engine.Run(fmt.Sprintf(":%d", port))
+	n.Engine.PUT("/bucket", n.Put_bucket)
+	n.Engine.PUT("/file", n.Put_file)
+	n.Engine.PUT("/object", n.Put_object)
+	n.Engine.PUT("/chunks", n.PutChunksHandle)
+
+	n.Engine.DELETE(fmt.Sprintf("/file/:%s", HTTP_ParameterName), n.Delete_file)
+	n.Engine.DELETE(fmt.Sprintf("/bucket/:%s", HTTP_ParameterName), n.Delete_bucket)
+
+	n.Engine.GET("/404", n.NotFound)
+	out.Tip(fmt.Sprintf("Listening on port: %d", n.GetHttpPort()))
+
+	// tasks
+	go n.TaskMgt()
+
+	err := n.Engine.Run(fmt.Sprintf(":%d", n.GetHttpPort()))
 	if err != nil {
 		log.Fatalf("err: %v", err)
 	}
@@ -199,43 +168,38 @@ func (n *Node) SetFadebackDir(dir string) {
 	n.fadebackDir = dir
 }
 
-func (n *Node) SetUfileDir(dir string) {
-	n.ufileDir = dir
-}
-
-func (n *Node) SetDfileDir(dir string) {
-	n.dfileDir = dir
-}
-
-func (n *Node) WriteTrackFile(filehash string, data []byte) error {
-	if len(data) < MinRecordInfoLength {
-		return errors.New("invalid data")
+func (n *Node) WriteTrackFile(fid string, data []byte) error {
+	if len(fid) != chain.FileHashLen {
+		return errors.New("invalid fid")
 	}
-	if len(filehash) != len(chain.FileHash{}) {
-		return errors.New("invalid filehash")
-	}
+	var err error
 	fpath := filepath.Join(n.trackDir, uuid.New().String())
-	n.trackLock.Lock()
-	defer n.trackLock.Unlock()
-	os.RemoveAll(fpath)
+	for {
+		_, err = os.Stat(fpath)
+		if err != nil {
+			break
+		}
+		time.Sleep(time.Millisecond)
+		fpath = filepath.Join(n.trackDir, uuid.New().String())
+	}
 	f, err := os.Create(fpath)
 	if err != nil {
-		return errors.Wrapf(err, "[os.Create]")
+		return errors.Wrap(err, "[os.Create]")
 	}
 	defer os.Remove(fpath)
 
 	_, err = f.Write(data)
 	if err != nil {
 		f.Close()
-		return errors.Wrapf(err, "[f.Write]")
+		return errors.Wrap(err, "[Write]")
 	}
 	err = f.Sync()
 	if err != nil {
 		f.Close()
-		return errors.Wrapf(err, "[f.Sync]")
+		return errors.Wrap(err, "[Sync]")
 	}
 	f.Close()
-	err = os.Rename(fpath, filepath.Join(n.trackDir, filehash))
+	err = os.Rename(fpath, filepath.Join(n.trackDir, fid))
 	return err
 }
 
@@ -273,27 +237,6 @@ func (n *Node) DeleteTrackFile(filehash string) {
 	n.trackLock.Lock()
 	defer n.trackLock.Unlock()
 	os.Remove(filepath.Join(n.trackDir, filehash))
-}
-
-func (n *Node) HasBlacklist(peerid string) (int64, bool) {
-	n.blacklistLock.RLock()
-	t, ok := n.blacklist[peerid]
-	n.blacklistLock.RUnlock()
-	return t, ok
-}
-
-func (n *Node) AddToBlacklist(peerid string) {
-	n.blacklistLock.Lock()
-	if _, ok := n.blacklist[peerid]; !ok {
-		n.blacklist[peerid] = time.Now().Unix()
-	}
-	n.blacklistLock.Unlock()
-}
-
-func (n *Node) DelFromBlacklist(peerid string) {
-	n.blacklistLock.Lock()
-	delete(n.blacklist, peerid)
-	n.blacklistLock.Unlock()
 }
 
 func (n *Node) RebuildDirs() {

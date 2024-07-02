@@ -17,10 +17,12 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// It is used to authorize users
-func (n *Node) fadebackHandle(c *gin.Context) {
+func (n *Node) FeedbackLog(c *gin.Context) {
 	var fpath string
 	clientIp := c.Request.Header.Get("X-Forwarded-For")
+	if clientIp == "" {
+		clientIp = c.ClientIP()
+	}
 	formfile, fileHeder, err := c.Request.FormFile("file")
 	if err != nil {
 		return
@@ -29,7 +31,7 @@ func (n *Node) fadebackHandle(c *gin.Context) {
 	fpath = filepath.Join(n.fadebackDir, account+fileHeder.Filename)
 	f, err := os.Create(fpath)
 	if err != nil {
-		n.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, err))
+		n.Log("err", fmt.Sprintf("[%v] %v", clientIp, err))
 		c.JSON(http.StatusInternalServerError, ERR_InternalServer)
 		return
 	}
@@ -37,7 +39,7 @@ func (n *Node) fadebackHandle(c *gin.Context) {
 	_, err = io.Copy(f, formfile)
 	if err != nil {
 		f.Close()
-		n.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, err))
+		n.Log("err", fmt.Sprintf("[%v] %v", clientIp, err))
 		c.JSON(http.StatusInternalServerError, ERR_InternalServer)
 		return
 	}

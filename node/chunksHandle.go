@@ -69,7 +69,7 @@ func init() {
 	chunkReq = make(map[string]int64, 10)
 }
 
-func (n *Node) putChunksHandle(c *gin.Context) {
+func (n *Node) PutChunksHandle(c *gin.Context) {
 	account := c.Request.Header.Get(HTTPHeader_Account)
 	chunkReqLock.Lock()
 	_, ok := chunkReq[account]
@@ -91,12 +91,12 @@ func (n *Node) putChunksHandle(c *gin.Context) {
 
 	var (
 		err        error
-		pkey       []byte
 		chunksInfo ChunksInfo
 	)
 
 	clientIp := c.Request.Header.Get("X-Forwarded-For")
-	bucketName := c.Request.Header.Get(HTTPHeader_BucketName)
+	bucketName := c.Request.Header.Get(HTTPHeader_Bucket)
+	territoryName := c.Request.Header.Get(HTTPHeader_Territory)
 	cipher := c.Request.Header.Get(HTTPHeader_Cipher)
 	blockIdx, _ := strconv.Atoi(c.Request.Header.Get(HTTPHeader_BIdx))
 	blockNum, _ := strconv.Atoi(c.Request.Header.Get(HTTPHeader_BNum))
@@ -105,6 +105,9 @@ func (n *Node) putChunksHandle(c *gin.Context) {
 	cansProto := c.Request.Header.Get(CANS_PROTO_HEADER)
 	isSplit := c.Request.Header.Get(CANS_SPLIT_FILE_HEADER)
 	archiveFormat := c.Request.Header.Get(CANS_ARCHIVE_FORMAT_HEADER)
+	ethAccount := c.Request.Header.Get(HTTPHeader_EthAccount)
+	message := c.Request.Header.Get(HTTPHeader_Message)
+	signature := c.Request.Header.Get(HTTPHeader_Signature)
 	filename, err = url.QueryUnescape(filename)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, err.Error())
@@ -112,47 +115,34 @@ func (n *Node) putChunksHandle(c *gin.Context) {
 	}
 	contentLength := c.Request.ContentLength
 
-	if clientIp == "" || clientIp == " " {
+	if clientIp == "" {
 		clientIp = c.ClientIP()
 	}
 	if cansProto == "true" && !strings.Contains(filename, CANS_PROTO_FLAG) {
 		filename = fmt.Sprintf("%s%s", CANS_PROTO_FLAG, filename)
 	}
 
-	n.Upfile("info", fmt.Sprintf("[%v] file name: %s", clientIp, filename))
+	n.Logchunk("info", fmt.Sprintf("[%v] file name: %s", clientIp, filename))
 	if strings.Contains(filename, "%") {
 		filename, err = url.PathUnescape(filename)
 		if err != nil {
-			n.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, "unescape filename failed"))
+			n.Logchunk("err", fmt.Sprintf("[%v] %v", clientIp, "unescape filename failed"))
 			c.JSON(http.StatusBadRequest, "unescape filename failed")
 			return
 		}
-		n.Upfile("info", fmt.Sprintf("[%v] file name: %s", clientIp, filename))
+		n.Logchunk("info", fmt.Sprintf("[%v] file name: %s", clientIp, filename))
+	}
+
+	pkey, code, err := verifySignature(n, account, ethAccount, message, signature)
+	if err != nil {
+		n.Logchunk("err", clientIp+" verifySignature: "+err.Error())
+		c.JSON(code, err)
+		return
 	}
 
 	pkey = checkUserParamsAndGetPubkey(n, c, account, bucketName, cipher, clientIp)
 	if len(pkey) == 0 {
 		return
-	}
-
-	mem, err := utils.GetSysMemAvailable()
-	if err == nil {
-		if uint64(contentLength) > uint64(mem*90/100) {
-			if uint64(contentLength) < MaxMemUsed {
-				c.JSON(http.StatusForbidden, ERR_SysMemNoLeft)
-				return
-			}
-		}
-	}
-	// verify disk space availability
-	if contentLength > MaxMemUsed {
-		freeSpace, err := utils.GetDirFreeSpace("/tmp")
-		if err == nil {
-			if uint64(contentLength+sconfig.SIZE_1MiB*16) > freeSpace {
-				c.JSON(http.StatusForbidden, ERR_DeviceSpaceNoLeft)
-				return
-			}
-		}
 	}
 
 	if blockIdx%7 == 0 && !checkExpiredFiles(filepath.Join(n.GetDirs().FileDir, account)) {
@@ -187,14 +177,27 @@ func (n *Node) putChunksHandle(c *gin.Context) {
 			c.JSON(http.StatusForbidden, "bad file total size")
 			return
 		}
-		if !checkSapce(n, c, pkey, clientIp, int64(totalSize), 14400) {
+		code, err = checkSapce(n, c, pkey, territoryName, contentLength, 30)
+		if err != nil {
+			n.Logchunk("err", clientIp+" checkSapce: "+err.Error())
+			c.JSON(code, err)
 			return
 		}
-		if !checkAuth(n, c, pkey, clientIp) {
+		if !checkDeOSSStatus(n, c) {
+			return
+		}
+		code, err = checkAuth(n, c, pkey)
+		if err != nil {
+			n.Logchunk("err", clientIp+" checkAuth: "+err.Error())
+			c.JSON(code, err)
 			return
 		}
 		if len(filename) > sconfig.MaxBucketNameLength {
 			c.JSON(http.StatusBadRequest, ERR_FileNameTooLang)
+			return
+		}
+		if len(filename) < sconfig.MinBucketNameLength {
+			c.JSON(http.StatusBadRequest, ERR_FileNameTooShort)
 			return
 		}
 		chunksInfo = ChunksInfo{
@@ -254,7 +257,6 @@ func (n *Node) putChunksHandle(c *gin.Context) {
 			return
 		}
 	} else {
-
 		if fileHeder.Size+chunksInfo.SavedFileSize > chunksInfo.TotalSize {
 			c.JSON(http.StatusBadRequest, "bad chunk size")
 			return
@@ -284,12 +286,11 @@ func (n *Node) putChunksHandle(c *gin.Context) {
 			if isSplit == "true" {
 				beSplit = true
 			}
-			log.Println("savedir", savedir, "cipher", cipher)
-			log.Println("filename", filename, "archiveFormat", archiveFormat, "issplit", beSplit)
+			n.Logchunk("info", clientIp+" savedir: "+savedir+" cipher: "+cipher+" filename: "+filename+" archiveFormat: "+archiveFormat)
+			n.Logchunk("info", fmt.Sprintf("%s beSplit: %v", clientIp, beSplit))
 			if err = cansproto.ArchiveCanFile(savedir, filename, archiveFormat, cipher != "", beSplit,
 				func(s string) string {
 					ss := strings.Split(s, CHUNK_FILE_FLAG)
-					log.Println("entry path:", s)
 					return ss[0]
 				}, nil); err != nil {
 				c.JSON(http.StatusInternalServerError, err.Error())
@@ -374,10 +375,78 @@ func (n *Node) putChunksHandle(c *gin.Context) {
 	chunkReqLock.Lock()
 	delete(chunkReq, account)
 	chunkReqLock.Unlock()
-	n.fileProcess(filename, bucketName, fpath, account, cipher, pkey, c)
+
+	segment, fid, err := process.FullProcessing(fpath, cipher, savedir)
+	if err != nil {
+		n.Logchunk("err", clientIp+" FullProcessing: "+err.Error())
+		c.JSON(http.StatusInternalServerError, err)
+		return
+	}
+
+	n.Logchunk("info", clientIp+" fid: "+fid)
+
+	duplicate, code, err := checkDuplicates(n, fid, pkey)
+	if err != nil {
+		n.Logchunk("err", clientIp+" checkDuplicates: "+err.Error())
+		c.JSON(code, err)
+		return
+	}
+
+	newPath := filepath.Join(n.GetDirs().FileDir, fid)
+	err = os.Rename(fpath, newPath)
+	if err != nil {
+		n.Logchunk("err", clientIp+" Rename: "+err.Error())
+		c.JSON(http.StatusInternalServerError, err)
+		return
+	}
+
+	fstat, err := os.Stat(newPath)
+	if err != nil {
+		n.Logchunk("err", clientIp+" Rename: "+err.Error())
+		c.JSON(http.StatusInternalServerError, ERR_InternalServer)
+		return
+	}
+
+	switch duplicate {
+	case Duplicate1:
+		blockhash, err := n.PlaceStorageOrder(fid, filename, bucketName, territoryName, segment, pkey, uint64(fstat.Size()))
+		if err != nil {
+			n.Logchunk("err", clientIp+" PlaceStorageOrder: "+err.Error())
+			c.JSON(http.StatusInternalServerError, err)
+			return
+		}
+		n.Logchunk("info", clientIp+" duplicate file: "+fid+" storage order hash: "+blockhash)
+		c.JSON(http.StatusOK, map[string]string{"fid": fid})
+		return
+	case Duplicate2:
+		n.Logchunk("info", clientIp+" duplicate file: "+fid)
+		c.JSON(http.StatusOK, map[string]string{"fid": fid})
+		return
+	}
+
+	code, err = saveToTrackFile(n, fid, filename, bucketName, territoryName, savedir, cipher, segment, pkey, uint64(fstat.Size()))
+	if err != nil {
+		n.Logchunk("err", clientIp+" saveToTrackFile: "+err.Error())
+		c.JSON(code, err)
+		return
+	}
+
+	err = n.MoveFileToCache(fid, newPath)
+	if err != nil {
+		n.Logchunk("err", clientIp+" MoveFileToCache: "+err.Error())
+	}
+
+	blockhash, err := n.PlaceStorageOrder(fid, filename, bucketName, territoryName, segment, pkey, uint64(fstat.Size()))
+	if err != nil {
+		n.Logchunk("err", clientIp+" PlaceStorageOrder: "+err.Error())
+		c.JSON(http.StatusInternalServerError, err)
+		return
+	}
+	n.Logchunk("info", clientIp+" uploaded suc and the storage order hash: "+blockhash)
+	c.JSON(http.StatusOK, map[string]string{"fid": fid})
 }
 
-func (n *Node) getCanFileHandle(c *gin.Context) {
+func (n *Node) GetCanFileHandle(c *gin.Context) {
 	if _, ok := <-max_concurrent_get_ch; !ok {
 		c.JSON(http.StatusTooManyRequests, "server is busy, please try again later.")
 		return
@@ -501,147 +570,6 @@ cans:
 	}
 }
 
-func (n *Node) fileProcess(filename, bucketName, fpath, account, cipher string, pkey []byte, c *gin.Context) {
-	clientIp := c.Request.Header.Get("X-Forwarded-For")
-	if filename == "" {
-		filename = "null"
-	}
-
-	if len(filename) < 3 {
-		filename += ".ces"
-	}
-
-	fstat, err := os.Stat(fpath)
-	if err != nil {
-		n.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, err))
-		c.JSON(http.StatusInternalServerError, ERR_InternalServer)
-		return
-	}
-
-	if fstat.Size() == 0 {
-		n.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, ERR_BodyEmptyFile))
-		c.JSON(http.StatusBadRequest, ERR_BodyEmptyFile)
-		return
-	}
-
-	segmentInfo, roothash, err := process.ShardedEncryptionProcessing(fpath, cipher)
-	if err != nil {
-		n.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, err))
-		c.JSON(http.StatusInternalServerError, err.Error())
-		return
-	}
-
-	//n.Upfile("info", fmt.Sprintf("[%v] segmentInfo: %v", clientIp, segmentInfo))
-
-	ok, err := n.deduplication(pkey, segmentInfo, roothash, filename, bucketName, uint64(fstat.Size()))
-	if err != nil {
-		if strings.Contains(err.Error(), "[GenerateStorageOrder]") {
-			n.Upfile("info", fmt.Sprintf("[%v] %v", clientIp, err))
-			c.JSON(http.StatusForbidden, ERR_RpcFailed)
-			return
-		}
-		n.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, err))
-		c.JSON(http.StatusInternalServerError, ERR_InternalServer)
-		return
-	}
-	if ok {
-		n.Upfile("info", fmt.Sprintf("[%v] [%s] uploaded successfully", clientIp, roothash))
-		c.JSON(http.StatusOK, roothash)
-		return
-	}
-
-	roothashDir := filepath.Join(n.GetDirs().FileDir, account, roothash)
-	_, err = os.Stat(roothashDir)
-	if err == nil {
-		if ok := n.HasTrackFile(roothash); ok {
-			err = n.MoveFileToCache(roothash, filepath.Join(roothashDir, roothash)) //move file to cache
-			if err != nil {
-				n.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, err))
-			}
-			c.JSON(http.StatusOK, roothash)
-			n.Upfile("info", fmt.Sprintf("[%v] [%s] uploaded successfully", clientIp, roothash))
-			return
-		}
-	}
-
-	err = os.MkdirAll(roothashDir, 0755)
-	if err != nil {
-		n.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, err))
-		c.JSON(http.StatusInternalServerError, ERR_InternalServer)
-		return
-	}
-
-	err = utils.RenameDir(filepath.Dir(fpath), roothashDir)
-	if err != nil {
-		n.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, err))
-		c.JSON(http.StatusInternalServerError, ERR_InternalServer)
-		return
-	}
-
-	err = os.Rename(filepath.Join(roothashDir, filepath.Base(fpath)), filepath.Join(roothashDir, roothash))
-	if err != nil {
-		os.RemoveAll(roothashDir)
-		n.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, err))
-		c.JSON(http.StatusInternalServerError, ERR_InternalServer)
-		return
-	}
-
-	err = n.MoveFileToCache(roothash, filepath.Join(roothashDir, roothash)) //move file to cache
-	if err != nil {
-		n.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, err))
-	}
-
-	for i := 0; i < len(segmentInfo); i++ {
-		segmentInfo[i].SegmentHash = filepath.Join(roothashDir, filepath.Base(segmentInfo[i].SegmentHash))
-		for j := 0; j < len(segmentInfo[i].FragmentHash); j++ {
-			segmentInfo[i].FragmentHash[j] = filepath.Join(roothashDir, filepath.Base(segmentInfo[i].FragmentHash[j]))
-		}
-	}
-
-	var recordInfo = &RecordInfo{
-		SegmentInfo: segmentInfo,
-		Owner:       pkey,
-		Roothash:    roothash,
-		Filename:    filename,
-		Buckname:    bucketName,
-		Filesize:    uint64(fstat.Size()),
-		Putflag:     false,
-		Count:       0,
-		Duplicate:   false,
-	}
-
-	b, err := json.Marshal(recordInfo)
-	if err != nil {
-		n.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, err))
-		c.JSON(http.StatusInternalServerError, ERR_InternalServer)
-		return
-	}
-
-	err = n.WriteTrackFile(roothash, b)
-	if err != nil {
-		n.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, err))
-		c.JSON(http.StatusInternalServerError, ERR_InternalServer)
-		return
-	}
-
-	txhash, err := n.GenerateStorageOrder(
-		roothash,
-		recordInfo.SegmentInfo,
-		recordInfo.Owner,
-		recordInfo.Filename,
-		recordInfo.Buckname,
-		recordInfo.Filesize,
-	)
-	if err != nil {
-		n.Upfile("err", fmt.Sprintf("[%s] GenerateStorageOrder failed, tx: %s err: %v", roothash, txhash, err))
-	} else {
-		n.Upfile("info", fmt.Sprintf("[%s] GenerateStorageOrder suc: %s", roothash, txhash))
-	}
-
-	n.Upfile("info", fmt.Sprintf("[%v] [%s] uploaded successfully", clientIp, roothash))
-	c.JSON(http.StatusOK, roothash)
-}
-
 func checkUserParamsAndGetPubkey(n *Node, c *gin.Context, account, bucketName, cipher, clientIp string) []byte {
 	var (
 		pkey []byte
@@ -653,7 +581,7 @@ func checkUserParamsAndGetPubkey(n *Node, c *gin.Context, account, bucketName, c
 	signature := c.Request.Header.Get(HTTPHeader_Signature)
 
 	if err = n.AccessControl(account); err != nil {
-		n.Upfile("info", fmt.Sprintf("[%v] %v", clientIp, err))
+		n.Logchunk("info", fmt.Sprintf("[%v] %v", clientIp, err))
 		c.JSON(http.StatusForbidden, err.Error())
 		return nil
 	}
@@ -661,39 +589,39 @@ func checkUserParamsAndGetPubkey(n *Node, c *gin.Context, account, bucketName, c
 	if ethAccount != "" {
 		ethAccInSian, err := VerifyEthSign(message, signature)
 		if err != nil {
-			n.Upfile("err", fmt.Sprintf("[%v] %s", clientIp, err.Error()))
+			n.Logchunk("err", fmt.Sprintf("[%v] %s", clientIp, err.Error()))
 			c.JSON(http.StatusBadRequest, err.Error())
 			return nil
 		}
 		if ethAccInSian != ethAccount {
-			n.Upfile("err", fmt.Sprintf("[%v] %s", clientIp, "ETH signature verification failed"))
+			n.Logchunk("err", fmt.Sprintf("[%v] %s", clientIp, "ETH signature verification failed"))
 			c.JSON(http.StatusBadRequest, "ETH signature verification failed")
 			return nil
 		}
 		pkey, err = sutils.ParsingPublickey(account)
 		if err != nil {
-			n.Upfile("err", fmt.Sprintf("[%v] %s", clientIp, err.Error()))
+			n.Logchunk("err", fmt.Sprintf("[%v] %s", clientIp, err.Error()))
 			c.JSON(http.StatusBadRequest, fmt.Sprintf("invalid cess account: %s", account))
 			return nil
 		}
 	} else {
 		pkey, err = n.VerifyAccountSignature(account, message, signature)
 		if err != nil {
-			n.Upfile("err", fmt.Sprintf("[%v] %s", clientIp, err.Error()))
+			n.Logchunk("err", fmt.Sprintf("[%v] %s", clientIp, err.Error()))
 			c.JSON(http.StatusBadRequest, err.Error())
 			return nil
 		}
 	}
 
 	if !sutils.CheckBucketName(bucketName) {
-		n.Upfile("info", fmt.Sprintf("[%v] %v", clientIp, ERR_HeaderFieldBucketName))
+		n.Logchunk("info", fmt.Sprintf("[%v] %v", clientIp, ERR_HeaderFieldBucketName))
 		c.JSON(http.StatusBadRequest, ERR_HeaderFieldBucketName)
 		return nil
 	}
 
 	// verify mem availability
 	if len(cipher) > 32 {
-		n.Upfile("err", fmt.Sprintf("[%v] The length of cipher cannot exceed 32", clientIp))
+		n.Logchunk("err", fmt.Sprintf("[%v] The length of cipher cannot exceed 32", clientIp))
 		c.JSON(http.StatusBadRequest, "The length of cipher cannot exceed 32")
 		return nil
 	}
@@ -701,68 +629,66 @@ func checkUserParamsAndGetPubkey(n *Node, c *gin.Context, account, bucketName, c
 	// verify the bucket name
 
 	if strings.Contains(bucketName, " ") {
-		n.Upfile("info", fmt.Sprintf("[%v] %v", clientIp, ERR_HeaderFieldBucketName))
+		n.Logchunk("info", fmt.Sprintf("[%v] %v", clientIp, ERR_HeaderFieldBucketName))
 		c.JSON(http.StatusBadRequest, ERR_HeaderFieldBucketName)
 		return nil
 	}
 	return pkey
 }
 
-func checkSapce(n *Node, c *gin.Context, pkey []byte, clientIp string, usedSpace int64, deadLine uint32) bool {
-	userInfo, err := n.QueryUserOwnedSpace(pkey, -1)
+func checkSapce(n *Node, c *gin.Context, pkey []byte, territoryName string, contentLength int64, deadLine uint32) (int, error) {
+	territoryInfo, err := n.QueryTerritory(pkey, territoryName, -1)
 	if err != nil {
 		if err.Error() == chain.ERR_Empty {
-			n.Upfile("info", fmt.Sprintf("[%v] %v", clientIp, ERR_NoSpace))
-			c.JSON(http.StatusForbidden, ERR_NoSpace)
-			return false
+			return http.StatusForbidden, errors.New(ERR_NoTerritory)
 		}
-		n.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, err))
-		c.JSON(http.StatusForbidden, ERR_RpcFailed)
-		return false
+		return http.StatusInternalServerError, errors.New(ERR_RpcFailed)
 	}
 
 	blockheight, err := n.QueryBlockNumber("")
 	if err != nil {
-		n.Upfile("info", fmt.Sprintf("[%v] %v", clientIp, err))
-		c.JSON(http.StatusForbidden, ERR_RpcFailed)
-		return false
+		return http.StatusInternalServerError, errors.New(ERR_RpcFailed)
 	}
 
-	if uint32(userInfo.Deadline) < (blockheight + deadLine) {
-		n.Upfile("info", fmt.Sprintf("[%v] %v [%d] [%d]", clientIp, ERR_SpaceExpiresSoon, userInfo.Deadline, blockheight))
-		c.JSON(http.StatusForbidden, ERR_SpaceExpiresSoon)
-		return false
+	if uint32(territoryInfo.Deadline) < (blockheight + deadLine) {
+		return http.StatusForbidden, errors.New(ERR_TerritoryExpiresSoon)
 	}
 
-	remainingSpace, err := strconv.ParseUint(userInfo.RemainingSpace.String(), 10, 64)
+	remainingSpace, err := strconv.ParseUint(territoryInfo.RemainingSpace.String(), 10, 64)
 	if err != nil {
-		n.Upfile("err", fmt.Sprintf("[%v] %v", clientIp, err))
-		c.JSON(http.StatusInternalServerError, ERR_InternalServer)
-		return false
+		return http.StatusInternalServerError, err
 	}
 
-	if usedSpace > int64(remainingSpace) {
-		n.Upfile("info", fmt.Sprintf("[%v] %v", clientIp, ERR_NotEnoughSpace))
-		c.JSON(http.StatusForbidden, ERR_NotEnoughSpace)
-		return false
+	countSegment := contentLength / sconfig.SegmentSize
+	if contentLength%sconfig.SegmentSize != 0 {
+		countSegment += 1
 	}
-	return true
+
+	totalOccupiedSpace := uint64(countSegment) * sconfig.SegmentSize * 3
+
+	if totalOccupiedSpace > remainingSpace {
+		return http.StatusForbidden, errors.New(ERR_InsufficientTerritorySpace)
+	}
+
+	freeSpace, err := utils.GetDirFreeSpace("/tmp")
+	if err == nil {
+		if totalOccupiedSpace > freeSpace {
+			return http.StatusForbidden, errors.New(ERR_DeviceSpaceNoLeft)
+		}
+	}
+
+	return http.StatusOK, nil
 }
 
-func checkAuth(n *Node, c *gin.Context, pkey []byte, clientIp string) bool {
+func checkAuth(n *Node, c *gin.Context, pkey []byte) (int, error) {
 	authAccs, err := n.QueryAuthorityList(pkey, -1)
-	var flag bool
 	if err != nil {
 		if err.Error() == chain.ERR_Empty {
-			n.Upfile("info", fmt.Sprintf("[%v] %v", clientIp, ERR_SpaceNotAuth))
-			c.JSON(http.StatusForbidden, ERR_SpaceNotAuth)
-			return false
+			return http.StatusForbidden, errors.New(ERR_SpaceNotAuth)
 		}
-		n.Upfile("info", fmt.Sprintf("[%v] %v", clientIp, err))
-		c.JSON(http.StatusInternalServerError, err.Error())
-		return false
+		return http.StatusInternalServerError, err
 	}
-
+	flag := false
 	for _, v := range authAccs {
 		if sutils.CompareSlice(n.GetSignatureAccPulickey(), v[:]) {
 			flag = true
@@ -770,11 +696,9 @@ func checkAuth(n *Node, c *gin.Context, pkey []byte, clientIp string) bool {
 		}
 	}
 	if !flag {
-		n.Upfile("info", fmt.Sprintf("[%v] %v", clientIp, ERR_SpaceNotAuth))
-		c.JSON(http.StatusForbidden, fmt.Sprintf("please authorize your space usage to %s", n.GetSignatureAcc()))
-		return false
+		return http.StatusForbidden, errors.Errorf("please authorize the gateway account: %s", n.GetSignatureAcc())
 	}
-	return true
+	return http.StatusOK, nil
 }
 
 func checkExpiredFiles(rootDir string) bool {
@@ -814,12 +738,16 @@ func checkExpiredFiles(rootDir string) bool {
 
 func checkDeOSSStatus(n *Node, c *gin.Context) bool {
 	if n.GetBalances() <= 1 {
-		c.JSON(http.StatusInternalServerError, "service balance is insufficient, please try again later.")
+		msg := `The gateway account balance is insufficient, please feedback to us:
+		https://twitter.com/CESS_Storage
+		https://t.me/CESS_Storage_official
+		https://discord.gg/tkZ4gfrK`
+		c.JSON(http.StatusInternalServerError, msg)
 		return false
 	}
 
 	if !n.GetRpcState() {
-		c.JSON(http.StatusInternalServerError, "service rpc connection failed, please try again later.")
+		c.JSON(http.StatusInternalServerError, "RPC connection failed, please try again later.")
 		return false
 	}
 	return true
@@ -835,8 +763,8 @@ func (n *Node) GetSegment(fdir, fhash string, sid int) (string, error) {
 	}
 
 	if record, err := n.ParseTrackFile(fhash); err == nil {
-		if sid < len(record.SegmentInfo) && record.SegmentInfo[sid].SegmentHash != "" {
-			fpath = record.SegmentInfo[sid].SegmentHash
+		if sid < len(record.Segment) && record.Segment[sid].SegmentHash != "" {
+			fpath = record.Segment[sid].SegmentHash
 			if _, err = os.Stat(fpath); err == nil {
 				return fpath, nil
 			}
