@@ -8,17 +8,13 @@
 package node
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"log"
-	"net/http"
 	"os"
-	"os/signal"
 	"path/filepath"
 	"sync"
 	"sync/atomic"
-	"syscall"
 	"time"
 
 	"github.com/CESSProject/DeOSS/configs"
@@ -111,79 +107,6 @@ func (n *Node) Run() {
 	if err != nil {
 		log.Fatalf("err: %v", err)
 	}
-}
-
-func (n *Node) Run_bkp() {
-	server, err := buildHttpServer(n)
-	if err != nil {
-		log.Fatalf("[buildHttpServer] %v", err)
-	}
-	go func() {
-		if err = server.ListenAndServe(); err != nil {
-			log.Fatalf("[ListenAndServe] %v", err)
-		}
-	}()
-	out.Tip(fmt.Sprintf("Listening on port: %d", n.GetHttpPort()))
-
-	// tasks
-	go n.TaskMgt()
-
-	// Wait for interrupt signal to gracefully shutdown the server with
-	// a timeout of 5 seconds.
-	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
-
-	sig := <-quit
-	log.Println("Received an exit signal: ", sig.String())
-	// The context is used to inform the server it has 5 seconds to finish
-	// the request it is currently handling
-	ctx_timeout, _ := context.WithTimeout(context.Background(), 5*time.Second)
-	if err := server.Shutdown(ctx_timeout); err != nil {
-		log.Fatal("Server forced to shutdown: ", err)
-	}
-	log.Println("Server has exited")
-	os.Exit(0)
-
-}
-
-func buildHttpServer(n *Node) (*http.Server, error) {
-	gin.SetMode(gin.ReleaseMode)
-	ginsrv := gin.Default()
-	ginConfig := cors.DefaultConfig()
-	ginConfig.AllowAllOrigins = true
-	ginConfig.AddAllowHeaders("*")
-	ginsrv.Use(cors.New(ginConfig))
-
-	// route
-	//ginsrv.POST("/feedback/log", n.FeedbackLog)
-	//ginsrv.POST("/restore", n.RestoreFile)
-	//ginsrv.GET("/restore", n.GetRestoreHandle)
-
-	ginsrv.GET("/version", n.Get_version)
-	ginsrv.GET("/bucket", n.Get_bucket)
-	ginsrv.GET(fmt.Sprintf("/metedata/:%s", HTTP_ParameterName_Fid), n.Get_metadata)
-	ginsrv.GET(fmt.Sprintf("/download/:%s", HTTP_ParameterName_Fid), n.Download_file)
-	ginsrv.GET(fmt.Sprintf("/canfiles/:%s", HTTP_ParameterName_Fid), n.GetCanFileHandle)
-	ginsrv.GET(fmt.Sprintf("/open/:%s", HTTP_ParameterName_Fid), n.Preview_file)
-
-	ginsrv.PUT("/bucket", n.Put_bucket)
-	ginsrv.PUT("/file", n.Put_file)
-	ginsrv.PUT("/object", n.Put_object)
-	ginsrv.PUT("/chunks", n.PutChunksHandle)
-
-	ginsrv.DELETE(fmt.Sprintf("/file/:%s", HTTP_ParameterName), n.Delete_file)
-	ginsrv.DELETE(fmt.Sprintf("/bucket/:%s", HTTP_ParameterName), n.Delete_bucket)
-
-	ginsrv.GET("/404", n.NotFound)
-
-	// http server
-	return &http.Server{
-		Addr:           fmt.Sprintf(":%d", n.GetHttpPort()),
-		Handler:        ginsrv,
-		ReadTimeout:    time.Duration(30) * time.Second,
-		WriteTimeout:   time.Duration(30) * time.Second,
-		MaxHeaderBytes: 1024 * 1024,
-	}, nil
 }
 
 func (n *Node) InitFileCache(exp time.Duration, maxSpace int64, cacheDir string) {

@@ -56,25 +56,33 @@ func (n *Node) Download_file(c *gin.Context) {
 	fstat, err := os.Stat(fpath)
 	if err == nil {
 		if fstat.Size() > 0 {
-			n.Logdown("info", clientIp+" download the file from local: "+fid)
-			c.File(fpath)
-			return
+			f, err := os.Open(fpath)
+			if err == nil {
+				defer f.Close()
+				n.Logdown("info", clientIp+" download the file from local: "+fid)
+				c.DataFromReader(http.StatusOK, fstat.Size(), "application/octet-stream", f, nil)
+				return
+			}
 		}
-		os.Remove(fpath)
 	}
+	os.Remove(fpath)
 
 	fpath, err = n.GetCacheRecord(fid)
 	if err == nil {
 		fstat, err := os.Stat(fpath)
 		if err == nil {
 			if fstat.Size() > 0 {
-				n.Logdown("info", clientIp+" download the file from cache: "+fid)
-				c.File(fpath)
-				return
+				f, err := os.Open(fpath)
+				if err == nil {
+					defer f.Close()
+					n.Logdown("info", clientIp+" download the file from cache: "+fid)
+					c.DataFromReader(http.StatusOK, fstat.Size(), "application/octet-stream", f, nil)
+					return
+				}
 			}
-			os.Remove(fpath)
 		}
 	}
+	os.Remove(fpath)
 
 	completion := false
 	fmeta, err := n.QueryFile(fid, -1)
@@ -119,22 +127,17 @@ func (n *Node) Download_file(c *gin.Context) {
 		if err != nil {
 			continue
 		}
-		c.File(fpath)
+		f, err := os.Open(fpath)
+		if err != nil {
+			continue
+		}
+		defer f.Close()
 		err = n.MoveFileToCache(fid, fpath) // add file to cache
 		if err != nil {
 			n.Logdown("err", clientIp+" add file to cache failed: "+err.Error())
 		}
+		c.DataFromReader(http.StatusOK, int64(size), "application/octet-stream", f, nil)
 		return
-	}
-
-	fstat, err = os.Stat(fpath)
-	if err == nil {
-		if fstat.Size() > 0 {
-			n.Logdown("info", clientIp+" download the file from local2: "+fid)
-			c.File(fpath)
-			return
-		}
-		os.Remove(fpath)
 	}
 
 	if !completion {
@@ -151,10 +154,20 @@ func (n *Node) Download_file(c *gin.Context) {
 		return
 	}
 	n.Logdown("info", clientIp+"download the file from miner: "+fid)
-	c.File(fpath)
-	err = n.MoveFileToCache(fid, fpath) // add file to cache
-	if err != nil {
-		n.Logdown("err", clientIp+" add file to cache failed: "+err.Error())
+	fstat, err = os.Stat(fpath)
+	if err == nil {
+		if fstat.Size() > 0 {
+			f, err := os.Open(fpath)
+			if err == nil {
+				defer f.Close()
+				n.Logdown("info", clientIp+" download the file from cache: "+fid)
+				c.DataFromReader(http.StatusOK, fstat.Size(), "application/octet-stream", f, nil)
+				err = n.MoveFileToCache(fid, fpath) // add file to cache
+				if err != nil {
+					n.Logdown("err", clientIp+" add file to cache failed: "+err.Error())
+				}
+			}
+		}
 	}
 }
 

@@ -10,7 +10,6 @@ package node
 import (
 	"encoding/json"
 	"errors"
-	"log"
 	"os"
 	"sync"
 
@@ -61,7 +60,7 @@ func (p *PeerRecordType) SavePeer(addr peer.AddrInfo) error {
 	p.lock.Lock()
 	p.peerList[addr.ID.String()] = addr
 	p.lock.Unlock()
-	log.Printf("save a peer: %v", addr.ID.String())
+	//log.Printf("save a peer: %v", addr.ID.String())
 	return nil
 }
 
