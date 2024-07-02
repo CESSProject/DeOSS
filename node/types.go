@@ -24,6 +24,7 @@ const (
 	HTTPHeader_BNum          = "BlockNumber"
 	HTTPHeader_Fname         = "FileName"
 	HTTPHeader_TSize         = "TotalSize"
+	HTTPHeader_Format        = "Format"
 )
 
 const (

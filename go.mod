@@ -3,7 +3,7 @@ module github.com/CESSProject/DeOSS
 go 1.20
 
 require (
-	github.com/CESSProject/cess-go-sdk v0.5.1-0.20240628152850-7a778d0cae5f
+	github.com/CESSProject/cess-go-sdk v0.5.1-0.20240702090233-3f44c0ccd9f6
 	github.com/CESSProject/cess-go-tools v0.2.9
 	github.com/CESSProject/go-keyring v0.0.0-20220614131247-ee3a8da30fde
 	github.com/CESSProject/p2p-go v0.3.14

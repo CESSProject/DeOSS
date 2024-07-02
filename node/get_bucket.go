@@ -98,5 +98,4 @@ func (n *Node) Get_bucket(c *gin.Context) {
 	}
 	n.Logget("info", clientIp+" get bucket list suc: "+account)
 	c.JSON(http.StatusOK, bucketList)
-	return
 }

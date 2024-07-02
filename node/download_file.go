@@ -42,7 +42,6 @@ func (n *Node) Download_file(c *gin.Context) {
 	defer func() { max_concurrent_get_ch <- true }()
 
 	var err error
-	var size uint64
 	fid := c.Param(HTTP_ParameterName_Fid)
 	cipher := c.Request.Header.Get(HTTPHeader_Cipher)
 	clientIp := c.Request.Header.Get("X-Forwarded-For")
@@ -52,37 +51,18 @@ func (n *Node) Download_file(c *gin.Context) {
 
 	n.Logdown("info", clientIp+" download the file: "+fid)
 
-	fpath := filepath.Join(n.GetDirs().FileDir, fid)
-	fstat, err := os.Stat(fpath)
+	size, fpath, err := n.CheckLocalFile(fid)
 	if err == nil {
-		if fstat.Size() > 0 {
-			f, err := os.Open(fpath)
-			if err == nil {
-				defer f.Close()
-				n.Logdown("info", clientIp+" download the file from local: "+fid)
-				c.DataFromReader(http.StatusOK, fstat.Size(), "application/octet-stream", f, nil)
-				return
-			}
+		f, err := os.Open(fpath)
+		if err != nil {
+			n.Logdown("info", clientIp+" download the file from local, open file failed: "+err.Error())
+			c.JSON(http.StatusInternalServerError, err.Error())
+			return
 		}
+		n.Logdown("info", clientIp+" download the file from local: "+fid)
+		c.DataFromReader(http.StatusOK, size, "application/octet-stream", f, nil)
+		return
 	}
-	os.Remove(fpath)
-
-	fpath, err = n.GetCacheRecord(fid)
-	if err == nil {
-		fstat, err := os.Stat(fpath)
-		if err == nil {
-			if fstat.Size() > 0 {
-				f, err := os.Open(fpath)
-				if err == nil {
-					defer f.Close()
-					n.Logdown("info", clientIp+" download the file from cache: "+fid)
-					c.DataFromReader(http.StatusOK, fstat.Size(), "application/octet-stream", f, nil)
-					return
-				}
-			}
-		}
-	}
-	os.Remove(fpath)
 
 	completion := false
 	fmeta, err := n.QueryFile(fid, -1)
@@ -103,10 +83,10 @@ func (n *Node) Download_file(c *gin.Context) {
 			c.JSON(http.StatusNotFound, ERR_NotFound)
 			return
 		}
-		size = order.FileSize.Uint64()
+		size = int64(order.FileSize.Uint64())
 	} else {
 		completion = true
-		size = fmeta.FileSize.Uint64()
+		size = int64(fmeta.FileSize.Uint64())
 	}
 
 	fpath = filepath.Join(n.GetDirs().FileDir, fid)
@@ -154,7 +134,7 @@ func (n *Node) Download_file(c *gin.Context) {
 		return
 	}
 	n.Logdown("info", clientIp+"download the file from miner: "+fid)
-	fstat, err = os.Stat(fpath)
+	fstat, err := os.Stat(fpath)
 	if err == nil {
 		if fstat.Size() > 0 {
 			f, err := os.Open(fpath)
@@ -269,6 +249,26 @@ func (n *Node) fetchFiles(roothash, dir, cipher string) (string, error) {
 	if writecount != len(fmeta.SegmentList) {
 		return "", errors.New("write failed")
 	}
+	err = f.Sync()
+	return userfile, err
+}
 
-	return userfile, nil
+func (n *Node) CheckLocalFile(fid string) (int64, string, error) {
+	fpath := filepath.Join(n.GetDirs().FileDir, fid)
+	fstat, err := os.Stat(fpath)
+	if err == nil {
+		if fstat.Size() > 0 {
+			return fstat.Size(), fpath, nil
+		}
+		os.Remove(fpath)
+	}
+	fpath = filepath.Join(n.GetCacheDir(), fid)
+	fstat, err = os.Stat(fpath)
+	if err == nil {
+		if fstat.Size() > 0 {
+			return fstat.Size(), fpath, nil
+		}
+		os.Remove(fpath)
+	}
+	return 0, "", errors.New("not fount")
 }
