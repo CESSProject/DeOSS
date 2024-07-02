@@ -80,11 +80,7 @@ func (n *Node) Preview_file(c *gin.Context) {
 		size = fmeta.FileSize.Uint64()
 		for i := 0; i < len(fmeta.Owner); i++ {
 			fname = string(fmeta.Owner[i].FileName)
-			temp := strings.Split(string(fmeta.Owner[i].FileName), ".")
-			if len(temp) < 2 {
-				continue
-			}
-			fext = "." + temp[len(temp)-1]
+			fext = filepath.Ext(fname)
 			contenttype, ok = contentType.Load(strings.ToLower(fext))
 			if !ok {
 				contenttype = "application/octet-stream"
@@ -92,13 +88,44 @@ func (n *Node) Preview_file(c *gin.Context) {
 		}
 	}
 
-	//fpath := utils.FindFile(n.GetDirs().FileDir, queryName)
-	fpath, err := n.GetCacheRecord(fid) //query file from cache
+	n.Logopen("info", clientIp+" file name: "+fname)
+
+	fpath := filepath.Join(n.GetDirs().FileDir, fid)
+	n.Logopen("info", clientIp+" fpath: "+fpath)
+	fstat, err := os.Stat(fpath)
+	if err == nil {
+		if fstat.Size() > 0 {
+			n.Logopen("info", fmt.Sprintf("[%s] return the file [%s] from local", clientIp, fid))
+			c.Header("Content-length", fmt.Sprintf("%d", fstat.Size()))
+			switch strings.ToLower(fext) {
+			case ".mp4", ".mov", ".avi", ".asf", ".asx", ".rm", ".rmvb", ".3gp", ".m4v", ".wmv", ".mkv", ".flv", ".f4v", ".vob", ".mpeg",
+				".wav", ".flac", ".ape", ".alac", ".wv", ".mp3", ".aac", ".wma", ".mp2", ".ra", ".midi", ".cda", ".m4a":
+				VideoAndAudioHeader(c, fname, fstat.Sys().(*syscall.Stat_t).Mtim.Sec)
+			case "application/octet-stream":
+				c.FileAttachment(fpath, fname)
+				return
+			default:
+				filemd5, _ := sutils.CalcMD5(fpath)
+				OtherHeader(c, fname, hex.EncodeToString(filemd5), fstat.Sys().(*syscall.Stat_t).Mtim.Sec)
+			}
+			content, err := os.ReadFile(fpath)
+			if err != nil {
+				c.JSON(500, "try again later")
+				return
+			}
+			c.Data(200, contenttype.(string), content)
+			return
+		} else {
+			os.Remove(fpath)
+		}
+	}
+
+	fpath, err = n.GetCacheRecord(fid) //query file from cache
 	if err != nil {
 		n.Logopen("err", fmt.Sprintf("[%s] The file [%s] was not found in the cache: %v", clientIp, fid, err))
 	}
 
-	fstat, err := os.Stat(fpath)
+	fstat, err = os.Stat(fpath)
 	if err == nil {
 		if fstat.Size() > 0 {
 			n.Logopen("info", fmt.Sprintf("[%s] return the file [%s] from cache", clientIp, fid))
@@ -144,12 +171,39 @@ func (n *Node) Preview_file(c *gin.Context) {
 		if err != nil {
 			continue
 		}
-		c.File(fpath)
 		err = n.MoveFileToCache(fid, fpath) // add file to cache
 		if err != nil {
 			n.Logopen("err", fmt.Sprintf("[%s] add file [%s] to cache error [%v]", clientIp, fid, err))
 		}
-		return
+		break
+	}
+
+	fstat, err = os.Stat(fpath)
+	if err == nil {
+		if fstat.Size() > 0 {
+			n.Logopen("info", fmt.Sprintf("[%s] return the file [%s] from cache", clientIp, fid))
+			c.Header("Content-length", fmt.Sprintf("%d", fstat.Size()))
+			switch strings.ToLower(fext) {
+			case ".mp4", ".mov", ".avi", ".asf", ".asx", ".rm", ".rmvb", ".3gp", ".m4v", ".wmv", ".mkv", ".flv", ".f4v", ".vob", ".mpeg",
+				".wav", ".flac", ".ape", ".alac", ".wv", ".mp3", ".aac", ".wma", ".mp2", ".ra", ".midi", ".cda", ".m4a":
+				VideoAndAudioHeader(c, fname, fstat.Sys().(*syscall.Stat_t).Mtim.Sec)
+			case "application/octet-stream":
+				c.FileAttachment(fpath, fname)
+				return
+			default:
+				filemd5, _ := sutils.CalcMD5(fpath)
+				OtherHeader(c, fname, hex.EncodeToString(filemd5), fstat.Sys().(*syscall.Stat_t).Mtim.Sec)
+			}
+			content, err := os.ReadFile(fpath)
+			if err != nil {
+				c.JSON(500, "try again later")
+				return
+			}
+			c.Data(200, contenttype.(string), content)
+			return
+		} else {
+			os.Remove(fpath)
+		}
 	}
 
 	if !completion {

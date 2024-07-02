@@ -91,7 +91,6 @@ func (n *Node) PutChunksHandle(c *gin.Context) {
 
 	var (
 		err        error
-		pkey       []byte
 		chunksInfo ChunksInfo
 	)
 
@@ -145,26 +144,6 @@ func (n *Node) PutChunksHandle(c *gin.Context) {
 	if len(pkey) == 0 {
 		return
 	}
-
-	// mem, err := utils.GetSysMemAvailable()
-	// if err == nil {
-	// 	if uint64(contentLength) > uint64(mem*90/100) {
-	// 		if uint64(contentLength) < MaxMemUsed {
-	// 			c.JSON(http.StatusForbidden, ERR_SysMemNoLeft)
-	// 			return
-	// 		}
-	// 	}
-	// }
-	// // verify disk space availability
-	// if contentLength > MaxMemUsed {
-	// 	freeSpace, err := utils.GetDirFreeSpace("/tmp")
-	// 	if err == nil {
-	// 		if uint64(contentLength+sconfig.SIZE_1MiB*16) > freeSpace {
-	// 			c.JSON(http.StatusForbidden, ERR_DeviceSpaceNoLeft)
-	// 			return
-	// 		}
-	// 	}
-	// }
 
 	if blockIdx%7 == 0 && !checkExpiredFiles(filepath.Join(n.GetDirs().FileDir, account)) {
 		c.JSON(http.StatusForbidden, "the number of files being uploaded exceeds the limit")
@@ -307,12 +286,11 @@ func (n *Node) PutChunksHandle(c *gin.Context) {
 			if isSplit == "true" {
 				beSplit = true
 			}
-			log.Println("savedir", savedir, "cipher", cipher)
-			log.Println("filename", filename, "archiveFormat", archiveFormat, "issplit", beSplit)
+			n.Logchunk("info", clientIp+" savedir: "+savedir+" cipher: "+cipher+" filename: "+filename+" archiveFormat: "+archiveFormat)
+			n.Logchunk("info", fmt.Sprintf("%s beSplit: %v", clientIp, beSplit))
 			if err = cansproto.ArchiveCanFile(savedir, filename, archiveFormat, cipher != "", beSplit,
 				func(s string) string {
 					ss := strings.Split(s, CHUNK_FILE_FLAG)
-					log.Println("entry path:", s)
 					return ss[0]
 				}, nil); err != nil {
 				c.JSON(http.StatusInternalServerError, err.Error())
@@ -414,16 +392,24 @@ func (n *Node) PutChunksHandle(c *gin.Context) {
 		return
 	}
 
-	err = os.Rename(fpath, filepath.Join(n.GetDirs().FileDir, fid))
+	newPath := filepath.Join(n.GetDirs().FileDir, fid)
+	err = os.Rename(fpath, newPath)
 	if err != nil {
 		n.Logchunk("err", clientIp+" Rename: "+err.Error())
 		c.JSON(http.StatusInternalServerError, err)
 		return
 	}
 
+	fstat, err := os.Stat(newPath)
+	if err != nil {
+		n.Logchunk("err", clientIp+" Rename: "+err.Error())
+		c.JSON(http.StatusInternalServerError, ERR_InternalServer)
+		return
+	}
+
 	switch duplicate {
 	case Duplicate1:
-		blockhash, err := n.PlaceStorageOrder(fid, filename, bucketName, territoryName, segment, pkey, uint64(contentLength))
+		blockhash, err := n.PlaceStorageOrder(fid, filename, bucketName, territoryName, segment, pkey, uint64(fstat.Size()))
 		if err != nil {
 			n.Logchunk("err", clientIp+" PlaceStorageOrder: "+err.Error())
 			c.JSON(http.StatusInternalServerError, err)
@@ -438,19 +424,19 @@ func (n *Node) PutChunksHandle(c *gin.Context) {
 		return
 	}
 
-	code, err = saveToTrackFile(n, fid, filename, bucketName, territoryName, savedir, cipher, segment, pkey, uint64(contentLength))
+	code, err = saveToTrackFile(n, fid, filename, bucketName, territoryName, savedir, cipher, segment, pkey, uint64(fstat.Size()))
 	if err != nil {
 		n.Logchunk("err", clientIp+" saveToTrackFile: "+err.Error())
 		c.JSON(code, err)
 		return
 	}
 
-	err = n.MoveFileToCache(fid, fpath)
+	err = n.MoveFileToCache(fid, newPath)
 	if err != nil {
 		n.Logchunk("err", clientIp+" MoveFileToCache: "+err.Error())
 	}
 
-	blockhash, err := n.PlaceStorageOrder(fid, filename, bucketName, territoryName, segment, pkey, uint64(contentLength))
+	blockhash, err := n.PlaceStorageOrder(fid, filename, bucketName, territoryName, segment, pkey, uint64(fstat.Size()))
 	if err != nil {
 		n.Logchunk("err", clientIp+" PlaceStorageOrder: "+err.Error())
 		c.JSON(http.StatusInternalServerError, err)
@@ -584,130 +570,6 @@ cans:
 	}
 }
 
-// func (n *Node) fileProcess(filename, bucketName, fpath, account, cipher string, pkey []byte, c *gin.Context) (int, error) {
-// 	fstat, err := os.Stat(fpath)
-// 	if err != nil {
-// 		return http.StatusInternalServerError, err
-// 	}
-
-// 	if fstat.Size() == 0 {
-// 		return http.StatusBadRequest, errors.New(ERR_BodyEmptyFile)
-// 	}
-
-// 	segmentInfo, roothash, err := process.ShardedEncryptionProcessing(fpath, cipher)
-// 	if err != nil {
-// 		return http.StatusInternalServerError, err
-// 	}
-
-// 	ok, err := n.deduplication(pkey, segmentInfo, roothash, filename, bucketName, uint64(fstat.Size()))
-// 	if err != nil {
-// 		if strings.Contains(err.Error(), "[GenerateStorageOrder]") {
-// 			n.Logchunk("info", fmt.Sprintf("[%v] %v", clientIp, err))
-// 			c.JSON(http.StatusForbidden, ERR_RpcFailed)
-// 			return
-// 		}
-// 		n.Logchunk("err", fmt.Sprintf("[%v] %v", clientIp, err))
-// 		c.JSON(http.StatusInternalServerError, ERR_InternalServer)
-// 		return
-// 	}
-// 	if ok {
-// 		n.Logchunk("info", fmt.Sprintf("[%v] [%s] uploaded successfully", clientIp, roothash))
-// 		c.JSON(http.StatusOK, roothash)
-// 		return
-// 	}
-
-// 	roothashDir := filepath.Join(n.GetDirs().FileDir, account, roothash)
-// 	_, err = os.Stat(roothashDir)
-// 	if err == nil {
-// 		if ok := n.HasTrackFile(roothash); ok {
-// 			err = n.MoveFileToCache(roothash, filepath.Join(roothashDir, roothash)) //move file to cache
-// 			if err != nil {
-// 				n.Logchunk("err", fmt.Sprintf("[%v] %v", clientIp, err))
-// 			}
-// 			c.JSON(http.StatusOK, roothash)
-// 			n.Logchunk("info", fmt.Sprintf("[%v] [%s] uploaded successfully", clientIp, roothash))
-// 			return
-// 		}
-// 	}
-
-// 	err = os.MkdirAll(roothashDir, 0755)
-// 	if err != nil {
-// 		n.Logchunk("err", fmt.Sprintf("[%v] %v", clientIp, err))
-// 		c.JSON(http.StatusInternalServerError, ERR_InternalServer)
-// 		return
-// 	}
-
-// 	err = utils.RenameDir(filepath.Dir(fpath), roothashDir)
-// 	if err != nil {
-// 		n.Logchunk("err", fmt.Sprintf("[%v] %v", clientIp, err))
-// 		c.JSON(http.StatusInternalServerError, ERR_InternalServer)
-// 		return
-// 	}
-
-// 	err = os.Rename(filepath.Join(roothashDir, filepath.Base(fpath)), filepath.Join(roothashDir, roothash))
-// 	if err != nil {
-// 		os.RemoveAll(roothashDir)
-// 		n.Logchunk("err", fmt.Sprintf("[%v] %v", clientIp, err))
-// 		c.JSON(http.StatusInternalServerError, ERR_InternalServer)
-// 		return
-// 	}
-
-// 	err = n.MoveFileToCache(roothash, filepath.Join(roothashDir, roothash)) //move file to cache
-// 	if err != nil {
-// 		n.Logchunk("err", fmt.Sprintf("[%v] %v", clientIp, err))
-// 	}
-
-// 	for i := 0; i < len(segmentInfo); i++ {
-// 		segmentInfo[i].SegmentHash = filepath.Join(roothashDir, filepath.Base(segmentInfo[i].SegmentHash))
-// 		for j := 0; j < len(segmentInfo[i].FragmentHash); j++ {
-// 			segmentInfo[i].FragmentHash[j] = filepath.Join(roothashDir, filepath.Base(segmentInfo[i].FragmentHash[j]))
-// 		}
-// 	}
-
-// 	var recordInfo = &RecordInfo{
-// 		Segment:       segmentInfo,
-// 		Owner:         pkey,
-// 		Fid:           roothash,
-// 		FileName:      filename,
-// 		BucketName:    bucketName,
-// 		TerritoryName: territoryName,
-// 		FileSize:      uint64(fstat.Size()),
-// 		PutFlag:       false,
-// 		Duplicate:     false,
-// 	}
-
-// 	b, err := json.Marshal(recordInfo)
-// 	if err != nil {
-// 		n.Logchunk("err", fmt.Sprintf("[%v] %v", clientIp, err))
-// 		c.JSON(http.StatusInternalServerError, ERR_InternalServer)
-// 		return
-// 	}
-
-// 	err = n.WriteTrackFile(roothash, b)
-// 	if err != nil {
-// 		n.Logchunk("err", fmt.Sprintf("[%v] %v", clientIp, err))
-// 		c.JSON(http.StatusInternalServerError, ERR_InternalServer)
-// 		return
-// 	}
-
-// 	txhash, err := n.GenerateStorageOrder(
-// 		roothash,
-// 		recordInfo.SegmentInfo,
-// 		recordInfo.Owner,
-// 		recordInfo.Filename,
-// 		recordInfo.Buckname,
-// 		recordInfo.Filesize,
-// 	)
-// 	if err != nil {
-// 		n.Logchunk("err", fmt.Sprintf("[%s] GenerateStorageOrder failed, tx: %s err: %v", roothash, txhash, err))
-// 	} else {
-// 		n.Logchunk("info", fmt.Sprintf("[%s] GenerateStorageOrder suc: %s", roothash, txhash))
-// 	}
-
-// 	n.Logchunk("info", fmt.Sprintf("[%v] [%s] uploaded successfully", clientIp, roothash))
-// 	c.JSON(http.StatusOK, roothash)
-// }
-
 func checkUserParamsAndGetPubkey(n *Node, c *gin.Context, account, bucketName, cipher, clientIp string) []byte {
 	var (
 		pkey []byte
@@ -813,27 +675,6 @@ func checkSapce(n *Node, c *gin.Context, pkey []byte, territoryName string, cont
 		if totalOccupiedSpace > freeSpace {
 			return http.StatusForbidden, errors.New(ERR_DeviceSpaceNoLeft)
 		}
-	}
-
-	return http.StatusOK, nil
-}
-
-func checkoutTerritory(n *Node, pkey []byte, territoryName string, deadLine uint32) (int, error) {
-	territoryInfo, err := n.QueryTerritory(pkey, territoryName, -1)
-	if err != nil {
-		if err.Error() == chain.ERR_Empty {
-			return http.StatusForbidden, errors.New(ERR_NoTerritory)
-		}
-		return http.StatusInternalServerError, errors.New(ERR_RpcFailed)
-	}
-
-	blockheight, err := n.QueryBlockNumber("")
-	if err != nil {
-		return http.StatusInternalServerError, errors.New(ERR_RpcFailed)
-	}
-
-	if uint32(territoryInfo.Deadline) < (blockheight + deadLine) {
-		return http.StatusForbidden, errors.New(ERR_TerritoryExpiresSoon)
 	}
 
 	return http.StatusOK, nil

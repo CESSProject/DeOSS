@@ -8,11 +8,17 @@
 package node
 
 import (
+	"context"
 	"encoding/json"
+	"fmt"
+	"log"
+	"net/http"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"sync"
 	"sync/atomic"
+	"syscall"
 	"time"
 
 	"github.com/CESSProject/DeOSS/configs"
@@ -24,6 +30,9 @@ import (
 	"github.com/CESSProject/cess-go-tools/cacher"
 	"github.com/CESSProject/cess-go-tools/scheduler"
 	"github.com/CESSProject/p2p-go/core"
+	"github.com/CESSProject/p2p-go/out"
+	"github.com/gin-contrib/cors"
+	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 )
@@ -41,17 +50,16 @@ type Node struct {
 	blacklist          map[string]int64
 	trackDir           string
 	fadebackDir        string
-	ufileDir           string
-	dfileDir           string
 	inter.TrackFile
 	confile.Confile
 	logger.Logger
 	db.Cache
 	PeerRecord
-	*chain.ChainClient
-	*core.PeerNode
 	cacher.FileCache
 	scheduler.Selector
+	*chain.ChainClient
+	*core.PeerNode
+	*gin.Engine
 }
 
 // New is used to build a node instance
@@ -70,66 +78,113 @@ func New() *Node {
 	}
 }
 
-// func (n *Node) Run() {
-// 	gin.SetMode(gin.ReleaseMode)
-// 	n.Engine = gin.Default()
-// 	config := cors.DefaultConfig()
-// 	config.AllowAllOrigins = true
-// 	config.AllowMethods = []string{"HEAD", "GET", "POST", "PUT", "DELETE", "OPTIONS"}
-// 	config.AddAllowHeaders(
-// 		configs.Header_Auth,
-// 		configs.Header_Account,
-// 		configs.Header_BucketName,
-// 		"*",
-// 	)
-// 	n.Engine.MaxMultipartMemory = MaxMemUsed
-// 	n.Engine.Use(cors.New(config))
-// 	// Add route
-// 	n.addRoute()
-// 	// Task management
-// 	go n.TaskMgt()
-// 	out.Tip(fmt.Sprintf("Listening on port: %d", n.GetHttpPort()))
-// 	// Run
-// 	err := n.Engine.Run(fmt.Sprintf(":%d", n.GetHttpPort()))
-// 	if err != nil {
-// 		log.Fatalf("err: %v", err)
-// 	}
-// }
+func (n *Node) Run() {
+	gin.SetMode(gin.ReleaseMode)
+	n.Engine = gin.Default()
+	config := cors.DefaultConfig()
+	config.AllowAllOrigins = true
+	config.AddAllowHeaders("*")
+	n.Engine.MaxMultipartMemory = MaxMemUsed
+	n.Engine.Use(cors.New(config))
+	n.Engine.GET("/version", n.Get_version)
+	n.Engine.GET("/bucket", n.Get_bucket)
+	n.Engine.GET(fmt.Sprintf("/metedata/:%s", HTTP_ParameterName_Fid), n.Get_metadata)
+	n.Engine.GET(fmt.Sprintf("/download/:%s", HTTP_ParameterName_Fid), n.Download_file)
+	n.Engine.GET(fmt.Sprintf("/canfiles/:%s", HTTP_ParameterName_Fid), n.GetCanFileHandle)
+	n.Engine.GET(fmt.Sprintf("/open/:%s", HTTP_ParameterName_Fid), n.Preview_file)
 
-// func (n *Node) Run2(port int, workspace string) {
-// 	var err error
-// 	if workspace == "" {
-// 		workspace, err = os.Getwd()
-// 		if err != nil {
-// 			log.Fatal(err)
-// 		}
-// 	}
-// 	gin.SetMode(gin.DebugMode)
-// 	n.Engine = gin.Default()
-// 	n.Engine.LoadHTMLGlob("templates/*")
-// 	n.Engine.Static("/static", "./static")
-// 	config := cors.DefaultConfig()
-// 	config.AllowAllOrigins = true
-// 	config.AllowMethods = []string{"HEAD", "GET", "POST", "PUT", "DELETE", "OPTIONS"}
-// 	config.AddAllowHeaders(
-// 		configs.Header_Auth,
-// 		configs.Header_Account,
-// 		configs.Header_BucketName,
-// 		"*",
-// 	)
-// 	n.Engine.MaxMultipartMemory = MaxMemUsed
-// 	n.Engine.Use(cors.New(config))
-// 	// Add route
-// 	n.addRoute()
-// 	// Task management
-// 	// go n.TaskMgt()
-// 	out.Tip(fmt.Sprintf("Listening on port: %d", port))
-// 	// Run
-// 	err = n.Engine.Run(fmt.Sprintf(":%d", port))
-// 	if err != nil {
-// 		log.Fatalf("err: %v", err)
-// 	}
-// }
+	n.Engine.PUT("/bucket", n.Put_bucket)
+	n.Engine.PUT("/file", n.Put_file)
+	n.Engine.PUT("/object", n.Put_object)
+	n.Engine.PUT("/chunks", n.PutChunksHandle)
+
+	n.Engine.DELETE(fmt.Sprintf("/file/:%s", HTTP_ParameterName), n.Delete_file)
+	n.Engine.DELETE(fmt.Sprintf("/bucket/:%s", HTTP_ParameterName), n.Delete_bucket)
+
+	n.Engine.GET("/404", n.NotFound)
+	out.Tip(fmt.Sprintf("Listening on port: %d", n.GetHttpPort()))
+
+	// tasks
+	go n.TaskMgt()
+
+	err := n.Engine.Run(fmt.Sprintf(":%d", n.GetHttpPort()))
+	if err != nil {
+		log.Fatalf("err: %v", err)
+	}
+}
+
+func (n *Node) Run_bkp() {
+	server, err := buildHttpServer(n)
+	if err != nil {
+		log.Fatalf("[buildHttpServer] %v", err)
+	}
+	go func() {
+		if err = server.ListenAndServe(); err != nil {
+			log.Fatalf("[ListenAndServe] %v", err)
+		}
+	}()
+	out.Tip(fmt.Sprintf("Listening on port: %d", n.GetHttpPort()))
+
+	// tasks
+	go n.TaskMgt()
+
+	// Wait for interrupt signal to gracefully shutdown the server with
+	// a timeout of 5 seconds.
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+
+	sig := <-quit
+	log.Println("Received an exit signal: ", sig.String())
+	// The context is used to inform the server it has 5 seconds to finish
+	// the request it is currently handling
+	ctx_timeout, _ := context.WithTimeout(context.Background(), 5*time.Second)
+	if err := server.Shutdown(ctx_timeout); err != nil {
+		log.Fatal("Server forced to shutdown: ", err)
+	}
+	log.Println("Server has exited")
+	os.Exit(0)
+
+}
+
+func buildHttpServer(n *Node) (*http.Server, error) {
+	gin.SetMode(gin.ReleaseMode)
+	ginsrv := gin.Default()
+	ginConfig := cors.DefaultConfig()
+	ginConfig.AllowAllOrigins = true
+	ginConfig.AddAllowHeaders("*")
+	ginsrv.Use(cors.New(ginConfig))
+
+	// route
+	//ginsrv.POST("/feedback/log", n.FeedbackLog)
+	//ginsrv.POST("/restore", n.RestoreFile)
+	//ginsrv.GET("/restore", n.GetRestoreHandle)
+
+	ginsrv.GET("/version", n.Get_version)
+	ginsrv.GET("/bucket", n.Get_bucket)
+	ginsrv.GET(fmt.Sprintf("/metedata/:%s", HTTP_ParameterName_Fid), n.Get_metadata)
+	ginsrv.GET(fmt.Sprintf("/download/:%s", HTTP_ParameterName_Fid), n.Download_file)
+	ginsrv.GET(fmt.Sprintf("/canfiles/:%s", HTTP_ParameterName_Fid), n.GetCanFileHandle)
+	ginsrv.GET(fmt.Sprintf("/open/:%s", HTTP_ParameterName_Fid), n.Preview_file)
+
+	ginsrv.PUT("/bucket", n.Put_bucket)
+	ginsrv.PUT("/file", n.Put_file)
+	ginsrv.PUT("/object", n.Put_object)
+	ginsrv.PUT("/chunks", n.PutChunksHandle)
+
+	ginsrv.DELETE(fmt.Sprintf("/file/:%s", HTTP_ParameterName), n.Delete_file)
+	ginsrv.DELETE(fmt.Sprintf("/bucket/:%s", HTTP_ParameterName), n.Delete_bucket)
+
+	ginsrv.GET("/404", n.NotFound)
+
+	// http server
+	return &http.Server{
+		Addr:           fmt.Sprintf(":%d", n.GetHttpPort()),
+		Handler:        ginsrv,
+		ReadTimeout:    time.Duration(30) * time.Second,
+		WriteTimeout:   time.Duration(30) * time.Second,
+		MaxHeaderBytes: 1024 * 1024,
+	}, nil
+}
 
 func (n *Node) InitFileCache(exp time.Duration, maxSpace int64, cacheDir string) {
 	n.FileCache = cacher.NewCacher(exp, maxSpace, cacheDir)
@@ -187,14 +242,6 @@ func (n *Node) SetTrackDir(dir string) {
 
 func (n *Node) SetFadebackDir(dir string) {
 	n.fadebackDir = dir
-}
-
-func (n *Node) SetUfileDir(dir string) {
-	n.ufileDir = dir
-}
-
-func (n *Node) SetDfileDir(dir string) {
-	n.dfileDir = dir
 }
 
 func (n *Node) WriteTrackFile(fid string, data []byte) error {
@@ -266,27 +313,6 @@ func (n *Node) DeleteTrackFile(filehash string) {
 	n.trackLock.Lock()
 	defer n.trackLock.Unlock()
 	os.Remove(filepath.Join(n.trackDir, filehash))
-}
-
-func (n *Node) HasBlacklist(peerid string) (int64, bool) {
-	n.blacklistLock.RLock()
-	t, ok := n.blacklist[peerid]
-	n.blacklistLock.RUnlock()
-	return t, ok
-}
-
-func (n *Node) AddToBlacklist(peerid string) {
-	n.blacklistLock.Lock()
-	if _, ok := n.blacklist[peerid]; !ok {
-		n.blacklist[peerid] = time.Now().Unix()
-	}
-	n.blacklistLock.Unlock()
-}
-
-func (n *Node) DelFromBlacklist(peerid string) {
-	n.blacklistLock.Lock()
-	delete(n.blacklist, peerid)
-	n.blacklistLock.Unlock()
 }
 
 func (n *Node) RebuildDirs() {

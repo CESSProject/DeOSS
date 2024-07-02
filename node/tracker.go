@@ -42,7 +42,7 @@ type RecordInfo struct {
 const MinRecordInfoLength = 132
 
 // tracker
-func (n *Node) tracker(ch chan<- bool) {
+func (n *Node) Tracker(ch chan<- bool) {
 	defer func() {
 		ch <- true
 		if err := recover(); err != nil {
@@ -227,13 +227,12 @@ func (n *Node) storageData(roothash string, segment []chain.SegmentDataInfo, com
 		}
 	}
 
-	//allpeers := n.GetAllStoragePeerId()
+	// allpeers := n.GetAllStoragePeerId()
 	itor, err := n.NewPeersIterator(sconfig.DataShards + sconfig.ParShards)
 	if err != nil {
 		return err
 	}
 
-	//n.Track("info", fmt.Sprintf("All storage peers: %v", allpeers))
 	var sucPeer = make(map[string]struct{}, sconfig.DataShards+sconfig.ParShards)
 
 	for _, value := range completeList {

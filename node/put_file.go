@@ -105,7 +105,7 @@ func (n *Node) Put_file(c *gin.Context) {
 		return
 	}
 
-	filename, code, err := saveFormFileToFile(c, fpath, contentLength)
+	filename, length, code, err := saveFormFileToFile(c, fpath)
 	if err != nil {
 		n.Logput("err", clientIp+" saveFormFileToFile: "+err.Error())
 		c.JSON(code, err)
@@ -128,7 +128,8 @@ func (n *Node) Put_file(c *gin.Context) {
 		return
 	}
 
-	err = os.Rename(fpath, filepath.Join(n.GetDirs().FileDir, fid))
+	newPath := filepath.Join(n.GetDirs().FileDir, fid)
+	err = os.Rename(fpath, newPath)
 	if err != nil {
 		n.Logput("err", clientIp+" Rename: "+err.Error())
 		c.JSON(http.StatusInternalServerError, err)
@@ -137,7 +138,7 @@ func (n *Node) Put_file(c *gin.Context) {
 
 	switch duplicate {
 	case Duplicate1:
-		blockhash, err := n.PlaceStorageOrder(fid, filename, bucketName, territoryName, segment, pkey, uint64(contentLength))
+		blockhash, err := n.PlaceStorageOrder(fid, filename, bucketName, territoryName, segment, pkey, uint64(length))
 		if err != nil {
 			n.Logput("err", clientIp+" PlaceStorageOrder: "+err.Error())
 			c.JSON(http.StatusInternalServerError, err)
@@ -152,19 +153,19 @@ func (n *Node) Put_file(c *gin.Context) {
 		return
 	}
 
-	code, err = saveToTrackFile(n, fid, filename, bucketName, territoryName, cacheDir, cipher, segment, pkey, uint64(contentLength))
+	code, err = saveToTrackFile(n, fid, filename, bucketName, territoryName, cacheDir, cipher, segment, pkey, uint64(length))
 	if err != nil {
 		n.Logput("err", clientIp+" saveToTrackFile: "+err.Error())
 		c.JSON(code, err)
 		return
 	}
 
-	err = n.MoveFileToCache(fid, fpath)
+	err = n.MoveFileToCache(fid, newPath)
 	if err != nil {
 		n.Logput("err", clientIp+" MoveFileToCache: "+err.Error())
 	}
 
-	blockhash, err := n.PlaceStorageOrder(fid, filename, bucketName, territoryName, segment, pkey, uint64(contentLength))
+	blockhash, err := n.PlaceStorageOrder(fid, filename, bucketName, territoryName, segment, pkey, uint64(length))
 	if err != nil {
 		n.Logput("err", clientIp+" PlaceStorageOrder: "+err.Error())
 		c.JSON(http.StatusInternalServerError, err)
@@ -198,15 +199,15 @@ func createCacheDir(n *Node, account string) (string, string, int, error) {
 	return cacheDir, fpath, http.StatusOK, nil
 }
 
-func saveFormFileToFile(c *gin.Context, file string, contentLength int64) (string, int, error) {
+func saveFormFileToFile(c *gin.Context, file string) (string, int64, int, error) {
 	f, err := os.OpenFile(file, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, os.ModePerm)
 	if err != nil {
-		return "", http.StatusInternalServerError, err
+		return "", 0, http.StatusInternalServerError, err
 	}
 	defer f.Close()
 	formfile, fileHeder, err := c.Request.FormFile("file")
 	if err != nil {
-		return "", http.StatusBadRequest, err
+		return "", 0, http.StatusBadRequest, err
 	}
 	filename := fileHeder.Filename
 	if strings.Contains(filename, "%") {
@@ -216,19 +217,16 @@ func saveFormFileToFile(c *gin.Context, file string, contentLength int64) (strin
 		}
 	}
 	if len(filename) > sconfig.MaxBucketNameLength {
-		return filename, http.StatusBadRequest, errors.New(ERR_FileNameTooLang)
+		return filename, 0, http.StatusBadRequest, errors.New(ERR_FileNameTooLang)
 	}
 	if len(filename) < sconfig.MinBucketNameLength {
-		return filename, http.StatusBadRequest, errors.New(ERR_FileNameTooShort)
+		return filename, 0, http.StatusBadRequest, errors.New(ERR_FileNameTooShort)
 	}
 	length, err := io.Copy(f, formfile)
 	if err != nil {
-		return filename, http.StatusBadRequest, err
+		return filename, 0, http.StatusBadRequest, err
 	}
-	if length != contentLength {
-		return filename, http.StatusBadRequest, errors.New("content length is wrong")
-	}
-	return filename, http.StatusOK, nil
+	return filename, length, http.StatusOK, nil
 }
 
 // func (n *Node) ProcessFile(file, file_name, bucket_name, account, cipher string, pkey []byte, c *gin.Context) (int, error) {

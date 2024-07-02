@@ -127,6 +127,16 @@ func (n *Node) Download_file(c *gin.Context) {
 		return
 	}
 
+	fstat, err = os.Stat(fpath)
+	if err == nil {
+		if fstat.Size() > 0 {
+			n.Logdown("info", clientIp+" download the file from local2: "+fid)
+			c.File(fpath)
+			return
+		}
+		os.Remove(fpath)
+	}
+
 	if !completion {
 		n.Logdown("err", clientIp+" download file failed: the file is being stored, please download it from the gateway where you uploaded it.")
 		c.JSON(http.StatusNotFound, "the file is being stored, please download it from the gateway where you uploaded it.")
@@ -149,9 +159,6 @@ func (n *Node) Download_file(c *gin.Context) {
 }
 
 func (n *Node) fetchFiles(roothash, dir, cipher string) (string, error) {
-	var (
-		acc string
-	)
 	userfile := filepath.Join(dir, roothash)
 	_, err := os.Stat(userfile)
 	if err == nil {
@@ -167,17 +174,6 @@ func (n *Node) fetchFiles(roothash, dir, cipher string) (string, error) {
 	fmeta, err := n.QueryFile(roothash, -1)
 	if err != nil {
 		return "", err
-	}
-
-	for _, v := range fmeta.Owner {
-		acc, err = sutils.EncodePublicKeyAsCessAccount(v.User[:])
-		if err != nil {
-			continue
-		}
-		_, err = os.Stat(filepath.Join(n.GetDirs().FileDir, acc, roothash, roothash))
-		if err == nil {
-			return filepath.Join(n.GetDirs().FileDir, acc, roothash, roothash), nil
-		}
 	}
 
 	defer func(basedir string) {
@@ -196,22 +192,31 @@ func (n *Node) fetchFiles(roothash, dir, cipher string) (string, error) {
 		for k, fragment := range segment.FragmentList {
 			fragmentpath := filepath.Join(dir, string(fragment.Hash[:]))
 			fragmentpaths[k] = fragmentpath
+			n.Logdown("info", "will download fragment: "+string(fragment.Hash[:]))
 			if string(fragment.Hash[:]) != "080acf35a507ac9849cfcba47dc2ad83e01b75663a516279c8b9d243b719643e" {
+				//n.Logdown("info", "connect to "+peerid+" failed: "+err.Error())
+				account, _ := sutils.EncodePublicKeyAsCessAccount(fragment.Miner[:])
+				n.Logdown("info", "will query the storage miner: "+account)
 				miner, err := n.QueryMinerItems(fragment.Miner[:], -1)
 				if err != nil {
+					n.Logdown("info", "query the storage miner failed: "+err.Error())
 					return "", err
 				}
 				peerid := base58.Encode([]byte(string(miner.PeerId[:])))
+				n.Logdown("info", "will connect the peer: "+peerid)
 				addr, err := n.GetPeer(peerid)
 				if err != nil {
+					n.Logdown("info", "not fount the peer: "+peerid)
 					continue
 				}
 				err = n.Connect(context.TODO(), addr)
 				if err != nil {
+					n.Logdown("info", "connect to "+peerid+" failed: "+err.Error())
 					continue
 				}
 				err = n.ReadFileAction(addr.ID, roothash, string(fragment.Hash[:]), fragmentpath, sconfig.FragmentSize)
 				if err != nil {
+					n.Logdown("info", " ReadFileAction failed: "+err.Error())
 					continue
 				}
 			} else {

@@ -95,7 +95,7 @@ func (n *Node) Put_object(c *gin.Context) {
 		return
 	}
 
-	code, err = saveObjectToFile(c, fpath, contentLength)
+	length, code, err := saveObjectToFile(c, fpath)
 	if err != nil {
 		n.Logput("err", clientIp+" saveObjectToFile: "+err.Error())
 		c.JSON(code, err)
@@ -117,16 +117,17 @@ func (n *Node) Put_object(c *gin.Context) {
 		c.JSON(code, err)
 		return
 	}
+	newPath := filepath.Join(n.GetDirs().FileDir, fid)
+	err = os.Rename(fpath, newPath)
+	if err != nil {
+		n.Logput("err", clientIp+" Rename: "+err.Error())
+		c.JSON(http.StatusInternalServerError, err)
+		return
+	}
 
 	switch duplicate {
 	case Duplicate1:
-		err = os.Rename(fpath, filepath.Join(n.GetDirs().FileDir, fid))
-		if err != nil {
-			n.Logput("err", clientIp+" Rename: "+err.Error())
-			c.JSON(http.StatusInternalServerError, err)
-			return
-		}
-		blockhash, err := n.PlaceStorageOrder(fid, filename, bucketName, territoryName, segmentInfo, pkey, uint64(contentLength))
+		blockhash, err := n.PlaceStorageOrder(fid, filename, bucketName, territoryName, segmentInfo, pkey, uint64(length))
 		if err != nil {
 			n.Logput("err", clientIp+" PlaceStorageOrder: "+err.Error())
 			c.JSON(http.StatusInternalServerError, err)
@@ -136,30 +137,24 @@ func (n *Node) Put_object(c *gin.Context) {
 		c.JSON(http.StatusOK, map[string]string{"fid": fid})
 		return
 	case Duplicate2:
-		err = os.Rename(fpath, filepath.Join(n.GetDirs().FileDir, fid))
-		if err != nil {
-			n.Logput("err", clientIp+" Rename: "+err.Error())
-			c.JSON(http.StatusInternalServerError, err)
-			return
-		}
 		n.Logput("info", clientIp+" duplicate file: "+fid)
 		c.JSON(http.StatusOK, map[string]string{"fid": fid})
 		return
 	}
 
-	code, err = saveToTrackFile(n, fid, filename, bucketName, territoryName, cacheDir, cipher, segmentInfo, pkey, uint64(contentLength))
+	code, err = saveToTrackFile(n, fid, filename, bucketName, territoryName, cacheDir, cipher, segmentInfo, pkey, uint64(length))
 	if err != nil {
 		n.Logput("err", clientIp+" saveToTrackFile: "+err.Error())
 		c.JSON(code, err)
 		return
 	}
 
-	err = n.MoveFileToCache(fid, fpath)
+	err = n.MoveFileToCache(fid, newPath)
 	if err != nil {
 		n.Logput("err", clientIp+" MoveFileToCache: "+err.Error())
 	}
 
-	blockhash, err := n.PlaceStorageOrder(fid, filename, bucketName, territoryName, segmentInfo, pkey, uint64(contentLength))
+	blockhash, err := n.PlaceStorageOrder(fid, filename, bucketName, territoryName, segmentInfo, pkey, uint64(length))
 	if err != nil {
 		n.Logput("err", clientIp+" PlaceStorageOrder: "+err.Error())
 		c.JSON(http.StatusInternalServerError, err)
@@ -169,20 +164,17 @@ func (n *Node) Put_object(c *gin.Context) {
 	c.JSON(http.StatusOK, map[string]string{"fid": fid})
 }
 
-func saveObjectToFile(c *gin.Context, file string, contentLength int64) (int, error) {
+func saveObjectToFile(c *gin.Context, file string) (int64, int, error) {
 	f, err := os.OpenFile(file, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, os.ModePerm)
 	if err != nil {
-		return http.StatusInternalServerError, err
+		return 0, http.StatusInternalServerError, err
 	}
 	defer f.Close()
 	length, err := io.Copy(f, c.Request.Body)
 	if err != nil {
-		return http.StatusBadRequest, err
+		return 0, http.StatusBadRequest, err
 	}
-	if length != contentLength {
-		return http.StatusBadRequest, errors.New("content length is wrong")
-	}
-	return http.StatusOK, nil
+	return length, http.StatusOK, nil
 }
 
 func checkDuplicates(n *Node, fid string, pkey []byte) (DuplicateType, int, error) {
