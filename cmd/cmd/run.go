@@ -43,11 +43,8 @@ func cmd_run_func(cmd *cobra.Command, args []string) {
 		dbDir        string
 		trackDir     string
 		fadebackDir  string
-		//ufileDir     string
-		//dfileDir     string
-		syncSt     chain.SysSyncState
-		peerRecord = node.NewPeerRecord()
-		n          = node.New()
+		syncSt       chain.SysSyncState
+		n            = node.New()
 	)
 	ctx := cmd.Context()
 	// Building Profile Instances
@@ -130,7 +127,7 @@ func cmd_run_func(cmd *cobra.Command, args []string) {
 		ctx, n.PeerNode.GetHost(),
 		n.PeerNode.GetBootnode(),
 		func(p peer.AddrInfo) {
-			peerRecord.SavePeer(p)
+			n.SavePeer(p)
 			if n.HasStoragePeer(p.ID.String()) {
 				n.FlushPeerNodes(scheduler.DEFAULT_TIMEOUT, p)
 			}

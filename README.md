@@ -8,14 +8,11 @@ If you find any system errors or you have better suggestions, please submit an i
 ## 📢 Announcement
 ### CESS test network rpc endpoints
 ```
-wss://testnet-rpc0.cess.cloud/ws/
-wss://testnet-rpc1.cess.cloud/ws/
-wss://testnet-rpc2.cess.cloud/ws/
-wss://testnet-rpc3.cess.cloud/ws/
+wss://testnet-rpc.cess.cloud/ws/
 ```
 ### CESS test network bootstrap node
 ```
-_dnsaddr.boot-bucket-testnet.cess.cloud
+_dnsaddr.boot-miner-testnet.cess.cloud
 ```
 
 ### CESS test network public gateway
@@ -150,13 +147,11 @@ The contents of the configuration file template are as follows. The contents ins
 # RPC endpoint of the chain node
 Rpc:
   # test network
-  - "wss://testnet-rpc0.cess.cloud/ws/"
-  - "wss://testnet-rpc1.cess.cloud/ws/"
-  - "wss://testnet-rpc2.cess.cloud/ws/"
+  - "wss://testnet-rpc.cess.cloud/ws/"
 # bootstrap nodes
 Boot:
   # test network
-  - "_dnsaddr.boot-bucket-testnet.cess.cloud"
+  - "_dnsaddr.boot-miner-testnet.cess.cloud"
 # signature account mnemonic
 Mnemonic: "xxx xxx ... xxx"
 # service workspace
@@ -171,8 +166,6 @@ HTTP_Port: 8080
 Access: public
 # Account black/white list
 Accounts:
-  - cX...
-  - cX...
 # If you want to expose your oss service, please configure its domain name
 Domain: "http://deoss-pub-gateway.cess.cloud/"
 ```
@@ -209,13 +202,10 @@ The public API endpoint URL of DeOSS is the server you deploy, All endpoints des
 
 1. Create a wallet account and fund it, refer to [Configure Wallet](https://github.com/CESSProject/DeOSS#configure-wallet)
 
-2. Purchase cess storage space:[BuySpace](https://github.com/CESSProject/W3F-illustration/blob/4995c1584006823990806b9d30fa7d554630ec14/deoss/buySpace.png)
+2. Purchase territory
 
-3. (Optional operations) The default space purchased is valid for 1 month and can be increased by [RenewalSpace](https://github.com/CESSProject/W3F-illustration/blob/4995c1584006823990806b9d30fa7d554630ec14/deoss/renewalSpace.png).
+3. Authorize the use right to DeOSS:[Authorize](https://github.com/CESSProject/W3F-illustration/blob/4995c1584006823990806b9d30fa7d554630ec14/deoss/authorizeOss.png)
 
-4. Authorize the use right of the space to DeOSS:[Authorize](https://github.com/CESSProject/W3F-illustration/blob/4995c1584006823990806b9d30fa7d554630ec14/deoss/authorizeOss.png)
-
-> If you feel that you do not have enough space, you can expand it by means of [ExpansionSpace](https://github.com/CESSProject/W3F-illustration/blob/4995c1584006823990806b9d30fa7d554630ec14/deoss/expansionSpace.png).
 
 ## Public request header
 
@@ -231,8 +221,8 @@ The public request header identifies you, all interfaces require you to provide 
  
 ## Create a bucket
 
-| **PUT**  / |
-| ---------- |
+| **PUT**  /bucket |
+| ---------------- |
 
 The put bucket interface is used to create a bucket. When uploading files, the bucket must be specified for storage.
 
@@ -240,8 +230,7 @@ The put bucket interface is used to create a bucket. When uploading files, the b
 
 | key           | value               |
 | ------------- | ------------------- |
-| Authorization | token               |
-| BucketName    | created bucket name |
+| Bucket        | created bucket name |
 
 - Responses
 
@@ -259,13 +248,13 @@ Response schema: `application/json`
 - Request example
 
 ```shell
-# curl -X PUT URL/ -H "BucketName: bucketname" -H "Account: cX..." -H "Message: ..." -H "Signature: 0x..."
+# curl -X PUT URL/ -H "Bucket: bucket_name" -H "Account: cX..." -H "Message: ..." -H "Signature: 0x..."
 ```
 
 ## Upload a file
 
-| **PUT**  / |
-| ---------- |
+| **PUT**  /file |
+| -------------- |
 
 The put file interface is used to upload files to the cess system. You need to submit the file as form data and use provide the specific field.
 If the upload is successful, you will get the fid of the file. If you want to encrypt your file, you can specify the `cipher` field in the header and enter your password (the length cannot exceed 32 characters), and the system will automatically encrypt it.
@@ -274,17 +263,15 @@ If the upload is successful, you will get the fid of the file. If you want to en
 
 | key           | description        |
 | ------------- | ------------------ |
-| BucketName    | stored bucket name |
-| cipher        | your cipher        |
-
+| Bucket        | bucket name        |
+| Territory     | territory name     |
+| Cipher(optional)        | cipher             |
 
 - Request Body
 
 | key  | value        |
 | ---- | ------------ |
 | file | file[binary] |
-
-
 
 - Responses
 
@@ -305,17 +292,61 @@ Response schema: `application/json`
 | 500       | InternalError                 | service internal error    |
 
 
+- Request example
+
+```shell
+# curl -X PUT URL/file -F 'file=@test.log;type=application/octet-stream' -H "Bucket: bucket_name" -H "Territory: territory_name" -H "Account: cX..." -H "Message: ..." -H "Signature: 0x..."
+```
+
+## Upload an object
+
+| **PUT**  /object |
+| ---------------- |
+
+This interface is used to upload an object, you can write what you want to store directly in the body instead of specifying a file.
+If the upload is successful, you will get the fid of the object. if you want to encrypt the object, you can specify the "Cipher" field in the header of the request and enter a password (the length can not be more than 32 characters), the system will encrypt it automatically.
+
+- Request Header
+
+| key           | description        |
+| ------------- | ------------------ |
+| Bucket        | bucket name        |
+| Territory     | territory name     |
+| Cipher(optional)        | cipher             |
+
+- Request Body
+
+[content]
+
+- Responses
+
+Response schema: `application/json`
+
+| HTTP Code | Message                       | Description               |
+| --------- | ----------------------------- | ------------------------- |
+| 200       | fid                           | file id                   |
+| 400       | InvalidHead.MissingToken      | token is empty            |
+| 400       | InvalidHead.MissingBucketName | bucketname is empty       |
+| 400       | InvalidHead.BucketName        | wrong bucket name         |
+| 400       | InvalidHead.Token             | token error               |
+| 400       | Unauthorized                  | DeOSS is not authorized   |
+| 400       | InvalidParameter.EmptyFile    | file is empty             |
+| 400       | InvalidParameter.FormFile     | form File                 |
+| 400       | InvalidParameter.File         | error receiving file      |
+| 403       | NoPermission                  | token verification failed |
+| 500       | InternalError                 | service internal error    |
+
 
 - Request example
 
 ```shell
-# curl -X PUT URL/ -F 'file=@test.log;type=application/octet-stream' -H "BucketName: bucket1" -H "Account: cX..." -H "Message: ..." -H "Signature: 0x..."
+# curl -X PUT URL/object -H "Bucket: bucket_name" -H "Territory: territory_name" -H "Account: cX..." -H "Message: ..." -H "Signature: 0x..."
 ```
 
 ## Upload a file by resuming breakpoints
 
-| **PUT**  / |
-| ---------- |
+| **PUT**  /chunks |
+| ---------------- |
 
 Compared with uploading the entire file directly, resumable upload has some more parameter requirements, but has the same return result. At the same time, the uploaded file can also be encrypted.
 
@@ -323,8 +354,9 @@ Compared with uploading the entire file directly, resumable upload has some more
 
 | key           | description        |
 | ------------- | ------------------ |
-| BucketName    | stored bucket name |
-| cipher        | your cipher        |
+| Bucket        | stored bucket name |
+| Territory     | territory name     |
+| Cipher(optional)        | your cipher        |
 | Account       | your CESS account  |
 | Message       | your sgin message  |
 | Signature     | sign of message by your account  |
@@ -338,8 +370,6 @@ Compared with uploading the entire file directly, resumable upload has some more
 | key  | value        |
 | ---- | ------------ |
 | file | file[binary] |
-
-
 
 - Responses
 
@@ -367,21 +397,21 @@ Response schema: `application/json`
 - Request example
 
 ```shell
-# curl -X PUT URL/ -F 'file=@test-chunk0;type=application/octet-stream' -H "BucketName: bucket1" -H "Account: cX..." -H "Message: ..." -H "Signature: 0x... -H FileName: test.log -H BlockNumber: 5 -H BlockIndex: 0 -H TotalSize: 1000"
+# curl -X PUT URL/ -F 'file=@test-chunk0;type=application/octet-stream' -H "Bucket: bucket_name" -H "Territory: territory_name" -H "Account: cX..." -H "Message: ..." -H "Signature: 0x... -H FileName: test.log -H BlockNumber: 5 -H BlockIndex: 0 -H TotalSize: 1000"
 ```
 
 ## Download a file
 
-| **GET**  /{fid} |
-| --------------- |
+| **GET**  /download/{fid} |
+| ------------------------ |
 
-The get file interface downloads the file in the CESS storage system according to the fid.
+This interface is used to download a file with a specified fid. If you encrypted the file when you uploaded it, you also need to tell the gateway your cipher to decrypt your file.
 
 - Request Header
 
 | key       | value    |
 | --------- | -------- |
-| Operation | download |
+| Cipher(optional)    | cipher   |
 
 - Responses
 
@@ -399,15 +429,27 @@ The response schema for the exception return status is: `application/json`, The 
 - Request example
 
 ```shell
-# curl -X GET -o <savefilename> URL/fid -H "Operation: download" -H "Account: cX..." -H "Message: ..." -H "Signature: 0x..."
+# curl -X GET -o <save_filen> URL/download/<fid>
 ```
+
+## Preview a file
+
+| **GET**  /open/{fid} |
+| -------------------- |
+
+This interface is used to preview a file, it has two prerequisites: one is that the file is not encrypted, and the other is that the file format supports preview.
+
+- Request example
+
+Open in browser: URL/open/<fid>
+
 
 ## Delete a file
 
-The delete file interface is used for delete a put file.
+The delete file interface is used for delete a file.
 
-| **DELETE**  /{fid} |
-| ------------------ |
+| **DELETE**  /file/{fid} |
+| ----------------------- |
 
 - Responses
 
@@ -425,59 +467,15 @@ Response schema: `application/json`
 - Request example
 
 ```shell
-# curl -X DELETE URL/fid -H "Account: cX..." -H "Message: ..." -H "Signature: 0x..."
-```
-
-## Delete multiple files
-
-
-| **DELETE**  / |
-| ------------- |
-
-- Request Header
-
-| key           | value |
-| ------------- | ----- |
-| Authorization | token |
-| Content-Type | application/json |
-
-- Request Body
-```
-{
-  "files": [
-    "filehash1",
-    "filehash2",
-    "filehash3"
-  ]
-}
-```
-
-- Responses
-
-Response schema: `application/json`
-
-| HTTP Code | Message                   | Description               |
-| --------- | ------------------------- | ------------------------- |
-| 200       | Block hash                | delete file  block hash   |
-| 400       | InvalidHead.MissToken     | token is empty            |
-| 400       | InvalidHead.Token         | token error               |
-| 400       | ERR_ParseBody             | unable to parse body      |
-| 400       | empty files               | deleted files is empty    |
-| 403       | InvalidToken.NoPermission | token verification failed |
-| 500       | InternalError             | service internal error    |
-
-- Request example
-
-```shell
-# curl -X DELETE URL/ -d '{"files": ["filehash1", "filehash2"]}' -H "Content-Type: application/json" -H "Account: cX..." -H "Message: ..." -H "Signature: 0x..."
+# curl -X DELETE URL/file/<fid> -H "Account: cX..." -H "Message: ..." -H "Signature: 0x..."
 ```
 
 ## Delete a bucket
 
 The delete bucket interface is used for delete a bucket, all files in the bucket will also be deleted together.
 
-| **DELETE**  /{BucketName} |
-| ------------------------- |
+| **DELETE**  /bucket/{bucket_name} |
+| -------------------------------- |
 
 - Responses
 
@@ -495,15 +493,21 @@ Response schema: `application/json`
 - Request example
 
 ```shell
-# curl -X DELETE URL/BucketName -H "Account: cX..." -H "Message: ..." -H "Signature: 0x..."
+# curl -X DELETE URL/bucket/<bucket_name> -H "Account: cX..." -H "Message: ..." -H "Signature: 0x..."
 ```
 
 ## View bucket info
 
-| **GET**  /{BucketName} |
-| ---------------------- |
+| **GET**  /bucket |
+| ---------------- |
 
 This interface is used to view bucket information, including the number of stored files and file IDs.
+
+- Request Header
+
+| key       | value    |
+| --------- | -------- |
+| Bucket    | bucket_name   |
 
 - Responses
 
@@ -521,13 +525,13 @@ Response schema: `application/json`
 - Request example
 
 ```shell
-# curl -X GET URL/BucketName -H "Account: cX..." -H "Message: ..." -H "Signature: 0x..."
+# curl -X GET URL/bucket -H "Account: cX..." -H "Bucket: bucket_name"
 ```
 
 ## View bucket list
 
-| **GET**  /* |
-| ----------- |
+| **GET**  /bucket |
+| ---------------- |
 
 This interface is used to view all buckets.
 
@@ -547,21 +551,15 @@ Response schema: `application/json`
 - Request example
 
 ```shell
-# curl -X GET URL/* -H "Account: cX..." -H "Message: ..." -H "Signature: 0x..."
+# curl -X GET URL/bucket -H "Account: cX..."
 ```
 
 ## View file info
 
-| **GET**  /{fid} |
-| --------------- |
+| **GET**  /metedata/{fid} |
+| ------------------------ |
 
 This interface is used to view the basic information of a file.
-
-- Request Header
-
-| key       | value |
-| --------- | ----- |
-| Operation | view  |
 
 - Responses
 
@@ -577,7 +575,19 @@ Response schema: `application/json`
 - Request example
 
 ```shell
-# curl -X GET URL/fid -H "Operation: view" -H "Account: cX..." -H "Message: ..." -H "Signature: 0x..."
+# curl -X GET URL/metedata/<fid>
+```
+## View gateway version
+
+| **GET**  /version |
+| ----------------- |
+
+This interface is used to view the version number of the gateway.
+
+- Request example
+
+```shell
+# curl -X GET URL/version
 ```
 
 ## License

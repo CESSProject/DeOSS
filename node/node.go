@@ -66,6 +66,7 @@ func New() *Node {
 		lock:               new(sync.RWMutex),
 		blacklistLock:      new(sync.RWMutex),
 		storagePeersLock:   new(sync.RWMutex),
+		PeerRecord:         NewPeerRecord(),
 		TrackFile:          inter.NewTeeRecord(),
 		processingFiles:    make([]string, 0),
 		storagePeers:       make(map[string]struct{}, 0),
