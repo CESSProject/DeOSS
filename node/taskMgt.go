@@ -12,7 +12,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/CESSProject/cess-go-sdk/chain"
 	schain "github.com/CESSProject/cess-go-sdk/chain"
 	sconfig "github.com/CESSProject/cess-go-sdk/config"
 	"github.com/CESSProject/p2p-go/out"
@@ -103,12 +102,12 @@ func (n *Node) RefreshSelf() error {
 	}
 
 	free := accInfo.Data.Free.String()
-	if len(free) <= len(chain.TokenPrecision_CESS) {
+	if len(free) <= len(schain.TokenPrecision_CESS) {
 		n.SetBalances(0)
 		return nil
 	}
 
-	free = free[:len(free)-len(chain.TokenPrecision_CESS)]
+	free = free[:len(free)-len(schain.TokenPrecision_CESS)]
 	free_uint, err := strconv.ParseUint(free, 10, 64)
 	if err != nil {
 		n.SetBalances(math.MaxUint64)

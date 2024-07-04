@@ -91,6 +91,7 @@ func (n *Node) PutChunksHandle(c *gin.Context) {
 
 	var (
 		err        error
+		pkey       []byte
 		chunksInfo ChunksInfo
 	)
 
@@ -105,9 +106,6 @@ func (n *Node) PutChunksHandle(c *gin.Context) {
 	cansProto := c.Request.Header.Get(CANS_PROTO_HEADER)
 	isSplit := c.Request.Header.Get(CANS_SPLIT_FILE_HEADER)
 	archiveFormat := c.Request.Header.Get(CANS_ARCHIVE_FORMAT_HEADER)
-	ethAccount := c.Request.Header.Get(HTTPHeader_EthAccount)
-	message := c.Request.Header.Get(HTTPHeader_Message)
-	signature := c.Request.Header.Get(HTTPHeader_Signature)
 	filename, err = url.QueryUnescape(filename)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, err.Error())
@@ -115,34 +113,44 @@ func (n *Node) PutChunksHandle(c *gin.Context) {
 	}
 	contentLength := c.Request.ContentLength
 
-	if clientIp == "" {
+	if clientIp == "" || clientIp == " " {
 		clientIp = c.ClientIP()
 	}
 	if cansProto == "true" && !strings.Contains(filename, CANS_PROTO_FLAG) {
 		filename = fmt.Sprintf("%s%s", CANS_PROTO_FLAG, filename)
 	}
 
-	n.Logchunk("info", fmt.Sprintf("[%v] file name: %s", clientIp, filename))
 	if strings.Contains(filename, "%") {
 		filename, err = url.PathUnescape(filename)
 		if err != nil {
-			n.Logchunk("err", fmt.Sprintf("[%v] %v", clientIp, "unescape filename failed"))
 			c.JSON(http.StatusBadRequest, "unescape filename failed")
 			return
 		}
-		n.Logchunk("info", fmt.Sprintf("[%v] file name: %s", clientIp, filename))
-	}
-
-	pkey, code, err := verifySignature(n, account, ethAccount, message, signature)
-	if err != nil {
-		n.Logchunk("err", clientIp+" verifySignature: "+err.Error())
-		c.JSON(code, err)
-		return
 	}
 
 	pkey = checkUserParamsAndGetPubkey(n, c, account, bucketName, cipher, clientIp)
 	if len(pkey) == 0 {
 		return
+	}
+
+	mem, err := utils.GetSysMemAvailable()
+	if err == nil {
+		if uint64(contentLength) > uint64(mem*90/100) {
+			if uint64(contentLength) < MaxMemUsed {
+				c.JSON(http.StatusForbidden, ERR_SysMemNoLeft)
+				return
+			}
+		}
+	}
+	// verify disk space availability
+	if contentLength > MaxMemUsed {
+		freeSpace, err := utils.GetDirFreeSpace("/tmp")
+		if err == nil {
+			if uint64(contentLength+sconfig.SIZE_1MiB*16) > freeSpace {
+				c.JSON(http.StatusForbidden, ERR_DeviceSpaceNoLeft)
+				return
+			}
+		}
 	}
 
 	if blockIdx%7 == 0 && !checkExpiredFiles(filepath.Join(n.GetDirs().FileDir, account)) {
@@ -177,27 +185,20 @@ func (n *Node) PutChunksHandle(c *gin.Context) {
 			c.JSON(http.StatusForbidden, "bad file total size")
 			return
 		}
-		code, err = checkSapce(n, c, pkey, territoryName, contentLength, 30)
+		code, err := checkSapce(n, pkey, territoryName, contentLength, 30)
 		if err != nil {
 			n.Logchunk("err", clientIp+" checkSapce: "+err.Error())
-			c.JSON(code, err)
+			c.JSON(code, err.Error())
 			return
 		}
-		if !checkDeOSSStatus(n, c) {
-			return
-		}
-		code, err = checkAuth(n, c, pkey)
+		code, err = checkAuth(n, pkey)
 		if err != nil {
 			n.Logchunk("err", clientIp+" checkAuth: "+err.Error())
-			c.JSON(code, err)
+			c.JSON(code, err.Error())
 			return
 		}
 		if len(filename) > sconfig.MaxBucketNameLength {
 			c.JSON(http.StatusBadRequest, ERR_FileNameTooLang)
-			return
-		}
-		if len(filename) < sconfig.MinBucketNameLength {
-			c.JSON(http.StatusBadRequest, ERR_FileNameTooShort)
 			return
 		}
 		chunksInfo = ChunksInfo{
@@ -257,6 +258,7 @@ func (n *Node) PutChunksHandle(c *gin.Context) {
 			return
 		}
 	} else {
+
 		if fileHeder.Size+chunksInfo.SavedFileSize > chunksInfo.TotalSize {
 			c.JSON(http.StatusBadRequest, "bad chunk size")
 			return
@@ -286,8 +288,6 @@ func (n *Node) PutChunksHandle(c *gin.Context) {
 			if isSplit == "true" {
 				beSplit = true
 			}
-			n.Logchunk("info", clientIp+" savedir: "+savedir+" cipher: "+cipher+" filename: "+filename+" archiveFormat: "+archiveFormat)
-			n.Logchunk("info", fmt.Sprintf("%s beSplit: %v", clientIp, beSplit))
 			if err = cansproto.ArchiveCanFile(savedir, filename, archiveFormat, cipher != "", beSplit,
 				func(s string) string {
 					ss := strings.Split(s, CHUNK_FILE_FLAG)
@@ -376,7 +376,8 @@ func (n *Node) PutChunksHandle(c *gin.Context) {
 	delete(chunkReq, account)
 	chunkReqLock.Unlock()
 
-	segment, fid, err := process.FullProcessing(fpath, cipher, savedir)
+	fragmentsDir := filepath.Join(n.GetDirs().FileDir, account)
+	segment, fid, err := process.FullProcessing(fpath, cipher, fragmentsDir)
 	if err != nil {
 		n.Logchunk("err", clientIp+" FullProcessing: "+err.Error())
 		c.JSON(http.StatusInternalServerError, err)
@@ -424,16 +425,18 @@ func (n *Node) PutChunksHandle(c *gin.Context) {
 		return
 	}
 
-	code, err = saveToTrackFile(n, fid, filename, bucketName, territoryName, savedir, cipher, segment, pkey, uint64(fstat.Size()))
+	code, err = saveToTrackFile(n, fid, filename, bucketName, territoryName, fragmentsDir, cipher, segment, pkey, uint64(fstat.Size()))
 	if err != nil {
 		n.Logchunk("err", clientIp+" saveToTrackFile: "+err.Error())
-		c.JSON(code, err)
+		c.JSON(code, err.Error())
 		return
 	}
 
 	err = n.MoveFileToCache(fid, newPath)
 	if err != nil {
 		n.Logchunk("err", clientIp+" MoveFileToCache: "+err.Error())
+		c.JSON(http.StatusInternalServerError, err)
+		return
 	}
 
 	blockhash, err := n.PlaceStorageOrder(fid, filename, bucketName, territoryName, segment, pkey, uint64(fstat.Size()))
@@ -452,8 +455,17 @@ func (n *Node) GetCanFileHandle(c *gin.Context) {
 		return
 	}
 	defer func() { max_concurrent_get_ch <- true }()
+
 	fid := c.Param(HTTP_ParameterName_Fid)
-	var reqParams CansRequestParams
+
+	var (
+		reqParams CansRequestParams
+		srcs      []string
+		fpath     string
+		err       error
+		boxMeta   cansproto.BoxMetadata
+	)
+
 	if err := c.BindJSON(&reqParams); err != nil {
 		c.JSON(http.StatusNotFound, fmt.Sprintf("bad json request params,%v", err))
 		return
@@ -466,7 +478,6 @@ func (n *Node) GetCanFileHandle(c *gin.Context) {
 		}
 	}
 
-	var boxMeta cansproto.BoxMetadata
 	if mpath, err := n.GetCacheRecord(fmt.Sprintf("%s%s", fid, FILE_METADATA_KEY)); err == nil && mpath != "" {
 		data, err := os.ReadFile(mpath)
 		if err != nil {
@@ -479,9 +490,13 @@ func (n *Node) GetCanFileHandle(c *gin.Context) {
 			return
 		}
 	}
+	cacheDir := n.GetCacheDir()
+	if _, err := os.Stat(cacheDir); err != nil {
+		cacheDir = fdir
+	}
 
 	if boxMeta.FileName == "" {
-		segment0, err := n.GetSegment(fdir, fid, 0)
+		segment0, err := n.GetSegment(cacheDir, fid, reqParams.Cipher, 0)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, err.Error())
 			return
@@ -512,62 +527,64 @@ func (n *Node) GetCanFileHandle(c *gin.Context) {
 	}
 
 	if reqParams.SubFile == "" {
-		segmenti, err := n.GetSegment(fdir, fid, reqParams.SegmentIndex)
+		segmenti, err := n.GetSegment(cacheDir, fid, reqParams.Cipher, reqParams.SegmentIndex)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, err.Error())
 			return
 		}
 		if segmenti == "" {
-			c.JSON(http.StatusInternalServerError, "can not found the first segment of file")
+			c.JSON(http.StatusInternalServerError, "can not found the specified segment")
 			return
-		}
-		//decrypto segment
-		if reqParams.Cipher != "" {
-			err = DecryptSegment(segmenti, reqParams.Cipher)
-			if err != nil {
-				c.JSON(http.StatusInternalServerError, err.Error())
-				return
-			}
 		}
 		c.File(filepath.Join(fdir, segmenti))
 		return
 	}
 
-	record := -1
-cans:
+	startRecord, endRecord := -1, -1
 	for i, can := range boxMeta.Cans {
 		for _, f := range can.Files {
 			if strings.Contains(f.FileName, reqParams.SubFile) {
-				record = i
-				break cans
+				if startRecord == -1 {
+					startRecord = i
+				}
+				endRecord = i
 			}
 		}
 	}
-	if record >= 0 {
-		segmenti, err := n.GetSegment(fdir, fid, record)
+	for i := startRecord; i <= endRecord; i++ {
+		segmenti, err := n.GetSegment(cacheDir, fid, reqParams.Cipher, i)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, err.Error())
 			return
 		}
 		if segmenti == "" {
-			c.JSON(http.StatusInternalServerError, "can not found the first segment of file")
+			c.JSON(http.StatusInternalServerError, "can not found the segment of file")
 			return
 		}
-		if reqParams.Cipher != "" {
-			err = DecryptSegment(segmenti, reqParams.Cipher)
-			if err != nil {
-				c.JSON(http.StatusInternalServerError, err.Error())
-				return
-			}
-		}
-		fpath, err := cansproto.ExtractFileFromCan(segmenti, fdir, reqParams.SubFile, record, nil)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, "can not found the first segment of file")
-			return
-		}
-		c.File(fpath)
-		os.Remove(fpath)
+		srcs = append(srcs, segmenti)
 	}
+	if len(srcs) == 1 {
+		fpath, _, err = cansproto.ExtractFileFromCan(srcs[0], fdir, reqParams.SubFile, startRecord, nil)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, err.Error())
+			return
+		}
+	} else if len(srcs) > 1 {
+		ar, err := cansproto.NewArchiver(boxMeta.ArchiveFormat)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, err.Error())
+			return
+		}
+		fpath, err = cansproto.PickUpSplitFile(srcs, fdir, reqParams.SubFile, startRecord, ar)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, err.Error())
+			return
+		}
+	} else {
+		c.JSON(http.StatusBadRequest, "can not found file in cans")
+	}
+	c.File(fpath)
+	os.Remove(fpath)
 }
 
 func checkUserParamsAndGetPubkey(n *Node, c *gin.Context, account, bucketName, cipher, clientIp string) []byte {
@@ -636,7 +653,7 @@ func checkUserParamsAndGetPubkey(n *Node, c *gin.Context, account, bucketName, c
 	return pkey
 }
 
-func checkSapce(n *Node, c *gin.Context, pkey []byte, territoryName string, contentLength int64, deadLine uint32) (int, error) {
+func checkSapce(n *Node, pkey []byte, territoryName string, contentLength int64, deadLine uint32) (int, error) {
 	territoryInfo, err := n.QueryTerritory(pkey, territoryName, -1)
 	if err != nil {
 		if err.Error() == chain.ERR_Empty {
@@ -680,7 +697,7 @@ func checkSapce(n *Node, c *gin.Context, pkey []byte, territoryName string, cont
 	return http.StatusOK, nil
 }
 
-func checkAuth(n *Node, c *gin.Context, pkey []byte) (int, error) {
+func checkAuth(n *Node, pkey []byte) (int, error) {
 	authAccs, err := n.QueryAuthorityList(pkey, -1)
 	if err != nil {
 		if err.Error() == chain.ERR_Empty {
@@ -753,20 +770,50 @@ func checkDeOSSStatus(n *Node, c *gin.Context) bool {
 	return true
 }
 
-func (n *Node) GetSegment(fdir, fhash string, sid int) (string, error) {
-	var (
-		fpath string
-		err   error
-	)
+func (n *Node) GetSegment(fdir, fhash, cipher string, sid int) (fpath string, err error) {
+
 	if sid < 0 {
 		return fpath, errors.Wrap(errors.New("bad segment index"), "get segment error")
 	}
+	var (
+		segmentHash string
+		fromCache   bool
+	)
+
+	defer func() {
+		if fpath == "" {
+			return
+		}
+		//decrypto segment
+		if cipher != "" && !fromCache {
+			err = DecryptSegment(fpath, cipher)
+			if err != nil {
+				return
+			}
+		}
+		n.AddCacheRecord(segmentHash, fpath)
+	}()
 
 	if record, err := n.ParseTrackFile(fhash); err == nil {
 		if sid < len(record.Segment) && record.Segment[sid].SegmentHash != "" {
-			fpath = record.Segment[sid].SegmentHash
+			segmentHash = record.Segment[sid].SegmentHash
+			fpath, err = n.GetCacheRecord(segmentHash)
+			if err == nil && fpath != "" {
+				if _, err = os.Stat(fpath); err == nil {
+					fromCache = true
+					return fpath, nil
+				}
+			}
+			fpath = filepath.Join(fdir, segmentHash)
+			err = erasure.RSRestore(fpath, record.Segment[sid].FragmentHash)
+			if err != nil {
+				return fpath, errors.Wrap(err, "get segment error")
+			}
+
 			if _, err = os.Stat(fpath); err == nil {
 				return fpath, nil
+			} else {
+				log.Println(err)
 			}
 		}
 	}
@@ -782,10 +829,12 @@ func (n *Node) GetSegment(fdir, fhash string, sid int) (string, error) {
 		return "", errors.Wrap(errors.New("bad segment index"), "get segment error")
 	}
 	segment := fmeta.SegmentList[sid]
+	segmentHash = string(segment.Hash[:])
 
-	fpath, err = n.GetCacheRecord(string(segment.Hash[:]))
+	fpath, err = n.GetCacheRecord(segmentHash)
 	if err == nil && fpath != "" {
 		if _, err = os.Stat(fpath); err == nil {
+			fromCache = true
 			return fpath, nil
 		}
 	}
@@ -802,7 +851,7 @@ func (n *Node) GetSegment(fdir, fhash string, sid int) (string, error) {
 		}
 		fragmentPath := filepath.Join(fdir, string(fragment.Hash[:]))
 		if err = n.ReadFileAction(
-			peer.ID(miner.PeerId[:]), fhash, string(segment.Hash[:]),
+			peer.ID(miner.PeerId[:]), fhash, segmentHash,
 			fragmentPath, sconfig.FragmentSize,
 		); err != nil {
 			continue
@@ -815,12 +864,11 @@ func (n *Node) GetSegment(fdir, fhash string, sid int) (string, error) {
 		err := errors.New("not enough fragments were downloaded")
 		return fpath, errors.Wrap(err, "get segment error")
 	}
-	fpath = filepath.Join(fdir, string(segment.Hash[:]))
+	fpath = filepath.Join(fdir, segmentHash)
 	err = erasure.RSRestore(fpath, fgPaths)
 	if err != nil {
 		return fpath, errors.Wrap(err, "get segment error")
 	}
-	n.AddCacheRecord(string(segment.Hash[:]), fpath)
 	return fpath, nil
 }
 

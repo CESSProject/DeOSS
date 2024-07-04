@@ -1,10 +1,12 @@
 module github.com/CESSProject/DeOSS
 
-go 1.20
+go 1.21
+
+toolchain go1.22.4
 
 require (
-	github.com/CESSProject/cess-go-sdk v0.5.1-0.20240702090233-3f44c0ccd9f6
-	github.com/CESSProject/cess-go-tools v0.2.9
+	github.com/CESSProject/cess-go-sdk v0.5.1-0.20240704074553-08eecbbdb5a7
+	github.com/CESSProject/cess-go-tools v0.2.12
 	github.com/CESSProject/go-keyring v0.0.0-20220614131247-ee3a8da30fde
 	github.com/CESSProject/p2p-go v0.3.14
 	github.com/btcsuite/btcutil v1.0.3-0.20201208143702-a53e38424cce

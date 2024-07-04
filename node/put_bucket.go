@@ -50,13 +50,13 @@ func (n *Node) Put_bucket(c *gin.Context) {
 	}
 
 	if !sutils.CheckBucketName(bucketName) {
-		n.Logput("err", clientIp+" CheckBucketName: "+err.Error())
+		n.Logput("err", clientIp+" CheckBucketName: "+bucketName)
 		c.JSON(http.StatusBadRequest, ERR_HeaderFieldBucketName)
 		return
 	}
 
 	// verify the space is authorized
-	code, err = checkAuth(n, c, pkey)
+	code, err = checkAuth(n, pkey)
 	if err != nil {
 		n.Logput("err", clientIp+" checkAuth: "+err.Error())
 		c.JSON(code, err)
