@@ -44,7 +44,7 @@ func (n *Node) Get_bucket(c *gin.Context) {
 
 	if bucketName != "" {
 		if !sutils.CheckBucketName(bucketName) {
-			n.Logget("err", clientIp+" CheckBucketName: "+err.Error())
+			n.Logget("err", clientIp+" CheckBucketName: "+bucketName)
 			c.JSON(http.StatusBadRequest, ERR_HeaderFieldBucketName)
 			return
 		}

@@ -79,19 +79,19 @@ func (n *Node) Put_file(c *gin.Context) {
 	}
 
 	if !sutils.CheckBucketName(bucketName) {
-		n.Logput("err", clientIp+" CheckBucketName: "+err.Error())
+		n.Logput("err", clientIp+" CheckBucketName: "+bucketName)
 		c.JSON(http.StatusBadRequest, ERR_HeaderFieldBucketName)
 		return
 	}
 
-	code, err = checkAuth(n, c, pkey)
+	code, err = checkAuth(n, pkey)
 	if err != nil {
 		n.Logput("err", clientIp+" checkAuth: "+err.Error())
 		c.JSON(code, err)
 		return
 	}
 
-	code, err = checkSapce(n, c, pkey, territoryName, contentLength, 30)
+	code, err = checkSapce(n, pkey, territoryName, contentLength, 30)
 	if err != nil {
 		n.Logput("err", clientIp+" checkSapce: "+err.Error())
 		c.JSON(code, err)

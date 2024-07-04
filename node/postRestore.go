@@ -119,7 +119,7 @@ func (n *Node) RestoreFile(c *gin.Context) {
 		allUsedSpace += (count * sconfig.SegmentSize)
 	}
 
-	code, err := checkSapce(n, c, pkey, territoryName, allUsedSpace, 1000)
+	code, err := checkSapce(n, pkey, territoryName, allUsedSpace, 1000)
 	if err != nil {
 		n.Log("info", fmt.Sprintf("[%v] %v", clientIp, ERR_AccountNotExist))
 		c.JSON(code, err)

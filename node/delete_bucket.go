@@ -39,7 +39,7 @@ func (n *Node) Delete_bucket(c *gin.Context) {
 	}
 
 	if !sutils.CheckBucketName(bucketName) {
-		n.Logput("err", clientIp+" CheckBucketName: "+err.Error())
+		n.Logput("err", clientIp+" CheckBucketName: "+bucketName)
 		c.JSON(http.StatusBadRequest, "invalid bucket")
 		return
 	}
