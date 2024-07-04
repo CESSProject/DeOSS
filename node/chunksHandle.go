@@ -551,7 +551,7 @@ func (n *Node) GetCanFileHandle(c *gin.Context) {
 			}
 		}
 	}
-	for i := startRecord; i <= endRecord; i++ {
+	for i := startRecord; startRecord != -1 && endRecord != -1 && i <= endRecord; i++ {
 		segmenti, err := n.GetSegment(cacheDir, fid, reqParams.Cipher, i)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, err.Error())
