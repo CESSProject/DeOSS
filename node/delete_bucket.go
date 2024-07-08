@@ -51,5 +51,5 @@ func (n *Node) Delete_bucket(c *gin.Context) {
 		return
 	}
 	n.Logdel("info", clientIp+" DeleteBucket suc: "+blockHash)
-	c.JSON(200, map[string]string{"block hash": blockHash})
+	c.JSON(http.StatusOK, map[string]string{"block hash": blockHash})
 }

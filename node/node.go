@@ -85,7 +85,7 @@ func (n *Node) Run() {
 	n.Engine.Use(cors.New(config))
 	n.Engine.GET("/version", n.Get_version)
 	n.Engine.GET("/bucket", n.Get_bucket)
-	n.Engine.GET(fmt.Sprintf("/metedata/:%s", HTTP_ParameterName_Fid), n.Get_metadata)
+	n.Engine.GET(fmt.Sprintf("/metadata/:%s", HTTP_ParameterName_Fid), n.Get_metadata)
 	n.Engine.GET(fmt.Sprintf("/download/:%s", HTTP_ParameterName_Fid), n.Download_file)
 	n.Engine.GET(fmt.Sprintf("/canfiles/:%s", HTTP_ParameterName_Fid), n.GetCanFileHandle)
 	n.Engine.GET(fmt.Sprintf("/open/:%s", HTTP_ParameterName_Fid), n.Preview_file)

@@ -95,7 +95,7 @@ Compile the binary program from the DeOSS source code and follow the process as 
 
 **1) install go**
 
-DeOSS requires [Go 1.20](https://golang.org/dl/), See the [official Golang installation instructions](https://golang.org/doc/install).
+DeOSS requires [Go 1.21](https://golang.org/dl/), See the [official Golang installation instructions](https://golang.org/doc/install).
 
 Open go mod mode:
 ```
@@ -153,7 +153,7 @@ Boot:
   # test network
   - "_dnsaddr.boot-miner-testnet.cess.cloud"
 # signature account mnemonic
-Mnemonic: "xxx xxx ... xxx"
+Mnemonic: "xxx ... xxx"
 # service workspace
 Workspace: /
 # P2P communication port
@@ -167,7 +167,29 @@ Access: public
 # Account black/white list
 Accounts:
 # If you want to expose your oss service, please configure its domain name
-Domain: "http://deoss-pub-gateway.cess.cloud/"
+Domain:
+
+# User Files Cacher config
+# File cache size, default 512G, (unit is byte)
+CacheSize: 10
+# File cache expiration time, default 3 hour (unit is minutes)
+Expiration:
+# Directory to store file cache, default path: Workspace/filecache/
+CacheDir:
+
+# Storage Node Selector config
+# Used to find better storage node partners for DeOSS to upload or download files
+# Two strategies for using your specified storage nodes, "priority" or "fixed", default is "priority"
+SelectStrategy: 
+# JSON file used to specify the storage node. If it does not exist, it will be automatically created.
+# You can configure which storage nodes to use or not use in this file.
+NodeFilePath:
+# Maximum number of storage nodes allowed for long-term cooperation, default 120
+MaxNodeNum:
+# Maximum tolerable TTL for communication with storage nodes, default 500 ms (unit is milliseconds)
+MaxTTL:
+# Available storage node list refresh time, default 4 hours (unit is hours)
+RefreshTime:
 ```
 
 ## 🟢 Usage for DeOSS
@@ -194,7 +216,7 @@ It is generally not recommended to use this command：
 ./deoss exit
 ```
 
-# 📖 Usage for DeOSS API
+# 📖 Usage for API
 
 The public API endpoint URL of DeOSS is the server you deploy, All endpoints described in this document should be made relative to this root URL,The following example uses URL instead.
 
@@ -202,22 +224,23 @@ The public API endpoint URL of DeOSS is the server you deploy, All endpoints des
 
 1. Create a wallet account and fund it, refer to [Configure Wallet](https://github.com/CESSProject/DeOSS#configure-wallet)
 
-2. Purchase territory
+2. [Purchase a territory](https://github.com/CESSProject/doc-v2/blob/main/products/deoss/picture/buy_territory.png)
 
 3. Authorize the use right to DeOSS:[Authorize](https://github.com/CESSProject/W3F-illustration/blob/4995c1584006823990806b9d30fa7d554630ec14/deoss/authorizeOss.png)
 
 
-## Public request header
+## Identity signature
 
-The public request header identifies you, all interfaces require you to provide identity information, the easiest way to do this is to sign with your account in the [block browser](https://polkadot.js.org/apps/?rpc=wss%3A%2F%2Ftestnet-rpc1.cess.cloud%2Fws%2F#/signing) and then fill in the information into the public request header as follows:
+Calling some APIs requires authentication of your identity. In web3, your wallet is your identity. Generate your signature data in [the block browser](https://polkadot.js.org/apps/), and then add your signature information in the API request header to authenticate your identity. Please refer to [the signature method](https://github.com/CESSProject/doc-v2/blob/main/products/deoss/picture/sign.png).
 
-| key        | value |
-| --------- | ----- |
-| Account   | cX... |
-| Message   | ...   |
-| Signature | 0x... |
+The authentication information you need to add in the header:
 
-:warning:Please add public request header information to all requests.
+| Key       | Description    | Example |
+| --------- | -------------- | ------- |
+| Account   | wallet account | cX...   |
+| Message   | signed message | ...     |
+| Signature | signature      | 0x...   |
+
  
 ## Create a bucket
 
@@ -232,18 +255,7 @@ The put bucket interface is used to create a bucket. When uploading files, the b
 | ------------- | ------------------- |
 | Bucket        | created bucket name |
 
-- Responses
-
-Response schema: `application/json`
-
-| HTTP Code | Message                  | Description               |
-| --------- | ------------------------ | ------------------------- |
-| 200       | Block hash               | create bucket block hash  |
-| 400       | InvalidHead.MissingToken | token is empty            |
-| 400       | InvalidHead.Token        | token error               |
-| 400       | InvalidParameter.Name    | wrong bucket name         |
-| 403       | NoPermission             | token verification failed |
-| 500       | InternalError            | service internal error    |
+_Identity signature required: yes_
 
 - Request example
 
@@ -261,36 +273,19 @@ If the upload is successful, you will get the fid of the file. If you want to en
 
 - Request Header
 
-| key           | description        |
-| ------------- | ------------------ |
-| Bucket        | bucket name        |
-| Territory     | territory name     |
-| Cipher(optional)        | cipher             |
+| key              | description        |
+| ---------------- | ------------------ |
+| Bucket           | bucket name        |
+| Territory        | territory name     |
+| Cipher(optional) | cipher             |
+
+_Identity signature required: yes_
 
 - Request Body
 
 | key  | value        |
 | ---- | ------------ |
 | file | file[binary] |
-
-- Responses
-
-Response schema: `application/json`
-
-| HTTP Code | Message                       | Description               |
-| --------- | ----------------------------- | ------------------------- |
-| 200       | fid                           | file id                   |
-| 400       | InvalidHead.MissingToken      | token is empty            |
-| 400       | InvalidHead.MissingBucketName | bucketname is empty       |
-| 400       | InvalidHead.BucketName        | wrong bucket name         |
-| 400       | InvalidHead.Token             | token error               |
-| 400       | Unauthorized                  | DeOSS is not authorized   |
-| 400       | InvalidParameter.EmptyFile    | file is empty             |
-| 400       | InvalidParameter.FormFile     | form File                 |
-| 400       | InvalidParameter.File         | error receiving file      |
-| 403       | NoPermission                  | token verification failed |
-| 500       | InternalError                 | service internal error    |
-
 
 - Request example
 
@@ -308,42 +303,26 @@ If the upload is successful, you will get the fid of the object. if you want to 
 
 - Request Header
 
-| key           | description        |
-| ------------- | ------------------ |
-| Bucket        | bucket name        |
-| Territory     | territory name     |
-| Cipher(optional)        | cipher             |
+| key              | description        |
+| ---------------- | ------------------ |
+| Bucket           | bucket name        |
+| Territory        | territory name     |
+| Cipher(optional) | cipher             |
+
+_Identity signature required: yes_
 
 - Request Body
 
 [content]
 
-- Responses
-
-Response schema: `application/json`
-
-| HTTP Code | Message                       | Description               |
-| --------- | ----------------------------- | ------------------------- |
-| 200       | fid                           | file id                   |
-| 400       | InvalidHead.MissingToken      | token is empty            |
-| 400       | InvalidHead.MissingBucketName | bucketname is empty       |
-| 400       | InvalidHead.BucketName        | wrong bucket name         |
-| 400       | InvalidHead.Token             | token error               |
-| 400       | Unauthorized                  | DeOSS is not authorized   |
-| 400       | InvalidParameter.EmptyFile    | file is empty             |
-| 400       | InvalidParameter.FormFile     | form File                 |
-| 400       | InvalidParameter.File         | error receiving file      |
-| 403       | NoPermission                  | token verification failed |
-| 500       | InternalError                 | service internal error    |
-
 
 - Request example
 
 ```shell
-# curl -X PUT URL/object -H "Bucket: bucket_name" -H "Territory: territory_name" -H "Account: cX..." -H "Message: ..." -H "Signature: 0x..."
+# curl -X PUT URL/object --data "content" -H "Bucket: bucket_name" -H "Territory: territory_name" -H "Account: cX..." -H "Message: ..." -H "Signature: 0x..."
 ```
 
-## Upload a file by resuming breakpoints
+## Chunked upload
 
 | **PUT**  /chunks |
 | ---------------- |
@@ -357,13 +336,12 @@ Compared with uploading the entire file directly, resumable upload has some more
 | Bucket        | stored bucket name |
 | Territory     | territory name     |
 | Cipher(optional)        | your cipher        |
-| Account       | your CESS account  |
-| Message       | your sgin message  |
-| Signature     | sign of message by your account  |
 | FileName      | file name or alias  |
 | BlockNumber   | The number of chunks the file is to be divided into  |
 | BlockIndex    | index of chunk to be uploaded, [0,BlockNumber)  |
 | TotalSize     | the byte size of the file, the sum of the sizes of all chunks  |
+
+_Identity signature required: yes_
 
 - Request Body
 
@@ -371,33 +349,10 @@ Compared with uploading the entire file directly, resumable upload has some more
 | ---- | ------------ |
 | file | file[binary] |
 
-- Responses
-
-Response schema: `application/json`
-
-| HTTP Code | Message                       | Description               |
-| --------- | ----------------------------- | ------------------------- |
-| 200       | fid                           | file id                   |
-| 200       | chunk index                   | chunk index               |
-| 400       | InvalidHead.MissingToken      | token is empty            |
-| 400       | InvalidHead.MissingBucketName | bucketname is empty       |
-| 400       | InvalidHead.BucketName        | wrong bucket name         |
-| 400       | InvalidHead.Token             | token error               |
-| 400       | Unauthorized                  | DeOSS is not authorized   |
-| 400       | InvalidParameter.EmptyFile    | file is empty             |
-| 400       | InvalidParameter.FormFile     | form File                 |
-| 400       | InvalidParameter.File         | error receiving file      |
-| 400       | bad chunk size                | Invalid chunk size        |
-| 400       | bad chunk index               | Invalid chunk index       |
-| 400       | file size mismatch            | file size does not match the TotalSize |
-| 403       | NoPermission                  | token verification failed |
-| 500       | InternalError                 | service internal error    |
-
-
 - Request example
 
 ```shell
-# curl -X PUT URL/ -F 'file=@test-chunk0;type=application/octet-stream' -H "Bucket: bucket_name" -H "Territory: territory_name" -H "Account: cX..." -H "Message: ..." -H "Signature: 0x... -H FileName: test.log -H BlockNumber: 5 -H BlockIndex: 0 -H TotalSize: 1000"
+# curl -X PUT URL/chunks -F 'file=@test-chunk0;type=application/octet-stream' -H "Bucket: bucket_name" -H "Territory: territory_name" -H "Account: cX..." -H "Message: ..." -H "Signature: 0x... -H FileName: test.log -H BlockNumber: 5 -H BlockIndex: 0 -H TotalSize: 1000"
 ```
 
 ## Download a file
@@ -409,27 +364,15 @@ This interface is used to download a file with a specified fid. If you encrypted
 
 - Request Header
 
-| key       | value    |
-| --------- | -------- |
-| Cipher(optional)    | cipher   |
+| key              | value    |
+| ---------------- | -------- |
+| Cipher(optional) | cipher   |
 
-- Responses
-
-The response schema for the normal return status is: `application/octet-stream`
-
-The response schema for the exception return status is: `application/json`, The message returned by the exception is as follows:
-
-| HTTP Code | Message               | Description             |
-| --------- | --------------------- | ----------------------- |
-| 400       | InvalidHead.Operation | operation error         |
-| 403       | BackingUp             | file is being backed up |
-| 404       | NotFound              | file not found          |
-| 500       | InternalError         | service internal error  |
 
 - Request example
 
 ```shell
-# curl -X GET -o <save_filen> URL/download/<fid>
+# curl -X GET -o <save_file> URL/download/<fid>
 ```
 
 ## Preview a file
@@ -451,18 +394,9 @@ The delete file interface is used for delete a file.
 | **DELETE**  /file/{fid} |
 | ----------------------- |
 
-- Responses
+- Request Header
 
-Response schema: `application/json`
-
-| HTTP Code | Message               | Description               |
-| --------- | --------------------- | ------------------------- |
-| 200       | Block hash            | delete file  block hash   |
-| 400       | InvalidHead.MissToken | token is empty            |
-| 400       | InvalidHead.Token     | token error               |
-| 400       | InvalidParameter.Name | fid is error              |
-| 403       | NoPermission          | token verification failed |
-| 500       | InternalError         | service internal error    |
+_Identity signature required: yes_
 
 - Request example
 
@@ -477,18 +411,9 @@ The delete bucket interface is used for delete a bucket, all files in the bucket
 | **DELETE**  /bucket/{bucket_name} |
 | -------------------------------- |
 
-- Responses
+- Request Header
 
-Response schema: `application/json`
-
-| HTTP Code | Message               | Description               |
-| --------- | --------------------- | ------------------------- |
-| 200       | Block hash            | delete bucket  block hash |
-| 400       | InvalidHead.MissToken | token is empty            |
-| 400       | InvalidHead.Token     | token error               |
-| 400       | InvalidParameter.Name | bucket name is error      |
-| 403       | NoPermission          | token verification failed |
-| 500       | InternalError         | service internal error    |
+_Identity signature required: yes_
 
 - Request example
 
@@ -505,22 +430,10 @@ This interface is used to view bucket information, including the number of store
 
 - Request Header
 
-| key       | value    |
-| --------- | -------- |
-| Bucket    | bucket_name   |
-
-- Responses
-
-Response schema: `application/json`
-
-| HTTP Code | Message                    | Description                                 |
-| --------- | -------------------------- | ------------------------------------------- |
-| 200       | success                    | total number of files in bucket and file id |
-| 400       | InvalidHead.MissingAccount | account is empty                            |
-| 400       | InvalidHead.Account        | account is error                            |
-| 400       | InvalidParameter.Name      | bucket name is error                        |
-| 404       | NotFound                   | bucket not found                            |
-| 500       | InternalError              | service internal error                      |
+| key     | value       |
+| ------- | ----------- |
+| Account | cX...       |
+| Bucket  | bucket_name |
 
 - Request example
 
@@ -533,20 +446,13 @@ Response schema: `application/json`
 | **GET**  /bucket |
 | ---------------- |
 
+- Request Header
+
+| key     | value  |
+| ------- | ------ |
+| Account | cX...  |
+
 This interface is used to view all buckets.
-
-- Responses
-
-Response schema: `application/json`
-
-| HTTP Code | Message                    | Description            |
-| --------- | -------------------------- | ---------------------- |
-| 200       | success                    | all bucket names       |
-| 400       | InvalidHead.MissingAccount | account is empty       |
-| 400       | InvalidHead.Account        | account is error       |
-| 400       | InvalidParameter.Name      | * is error             |
-| 404       | NotFound                   | bucket not found       |
-| 500       | InternalError              | service internal error |
 
 - Request example
 
@@ -554,30 +460,20 @@ Response schema: `application/json`
 # curl -X GET URL/bucket -H "Account: cX..."
 ```
 
-## View file info
+## View file metadata
 
-| **GET**  /metedata/{fid} |
+| **GET**  /metadata/{fid} |
 | ------------------------ |
 
 This interface is used to view the basic information of a file.
 
-- Responses
-
-Response schema: `application/json`
-
-| HTTP Code | Message               | Description               |
-| --------- | --------------------- | ------------------------- |
-| 200       | success               | file information          |
-| 400       | InvalidParameter.Name | fid or operation is error |
-| 404       | NotFound              | file not found            |
-| 500       | InternalError         | service internal error    |
-
 - Request example
 
 ```shell
-# curl -X GET URL/metedata/<fid>
+# curl -X GET URL/metadata/<fid>
 ```
-## View gateway version
+
+## View version
 
 | **GET**  /version |
 | ----------------- |
