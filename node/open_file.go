@@ -36,7 +36,11 @@ func (n *Node) Preview_file(c *gin.Context) {
 	if clientIp == "" {
 		clientIp = c.ClientIP()
 	}
-
+	temp := strings.Split(fid, ".")
+	fid = temp[0]
+	if format == "" && len(temp) > 1 {
+		format = temp[1]
+	}
 	n.Logopen("info", clientIp+" open file: "+fid+" account: "+account+" format: "+format)
 
 	var err error
