@@ -22,7 +22,6 @@ import (
 	"github.com/CESSProject/cess-go-sdk/core/process"
 	sutils "github.com/CESSProject/cess-go-sdk/utils"
 	"github.com/gin-gonic/gin"
-	"github.com/pkg/errors"
 )
 
 const max_concurrent_req = 10
@@ -59,6 +58,7 @@ func (n *Node) Put_file(c *gin.Context) {
 	}
 	bucketName := c.Request.Header.Get(HTTPHeader_Bucket)
 	territoryName := c.Request.Header.Get(HTTPHeader_Territory)
+	filename := c.Request.Header.Get(HTTPHeader_Fname)
 	cipher := c.Request.Header.Get(HTTPHeader_Cipher)
 	ethAccount := c.Request.Header.Get(HTTPHeader_EthAccount)
 	message := c.Request.Header.Get(HTTPHeader_Message)
@@ -105,10 +105,23 @@ func (n *Node) Put_file(c *gin.Context) {
 		return
 	}
 
-	filename, length, code, err := saveFormFileToFile(c, fpath)
+	fname, length, code, err := saveFormFileToFile(c, fpath)
 	if err != nil {
 		n.Logput("err", clientIp+" saveFormFileToFile: "+err.Error())
 		c.JSON(code, err)
+		return
+	}
+
+	if filename == "" {
+		filename = fname
+	}
+
+	if len(filename) > sconfig.MaxBucketNameLength {
+		c.JSON(http.StatusBadRequest, ERR_FileNameTooLang)
+		return
+	}
+	if len(filename) < sconfig.MinBucketNameLength {
+		c.JSON(http.StatusBadRequest, ERR_FileNameTooShort)
 		return
 	}
 
@@ -215,12 +228,6 @@ func saveFormFileToFile(c *gin.Context, file string) (string, int64, int, error)
 		if err != nil {
 			filename = fileHeder.Filename
 		}
-	}
-	if len(filename) > sconfig.MaxBucketNameLength {
-		return filename, 0, http.StatusBadRequest, errors.New(ERR_FileNameTooLang)
-	}
-	if len(filename) < sconfig.MinBucketNameLength {
-		return filename, 0, http.StatusBadRequest, errors.New(ERR_FileNameTooShort)
 	}
 	length, err := io.Copy(f, formfile)
 	if err != nil {
