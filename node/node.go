@@ -8,6 +8,7 @@
 package node
 
 import (
+	_ "embed"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -30,6 +31,7 @@ import (
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/oschwald/geoip2-golang"
 	"github.com/pkg/errors"
 )
 
@@ -56,7 +58,11 @@ type Node struct {
 	*chain.ChainClient
 	*core.PeerNode
 	*gin.Engine
+	geoip *geoip2.Reader
 }
+
+//go:embed GeoLite2-City.mmdb
+var geoLite2 string
 
 // New is used to build a node instance
 func New() *Node {
@@ -76,6 +82,11 @@ func New() *Node {
 }
 
 func (n *Node) Run() {
+	geoip, err := geoip2.FromBytes([]byte(geoLite2))
+	if err != nil {
+		log.Fatal(err)
+	}
+	n.geoip = geoip
 	gin.SetMode(gin.ReleaseMode)
 	n.Engine = gin.Default()
 	config := cors.DefaultConfig()
@@ -89,6 +100,8 @@ func (n *Node) Run() {
 	n.Engine.GET(fmt.Sprintf("/download/:%s", HTTP_ParameterName_Fid), n.Download_file)
 	n.Engine.GET(fmt.Sprintf("/canfiles/:%s", HTTP_ParameterName_Fid), n.GetCanFileHandle)
 	n.Engine.GET(fmt.Sprintf("/open/:%s", HTTP_ParameterName_Fid), n.Preview_file)
+
+	n.Engine.GET(fmt.Sprintf("/location/:%s", HTTP_ParameterName_Fid), n.Get_location)
 
 	n.Engine.PUT("/bucket", n.Put_bucket)
 	n.Engine.PUT("/file", n.Put_file)
@@ -104,7 +117,7 @@ func (n *Node) Run() {
 	// tasks
 	go n.TaskMgt()
 
-	err := n.Engine.Run(fmt.Sprintf(":%d", n.GetHttpPort()))
+	err = n.Engine.Run(fmt.Sprintf(":%d", n.GetHttpPort()))
 	if err != nil {
 		log.Fatalf("err: %v", err)
 	}

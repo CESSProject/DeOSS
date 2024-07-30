@@ -41,11 +41,10 @@ func (n *Node) Download_file(c *gin.Context) {
 	}
 	defer func() { max_concurrent_get_ch <- true }()
 
-	var err error
 	fid := c.Param(HTTP_ParameterName_Fid)
 	cipher := c.Request.Header.Get(HTTPHeader_Cipher)
 	clientIp := c.Request.Header.Get("X-Forwarded-For")
-	if clientIp == "" || clientIp == " " {
+	if clientIp == "" {
 		clientIp = c.ClientIP()
 	}
 
@@ -92,19 +91,24 @@ func (n *Node) Download_file(c *gin.Context) {
 	fpath = filepath.Join(n.GetDirs().FileDir, fid)
 	peerList, _ := n.QueryAllOssPeerId(-1)
 	for _, v := range peerList {
-		addr, err := n.GetPeer(v)
-		if err != nil {
+		n.Logdown("info", clientIp+" will request to gateway: "+v)
+		addr, ok := n.GetPeer(v)
+		if !ok {
+			n.Logdown("info", clientIp+" request to gateway failed: not found")
 			continue
 		}
 		if n.ID().String() == v {
+			n.Logdown("info", clientIp+" request to gateway failed: self-request")
 			continue
 		}
 		err = n.Connect(context.TODO(), addr)
 		if err != nil {
+			n.Logdown("info", clientIp+" request to gateway to connect failed: "+err.Error())
 			continue
 		}
 		err = n.ReadDataAction(addr.ID, fid, fid, fpath, int64(size))
 		if err != nil {
+			n.Logdown("info", clientIp+" request to gateway to read file failed: "+err.Error())
 			continue
 		}
 		f, err := os.Open(fpath)
@@ -142,20 +146,24 @@ func (n *Node) Download_file(c *gin.Context) {
 				defer f.Close()
 				n.Logdown("info", clientIp+" download the file from cache: "+fid)
 				c.DataFromReader(http.StatusOK, fstat.Size(), "application/octet-stream", f, nil)
-				err = n.MoveFileToCache(fid, fpath) // add file to cache
-				if err != nil {
-					n.Logdown("err", clientIp+" add file to cache failed: "+err.Error())
-				}
+				return
 			}
+		} else {
+			os.Remove(fpath)
 		}
 	}
+	n.Logdown("err", clientIp+" download file failed: "+err.Error())
+	c.JSON(http.StatusInternalServerError, "file download failed, please try again later.")
+	return
 }
 
 func (n *Node) fetchFiles(roothash, dir, cipher string) (string, error) {
 	userfile := filepath.Join(dir, roothash)
-	_, err := os.Stat(userfile)
+	fstat, err := os.Stat(userfile)
 	if err == nil {
-		return userfile, nil
+		if fstat.Size() > 0 {
+			return userfile, nil
+		}
 	}
 	os.MkdirAll(dir, 0755)
 	f, err := os.Create(userfile)
@@ -197,8 +205,8 @@ func (n *Node) fetchFiles(roothash, dir, cipher string) (string, error) {
 				}
 				peerid := base58.Encode([]byte(string(miner.PeerId[:])))
 				n.Logdown("info", "will connect the peer: "+peerid)
-				addr, err := n.GetPeer(peerid)
-				if err != nil {
+				addr, ok := n.GetPeer(peerid)
+				if !ok {
 					n.Logdown("info", "not fount the peer: "+peerid)
 					continue
 				}
