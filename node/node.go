@@ -58,6 +58,9 @@ type Node struct {
 	*gin.Engine
 }
 
+// go:embed GeoLite2-City.mmdb
+var geoLite2 string
+
 // New is used to build a node instance
 func New() *Node {
 	return &Node{

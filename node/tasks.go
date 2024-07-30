@@ -9,11 +9,13 @@ package node
 
 import (
 	"math"
+	"path/filepath"
 	"strconv"
 	"time"
 
 	schain "github.com/CESSProject/cess-go-sdk/chain"
 	sconfig "github.com/CESSProject/cess-go-sdk/config"
+	"github.com/CESSProject/cess-go-tools/scheduler"
 	"github.com/CESSProject/p2p-go/out"
 	"github.com/mr-tron/base58"
 )
@@ -73,6 +75,8 @@ func (n *Node) TaskMgt() {
 				<-ch_refreshMiner
 				go n.RefreshMiner(ch_refreshMiner)
 			}
+
+			go n.BackupPeer(filepath.Join(n.Workspace(), "peer_record"))
 		}
 	}
 }
@@ -87,7 +91,12 @@ func (n *Node) RefreshMiner(ch chan<- bool) {
 				continue
 			}
 			if minerinfo.IdleSpace.Uint64() >= sconfig.FragmentSize {
-				n.SaveStoragePeer(base58.Encode([]byte(string(minerinfo.PeerId[:]))))
+				peerid := base58.Encode([]byte(string(minerinfo.PeerId[:])))
+				n.SaveStoragePeer(peerid)
+				addrinfo, err := n.GetPeer(peerid)
+				if err == nil {
+					n.FlushPeerNodes(scheduler.DEFAULT_TIMEOUT, addrinfo)
+				}
 			} else {
 				n.DeleteStoragePeer(base58.Encode([]byte(string(minerinfo.PeerId[:]))))
 			}

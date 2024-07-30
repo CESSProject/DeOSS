@@ -23,7 +23,6 @@ import (
 	cess "github.com/CESSProject/cess-go-sdk"
 	"github.com/CESSProject/cess-go-sdk/chain"
 	sutils "github.com/CESSProject/cess-go-sdk/utils"
-	"github.com/CESSProject/cess-go-tools/scheduler"
 	p2pgo "github.com/CESSProject/p2p-go"
 	"github.com/CESSProject/p2p-go/core"
 	"github.com/CESSProject/p2p-go/out"
@@ -123,15 +122,12 @@ func cmd_run_func(cmd *cobra.Command, args []string) {
 	}
 	defer n.PeerNode.Close()
 
+	n.LoadPeer(filepath.Join(n.Workspace(), "peer_record"))
+
 	go node.Subscribe(
 		ctx, n.PeerNode.GetHost(),
 		n.PeerNode.GetBootnode(),
-		func(p peer.AddrInfo) {
-			n.SavePeer(p)
-			if n.HasStoragePeer(p.ID.String()) {
-				n.FlushPeerNodes(scheduler.DEFAULT_TIMEOUT, p)
-			}
-		},
+		func(p peer.AddrInfo) { n.SavePeer(p) },
 	)
 	time.Sleep(time.Second)
 

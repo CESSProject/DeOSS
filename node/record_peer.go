@@ -49,7 +49,8 @@ func NewPeerRecord() PeerRecord {
 }
 
 func (p *PeerRecordType) SavePeer(addr peer.AddrInfo) error {
-	if addr.ID.String() == "" {
+	peerid := addr.ID.String()
+	if peerid == "" {
 		return errors.New("peer id is empty")
 	}
 
@@ -58,9 +59,9 @@ func (p *PeerRecordType) SavePeer(addr peer.AddrInfo) error {
 	}
 
 	p.lock.Lock()
-	p.peerList[addr.ID.String()] = addr
+	p.peerList[peerid] = addr
 	p.lock.Unlock()
-	//log.Printf("save a peer: %v", addr.ID.String())
+
 	return nil
 }
 
@@ -110,12 +111,13 @@ func (p *PeerRecordType) LoadPeer(path string) error {
 	if err != nil {
 		return err
 	}
-	oldPeer := p.peerList
-	p.lock.Lock()
-	err = json.Unmarshal(buf, &p.peerList)
-	p.lock.Unlock()
+	var data = make(map[string]peer.AddrInfo)
+	err = json.Unmarshal(buf, &data)
 	if err != nil {
-		p.peerList = oldPeer
+		return err
 	}
-	return err
+	p.lock.Lock()
+	p.peerList = data
+	p.lock.Unlock()
+	return nil
 }
