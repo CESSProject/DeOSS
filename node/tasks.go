@@ -69,6 +69,7 @@ func (n *Node) TaskMgt() {
 			if err != nil {
 				n.Log("err", err.Error())
 			}
+			go n.BackupPeer(filepath.Join(n.Workspace(), "peer_record"))
 
 		case <-task_Hour.C:
 			if len(ch_refreshMiner) > 0 {
@@ -76,7 +77,7 @@ func (n *Node) TaskMgt() {
 				go n.RefreshMiner(ch_refreshMiner)
 			}
 
-			go n.BackupPeer(filepath.Join(n.Workspace(), "peer_record"))
+			//go n.BackupPeer(filepath.Join(n.Workspace(), "peer_record"))
 		}
 	}
 }
@@ -93,8 +94,9 @@ func (n *Node) RefreshMiner(ch chan<- bool) {
 			if minerinfo.IdleSpace.Uint64() >= sconfig.FragmentSize {
 				peerid := base58.Encode([]byte(string(minerinfo.PeerId[:])))
 				n.SaveStoragePeer(peerid)
-				addrinfo, err := n.GetPeer(peerid)
-				if err == nil {
+				n.SavePeerAccount(n.GetSignatureAcc(), peerid)
+				addrinfo, ok := n.GetPeer(peerid)
+				if ok {
 					n.FlushPeerNodes(scheduler.DEFAULT_TIMEOUT, addrinfo)
 				}
 			} else {

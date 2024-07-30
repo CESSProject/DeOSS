@@ -10,6 +10,7 @@ package node
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"sync"
 
@@ -21,9 +22,13 @@ type PeerRecord interface {
 	// SavePeer saves or updates peer information
 	SavePeer(addr peer.AddrInfo) error
 	//
+	SavePeerAccount(account string, peerid string) error
+	//
 	HasPeer(peerid string) bool
 	//
-	GetPeer(peerid string) (peer.AddrInfo, error)
+	GetPeer(peerid string) (peer.AddrInfo, bool)
+	//
+	GetPeerByAccount(account string) (peer.AddrInfo, bool)
 	//
 	GetAllPeerId() []string
 	//
@@ -33,18 +38,20 @@ type PeerRecord interface {
 }
 
 type PeerRecordType struct {
-	lock     *sync.RWMutex
-	accLock  *sync.RWMutex
-	peerList map[string]peer.AddrInfo
+	lock        *sync.RWMutex
+	accLock     *sync.RWMutex
+	peerList    map[string]peer.AddrInfo
+	accountList map[string]peer.AddrInfo
 }
 
 var _ PeerRecord = (*PeerRecordType)(nil)
 
 func NewPeerRecord() PeerRecord {
 	return &PeerRecordType{
-		lock:     new(sync.RWMutex),
-		accLock:  new(sync.RWMutex),
-		peerList: make(map[string]peer.AddrInfo, 100),
+		lock:        new(sync.RWMutex),
+		accLock:     new(sync.RWMutex),
+		peerList:    make(map[string]peer.AddrInfo, 100),
+		accountList: make(map[string]peer.AddrInfo, 100),
 	}
 }
 
@@ -65,6 +72,19 @@ func (p *PeerRecordType) SavePeer(addr peer.AddrInfo) error {
 	return nil
 }
 
+func (p PeerRecordType) SavePeerAccount(account string, peerid string) error {
+	p.lock.RLock()
+	addr, ok := p.peerList[peerid]
+	p.lock.RUnlock()
+	if !ok {
+		return fmt.Errorf("not fount peer: %s", peerid)
+	}
+	p.accLock.Lock()
+	p.accountList[account] = addr
+	p.accLock.Unlock()
+	return nil
+}
+
 func (p *PeerRecordType) HasPeer(peerid string) bool {
 	p.lock.RLock()
 	_, ok := p.peerList[peerid]
@@ -72,14 +92,18 @@ func (p *PeerRecordType) HasPeer(peerid string) bool {
 	return ok
 }
 
-func (p *PeerRecordType) GetPeer(peerid string) (peer.AddrInfo, error) {
+func (p *PeerRecordType) GetPeer(peerid string) (peer.AddrInfo, bool) {
 	p.lock.RLock()
-	result, ok := p.peerList[peerid]
+	addr, ok := p.peerList[peerid]
 	p.lock.RUnlock()
-	if !ok {
-		return peer.AddrInfo{}, errors.New("not found")
-	}
-	return result, nil
+	return addr, ok
+}
+
+func (p *PeerRecordType) GetPeerByAccount(account string) (peer.AddrInfo, bool) {
+	p.accLock.RLock()
+	addr, ok := p.accountList[account]
+	p.accLock.RUnlock()
+	return addr, ok
 }
 
 func (p *PeerRecordType) GetAllPeerId() []string {
