@@ -381,15 +381,6 @@ func buildDir(workspace string) (string, string, string, string, error) {
 		return "", "", "", "", err
 	}
 
-	ufileDir := filepath.Join(workspace, configs.Ufile)
-	if err := os.MkdirAll(ufileDir, 0755); err != nil {
-		return "", "", "", "", err
-	}
-	dfileDir := filepath.Join(workspace, configs.Dfile)
-	if err := os.MkdirAll(dfileDir, 0755); err != nil {
-		return "", "", "", "", err
-	}
-
 	//make file cache dir
 	fileCache := filepath.Join(workspace, configs.FILE_CACHE)
 	if err := os.MkdirAll(fileCache, 0755); err != nil {
