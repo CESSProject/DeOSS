@@ -86,7 +86,7 @@ func (n *Node) Preview_file(c *gin.Context) {
 	fpath = filepath.Join(n.GetDirs().FileDir, fid)
 	peerList, _ := n.QueryAllOssPeerId(-1)
 	for _, v := range peerList {
-		n.Logopen("info", fmt.Sprintf("[%s] will req to gateway: ", clientIp, v))
+		n.Logopen("info", fmt.Sprintf("[%s] will req to gateway: %s", clientIp, v))
 		addr, ok := n.GetPeer(v)
 		if !ok {
 			continue
@@ -98,7 +98,7 @@ func (n *Node) Preview_file(c *gin.Context) {
 		if err != nil {
 			continue
 		}
-		err = n.ReadDataAction(addr.ID, fid, fid, fpath, int64(size))
+		err = n.ReadDataAction(addr.ID, fid, fpath, size)
 		if err != nil {
 			continue
 		}

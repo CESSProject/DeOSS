@@ -106,7 +106,7 @@ func (n *Node) Download_file(c *gin.Context) {
 			n.Logdown("info", clientIp+" request to gateway to connect failed: "+err.Error())
 			continue
 		}
-		err = n.ReadDataAction(addr.ID, fid, fid, fpath, int64(size))
+		err = n.ReadDataAction(addr.ID, fid, fpath, size)
 		if err != nil {
 			n.Logdown("info", clientIp+" request to gateway to read file failed: "+err.Error())
 			continue
@@ -194,8 +194,7 @@ func (n *Node) fetchFiles(roothash, dir, cipher string) (string, error) {
 			fragmentpath := filepath.Join(dir, string(fragment.Hash[:]))
 			fragmentpaths[k] = fragmentpath
 			n.Logdown("info", "will download fragment: "+string(fragment.Hash[:]))
-			if string(fragment.Hash[:]) != "080acf35a507ac9849cfcba47dc2ad83e01b75663a516279c8b9d243b719643e" {
-				//n.Logdown("info", "connect to "+peerid+" failed: "+err.Error())
+			if string(fragment.Hash[:]) != "2daeb1f36095b44b318410b3f4e8b5d989dcc7bb023d1426c492dab0a3053e74" {
 				account, _ := sutils.EncodePublicKeyAsCessAccount(fragment.Miner[:])
 				n.Logdown("info", "will query the storage miner: "+account)
 				miner, err := n.QueryMinerItems(fragment.Miner[:], -1)
