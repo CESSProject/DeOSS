@@ -80,7 +80,7 @@ func cmd_run_func(cmd *cobra.Command, args []string) {
 	}
 	defer n.ChainClient.Close()
 
-	err = n.InitExtrinsicsName()
+	err = n.InitExtrinsicsNameForOSS()
 	if err != nil {
 		log.Println("The rpc address does not match the software version, please check the rpc address.")
 		os.Exit(1)
@@ -226,6 +226,8 @@ func buildConfigFile(cmd *cobra.Command) (confile.Confile, error) {
 	if err == nil {
 		return cfg, nil
 	}
+
+	return cfg, err
 
 	rpc, err := cmd.Flags().GetStringSlice("rpc")
 	if err != nil {

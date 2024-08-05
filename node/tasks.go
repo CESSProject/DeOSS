@@ -69,7 +69,6 @@ func (n *Node) TaskMgt() {
 			if err != nil {
 				n.Log("err", err.Error())
 			}
-			go n.BackupPeer(filepath.Join(n.Workspace(), "peer_record"))
 
 		case <-task_Hour.C:
 			if len(ch_refreshMiner) > 0 {
@@ -77,7 +76,7 @@ func (n *Node) TaskMgt() {
 				go n.RefreshMiner(ch_refreshMiner)
 			}
 
-			//go n.BackupPeer(filepath.Join(n.Workspace(), "peer_record"))
+			go n.BackupPeer(filepath.Join(n.Workspace(), "peer_record"))
 		}
 	}
 }
