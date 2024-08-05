@@ -25,15 +25,13 @@ const (
 	ProfileTemplete = `# The rpc endpoint of the chain node
 Rpc:
   # test network
-  - "wss://testnet-rpc0.cess.cloud/ws/"
-  - "wss://testnet-rpc1.cess.cloud/ws/"
-  - "wss://testnet-rpc2.cess.cloud/ws/"
+  - "wss://testnet-rpc.cess.network/ws/"
 # Bootstrap Nodes
 Boot:
   # test network
-  - "_dnsaddr.boot-bucket-testnet.cess.cloud"
+  - "_dnsaddr.boot-miner-testnet.cess.network"
 # Account mnemonic
-Mnemonic: "xxx ... xxx"
+Mnemonic: ""
 # Service workspace
 Workspace: "/"
 # P2P communication port
@@ -46,8 +44,6 @@ HTTP_Port: 8080
 Access: public
 # Account black/white list
 Accounts:
-  - cX...
-  - cX...
 # If you want to expose your oss service, please configure its domain name
 Domain: ""
 
@@ -184,18 +180,14 @@ func (c *confile) Parse(fpath string) error {
 	}
 	c.Accounts = accountList
 
-	err = sutils.CheckDomain(c.Domain)
-	if err != nil {
-		return errors.New("Invalid domain name")
-	}
+	// err = sutils.CheckDomain(c.Domain)
+	// if err != nil {
+	// 	return errors.New("Invalid domain name")
+	// }
 
 	fstat, err = os.Stat(c.Workspace)
 	if err != nil {
-		err = os.MkdirAll(c.Workspace, 0755)
-		if err != nil {
-			return err
-		}
-		return nil
+		return os.MkdirAll(c.Workspace, 0755)
 	}
 
 	if !fstat.IsDir() {
