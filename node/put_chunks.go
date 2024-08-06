@@ -23,7 +23,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/CESSProject/DeOSS/pkg/utils"
+	"github.com/CESSProject/DeOSS/common/utils"
 	"github.com/CESSProject/cess-go-sdk/chain"
 	sconfig "github.com/CESSProject/cess-go-sdk/config"
 	"github.com/CESSProject/cess-go-sdk/core/crypte"

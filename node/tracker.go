@@ -8,15 +8,14 @@
 package node
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
 	"time"
 
+	"github.com/CESSProject/DeOSS/common/utils"
 	"github.com/CESSProject/DeOSS/configs"
-	"github.com/CESSProject/DeOSS/pkg/utils"
 	"github.com/CESSProject/cess-go-sdk/chain"
 	sconfig "github.com/CESSProject/cess-go-sdk/config"
 	"github.com/CESSProject/cess-go-sdk/core/process"
@@ -265,11 +264,11 @@ func (n *Node) storageData(roothash string, segment []chain.SegmentDataInfo, com
 				continue
 			}
 
-			err = n.Connect(context.TODO(), peer)
-			if err != nil {
-				n.Feedback(peer.ID.String(), false)
-				continue
-			}
+			// err = n.Connect(context.TODO(), peer)
+			// if err != nil {
+			// 	n.Feedback(peer.ID.String(), false)
+			// 	continue
+			// }
 
 			n.Logtrack("info", fmt.Sprintf("[%s] Will transfer to %s", roothash, peer.ID.String()))
 			for j := 0; j < len(v); j++ {

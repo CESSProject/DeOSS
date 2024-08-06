@@ -8,7 +8,6 @@ SPDX-License-Identifier: Apache-2.0
 package node
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -48,13 +47,24 @@ func (n *Node) Preview_file(c *gin.Context) {
 	if format == "" {
 		code := 0
 		content_type := ""
-		format, content_type, code, err = n.QueryFileType(fid, account)
+		recordInfo, err := n.ParseTrackFile(fid)
 		if err != nil {
-			n.Logopen("err", clientIp+" QueryFileType: "+err.Error())
-			c.JSON(code, err.Error())
-			return
+			format, content_type, code, err = n.QueryFileType(fid, account)
+			if err != nil {
+				n.Logopen("err", clientIp+" QueryFileType: "+err.Error())
+				c.JSON(code, "Please wait for the file to be on chain before operating")
+				return
+			}
+			contenttype = content_type
+		} else {
+			ok := false
+			format = filepath.Ext(recordInfo.FileName)
+			contenttype, ok = contentType.Load(strings.ToLower(format))
+			if !ok {
+				contenttype = "application/octet-stream"
+			}
 		}
-		contenttype = content_type
+
 	} else {
 		if !strings.HasPrefix(format, ".") {
 			format = "." + format
@@ -94,10 +104,10 @@ func (n *Node) Preview_file(c *gin.Context) {
 		if n.ID().String() == v {
 			continue
 		}
-		err = n.Connect(context.TODO(), addr)
-		if err != nil {
-			continue
-		}
+		// err = n.Connect(context.TODO(), addr)
+		// if err != nil {
+		// 	continue
+		// }
 		err = n.ReadDataAction(addr.ID, fid, fpath, size)
 		if err != nil {
 			continue
@@ -120,7 +130,7 @@ func (n *Node) Preview_file(c *gin.Context) {
 	// }
 
 	// download from miner
-	fpath, err = n.fetchFiles(fid, n.GetDirs().FileDir, "")
+	fpath, err = n.retrieve_file(fid, n.GetDirs().FileDir, "")
 	if err != nil {
 		n.Logopen("err", fmt.Sprintf("[%s] Download file [%s] : %v", clientIp, fid, err))
 		c.JSON(http.StatusInternalServerError, "File download failed, please try again later.")
