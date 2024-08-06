@@ -12,7 +12,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/CESSProject/DeOSS/pkg/confile"
+	"github.com/CESSProject/DeOSS/common/confile"
 	"github.com/spf13/cobra"
 )
 

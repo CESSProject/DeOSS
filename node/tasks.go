@@ -92,14 +92,11 @@ func (n *Node) RefreshMiner(ch chan<- bool) {
 			}
 			if minerinfo.IdleSpace.Uint64() >= sconfig.FragmentSize {
 				peerid := base58.Encode([]byte(string(minerinfo.PeerId[:])))
-				n.SaveStoragePeer(peerid)
 				n.SavePeerAccount(n.GetSignatureAcc(), peerid)
 				addrinfo, ok := n.GetPeer(peerid)
 				if ok {
 					n.FlushPeerNodes(scheduler.DEFAULT_TIMEOUT, addrinfo)
 				}
-			} else {
-				n.DeleteStoragePeer(base58.Encode([]byte(string(minerinfo.PeerId[:]))))
 			}
 		}
 	}

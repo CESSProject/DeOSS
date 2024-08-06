@@ -17,7 +17,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/CESSProject/DeOSS/pkg/utils"
+	"github.com/CESSProject/DeOSS/common/utils"
 	sconfig "github.com/CESSProject/cess-go-sdk/config"
 	"github.com/CESSProject/cess-go-sdk/core/process"
 	sutils "github.com/CESSProject/cess-go-sdk/utils"
@@ -117,10 +117,12 @@ func (n *Node) Put_file(c *gin.Context) {
 	}
 
 	if len(filename) > sconfig.MaxBucketNameLength {
+		n.Logput("err", clientIp+" "+ERR_FileNameTooLang+": "+filename)
 		c.JSON(http.StatusBadRequest, ERR_FileNameTooLang)
 		return
 	}
 	if len(filename) < sconfig.MinBucketNameLength {
+		n.Logput("err", clientIp+" "+ERR_FileNameTooShort+": "+filename)
 		c.JSON(http.StatusBadRequest, ERR_FileNameTooShort)
 		return
 	}
