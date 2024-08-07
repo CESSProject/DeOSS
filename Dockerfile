@@ -16,5 +16,3 @@ FROM alpine:3.18 AS runner
 WORKDIR /app
 ENV PATH="/app:${PATH}"
 COPY --from=builder /app/oss /app/
-
-# Run: oss run -c /path/config.yaml
