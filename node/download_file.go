@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/CESSProject/cess-go-sdk/chain"
 	"github.com/gin-gonic/gin"
@@ -95,16 +96,14 @@ func (n *Node) Download_file(c *gin.Context) {
 			n.Logdown("info", clientIp+" request to gateway failed: self-request")
 			continue
 		}
-		// err = n.Connect(context.TODO(), addr)
-		// if err != nil {
-		// 	n.Logdown("info", clientIp+" request to gateway to connect failed: "+err.Error())
-		// 	continue
-		// }
+		n.Peerstore().AddAddrs(addr.ID, addr.Addrs, time.Minute)
 		err = n.ReadDataAction(addr.ID, fid, fpath, size)
 		if err != nil {
+			n.Peerstore().ClearAddrs(addr.ID)
 			n.Logdown("info", clientIp+" request to gateway to read file failed: "+err.Error())
 			continue
 		}
+		n.Peerstore().ClearAddrs(addr.ID)
 		f, err := os.Open(fpath)
 		if err != nil {
 			continue

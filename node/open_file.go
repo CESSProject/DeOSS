@@ -15,6 +15,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/CESSProject/cess-go-sdk/chain"
 	sutils "github.com/CESSProject/cess-go-sdk/utils"
@@ -104,17 +105,17 @@ func (n *Node) Preview_file(c *gin.Context) {
 		if n.ID().String() == v {
 			continue
 		}
-		// err = n.Connect(context.TODO(), addr)
-		// if err != nil {
-		// 	continue
-		// }
+		n.Peerstore().AddAddrs(addr.ID, addr.Addrs, time.Minute)
 		err = n.ReadDataAction(addr.ID, fid, fpath, size)
 		if err != nil {
+			n.Logopen("info", clientIp+" open the file from gateway, ReadDataAction failed: "+err.Error())
+			n.Peerstore().ClearAddrs(addr.ID)
 			continue
 		}
+		n.Peerstore().ClearAddrs(addr.ID)
 		f, err := os.Open(fpath)
 		if err != nil {
-			n.Logopen("info", clientIp+" open the file from gateway, open file failed: "+err.Error())
+			n.Logopen("info", clientIp+" open the file from gateway, os.Open failed: "+err.Error())
 			c.JSON(http.StatusInternalServerError, err.Error())
 			return
 		}

@@ -46,3 +46,6 @@ MaxNodeNum:
 MaxTTL:
 # Available storage node list refresh time, default 4 hours (unit is hours)
 RefreshTime:
+
+# Priority miners for use 
+Miners:

@@ -68,6 +68,9 @@ MaxNodeNum:
 MaxTTL:
 # Available storage node list refresh time, default 4 hours (unit is hours)
 RefreshTime:
+
+# Priority miners for use 
+Miners:
 `
 )
 
@@ -92,6 +95,7 @@ type Confile interface {
 	GetMaxNodeNum() int
 	GetMaxTTL() int64
 	GetRefreshTime() int64
+	GetPriorityMiners() []string
 }
 
 type confile struct {
@@ -112,6 +116,7 @@ type confile struct {
 	MaxNodeNum     int      `name:"MaxNodeNum" toml:"MaxNodeNum" yaml:"MaxNodeNum"`
 	MaxTTL         int64    `name:"MaxTTL" toml:"MaxTTL" yaml:"MaxTTL"`
 	RefreshTime    int64    `name:"RefreshTime" toml:"RefreshTime" yaml:"RefreshTime"`
+	Miners         []string `name:"Miners" toml:"Miners" yaml:"Miners"`
 }
 
 var _ Confile = (*confile)(nil)
@@ -339,4 +344,8 @@ func (c *confile) GetRefreshTime() int64 {
 		c.RefreshTime = 4
 	}
 	return c.RefreshTime
+}
+
+func (c *confile) GetPriorityMiners() []string {
+	return c.Miners
 }
