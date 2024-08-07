@@ -8,7 +8,6 @@ SPDX-License-Identifier: Apache-2.0
 package node
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -16,6 +15,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/CESSProject/cess-go-sdk/chain"
 	sutils "github.com/CESSProject/cess-go-sdk/utils"
@@ -48,13 +48,24 @@ func (n *Node) Preview_file(c *gin.Context) {
 	if format == "" {
 		code := 0
 		content_type := ""
-		format, content_type, code, err = n.QueryFileType(fid, account)
+		recordInfo, err := n.ParseTrackFile(fid)
 		if err != nil {
-			n.Logopen("err", clientIp+" QueryFileType: "+err.Error())
-			c.JSON(code, err.Error())
-			return
+			format, content_type, code, err = n.QueryFileType(fid, account)
+			if err != nil {
+				n.Logopen("err", clientIp+" QueryFileType: "+err.Error())
+				c.JSON(code, "Please wait for the file to be on chain before operating")
+				return
+			}
+			contenttype = content_type
+		} else {
+			ok := false
+			format = filepath.Ext(recordInfo.FileName)
+			contenttype, ok = contentType.Load(strings.ToLower(format))
+			if !ok {
+				contenttype = "application/octet-stream"
+			}
 		}
-		contenttype = content_type
+
 	} else {
 		if !strings.HasPrefix(format, ".") {
 			format = "." + format
@@ -86,24 +97,25 @@ func (n *Node) Preview_file(c *gin.Context) {
 	fpath = filepath.Join(n.GetDirs().FileDir, fid)
 	peerList, _ := n.QueryAllOssPeerId(-1)
 	for _, v := range peerList {
-		addr, err := n.GetPeer(v)
-		if err != nil {
+		n.Logopen("info", fmt.Sprintf("[%s] will req to gateway: %s", clientIp, v))
+		addr, ok := n.GetPeer(v)
+		if !ok {
 			continue
 		}
 		if n.ID().String() == v {
 			continue
 		}
-		err = n.Connect(context.TODO(), addr)
+		n.Peerstore().AddAddrs(addr.ID, addr.Addrs, time.Minute)
+		err = n.ReadDataAction(addr.ID, fid, fpath, size)
 		if err != nil {
+			n.Logopen("info", clientIp+" open the file from gateway, ReadDataAction failed: "+err.Error())
+			n.Peerstore().ClearAddrs(addr.ID)
 			continue
 		}
-		err = n.ReadDataAction(addr.ID, fid, fid, fpath, int64(size))
-		if err != nil {
-			continue
-		}
+		n.Peerstore().ClearAddrs(addr.ID)
 		f, err := os.Open(fpath)
 		if err != nil {
-			n.Logopen("info", clientIp+" open the file from gateway, open file failed: "+err.Error())
+			n.Logopen("info", clientIp+" open the file from gateway, os.Open failed: "+err.Error())
 			c.JSON(http.StatusInternalServerError, err.Error())
 			return
 		}
@@ -119,7 +131,7 @@ func (n *Node) Preview_file(c *gin.Context) {
 	// }
 
 	// download from miner
-	fpath, err = n.fetchFiles(fid, n.GetDirs().FileDir, "")
+	fpath, err = n.retrieve_file(fid, n.GetDirs().FileDir, "")
 	if err != nil {
 		n.Logopen("err", fmt.Sprintf("[%s] Download file [%s] : %v", clientIp, fid, err))
 		c.JSON(http.StatusInternalServerError, "File download failed, please try again later.")

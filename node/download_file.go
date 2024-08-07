@@ -8,18 +8,13 @@ SPDX-License-Identifier: Apache-2.0
 package node
 
 import (
-	"context"
-	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/CESSProject/cess-go-sdk/chain"
-	sconfig "github.com/CESSProject/cess-go-sdk/config"
-	"github.com/CESSProject/cess-go-sdk/core/erasure"
-	sutils "github.com/CESSProject/cess-go-sdk/utils"
 	"github.com/gin-gonic/gin"
-	"github.com/mr-tron/base58"
 	"github.com/pkg/errors"
 )
 
@@ -41,11 +36,10 @@ func (n *Node) Download_file(c *gin.Context) {
 	}
 	defer func() { max_concurrent_get_ch <- true }()
 
-	var err error
 	fid := c.Param(HTTP_ParameterName_Fid)
 	cipher := c.Request.Header.Get(HTTPHeader_Cipher)
 	clientIp := c.Request.Header.Get("X-Forwarded-For")
-	if clientIp == "" || clientIp == " " {
+	if clientIp == "" {
 		clientIp = c.ClientIP()
 	}
 
@@ -92,21 +86,24 @@ func (n *Node) Download_file(c *gin.Context) {
 	fpath = filepath.Join(n.GetDirs().FileDir, fid)
 	peerList, _ := n.QueryAllOssPeerId(-1)
 	for _, v := range peerList {
-		addr, err := n.GetPeer(v)
-		if err != nil {
+		n.Logdown("info", clientIp+" will request to gateway: "+v)
+		addr, ok := n.GetPeer(v)
+		if !ok {
+			n.Logdown("info", clientIp+" request to gateway failed: not found")
 			continue
 		}
 		if n.ID().String() == v {
+			n.Logdown("info", clientIp+" request to gateway failed: self-request")
 			continue
 		}
-		err = n.Connect(context.TODO(), addr)
+		n.Peerstore().AddAddrs(addr.ID, addr.Addrs, time.Minute)
+		err = n.ReadDataAction(addr.ID, fid, fpath, size)
 		if err != nil {
+			n.Peerstore().ClearAddrs(addr.ID)
+			n.Logdown("info", clientIp+" request to gateway to read file failed: "+err.Error())
 			continue
 		}
-		err = n.ReadDataAction(addr.ID, fid, fid, fpath, int64(size))
-		if err != nil {
-			continue
-		}
+		n.Peerstore().ClearAddrs(addr.ID)
 		f, err := os.Open(fpath)
 		if err != nil {
 			continue
@@ -127,7 +124,7 @@ func (n *Node) Download_file(c *gin.Context) {
 	}
 
 	// download from miner
-	fpath, err = n.fetchFiles(fid, n.GetDirs().FileDir, cipher)
+	fpath, err = n.retrieve_file(fid, n.GetDirs().FileDir, cipher)
 	if err != nil {
 		n.Logdown("err", clientIp+" download file failed: "+err.Error())
 		c.JSON(http.StatusInternalServerError, "file download failed, please try again later.")
@@ -142,119 +139,20 @@ func (n *Node) Download_file(c *gin.Context) {
 				defer f.Close()
 				n.Logdown("info", clientIp+" download the file from cache: "+fid)
 				c.DataFromReader(http.StatusOK, fstat.Size(), "application/octet-stream", f, nil)
-				err = n.MoveFileToCache(fid, fpath) // add file to cache
-				if err != nil {
-					n.Logdown("err", clientIp+" add file to cache failed: "+err.Error())
-				}
+				return
 			}
-		}
-	}
-}
-
-func (n *Node) fetchFiles(roothash, dir, cipher string) (string, error) {
-	userfile := filepath.Join(dir, roothash)
-	_, err := os.Stat(userfile)
-	if err == nil {
-		return userfile, nil
-	}
-	os.MkdirAll(dir, 0755)
-	f, err := os.Create(userfile)
-	if err != nil {
-		return "", err
-	}
-	defer f.Close()
-
-	fmeta, err := n.QueryFile(roothash, -1)
-	if err != nil {
-		return "", err
-	}
-
-	defer func(basedir string) {
-		for _, segment := range fmeta.SegmentList {
-			os.Remove(filepath.Join(basedir, string(segment.Hash[:])))
-			for _, fragment := range segment.FragmentList {
-				os.Remove(filepath.Join(basedir, string(fragment.Hash[:])))
-			}
-		}
-	}(dir)
-
-	var segmentspath = make([]string, 0)
-	fragmentpaths := make([]string, sconfig.DataShards+sconfig.ParShards)
-
-	for _, segment := range fmeta.SegmentList {
-		for k, fragment := range segment.FragmentList {
-			fragmentpath := filepath.Join(dir, string(fragment.Hash[:]))
-			fragmentpaths[k] = fragmentpath
-			n.Logdown("info", "will download fragment: "+string(fragment.Hash[:]))
-			if string(fragment.Hash[:]) != "080acf35a507ac9849cfcba47dc2ad83e01b75663a516279c8b9d243b719643e" {
-				//n.Logdown("info", "connect to "+peerid+" failed: "+err.Error())
-				account, _ := sutils.EncodePublicKeyAsCessAccount(fragment.Miner[:])
-				n.Logdown("info", "will query the storage miner: "+account)
-				miner, err := n.QueryMinerItems(fragment.Miner[:], -1)
-				if err != nil {
-					n.Logdown("info", "query the storage miner failed: "+err.Error())
-					return "", err
-				}
-				peerid := base58.Encode([]byte(string(miner.PeerId[:])))
-				n.Logdown("info", "will connect the peer: "+peerid)
-				addr, err := n.GetPeer(peerid)
-				if err != nil {
-					n.Logdown("info", "not fount the peer: "+peerid)
-					continue
-				}
-				err = n.Connect(context.TODO(), addr)
-				if err != nil {
-					n.Logdown("info", "connect to "+peerid+" failed: "+err.Error())
-					continue
-				}
-				err = n.ReadFileAction(addr.ID, roothash, string(fragment.Hash[:]), fragmentpath, sconfig.FragmentSize)
-				if err != nil {
-					n.Logdown("info", " ReadFileAction failed: "+err.Error())
-					continue
-				}
-			} else {
-				_, err = os.Stat(fragmentpath)
-				if err != nil {
-					ff, _ := os.Create(fragmentpath)
-					ff.Write(make([]byte, sconfig.FragmentSize))
-					ff.Close()
-				}
-			}
-		}
-		segmentpath := filepath.Join(dir, string(segment.Hash[:]))
-		err = erasure.RSRestore(segmentpath, fragmentpaths)
-		if err != nil {
-			return "", err
-		}
-		segmentspath = append(segmentspath, segmentpath)
-	}
-
-	if len(segmentspath) != len(fmeta.SegmentList) {
-		return "", errors.New("download failed")
-	}
-	var writecount = 0
-	for i := 0; i < len(segmentspath); i++ {
-		buf, err := os.ReadFile(segmentspath[i])
-		if err != nil {
-			fmt.Println("segmentspath not equal fmeta segmentspath")
-			os.Exit(0)
-		}
-		if (writecount + 1) >= len(fmeta.SegmentList) {
-			f.Write(buf[:(fmeta.FileSize.Uint64() - uint64(writecount*sconfig.SegmentSize))])
 		} else {
-			f.Write(buf)
+			os.Remove(fpath)
 		}
-		writecount++
 	}
-	if writecount != len(fmeta.SegmentList) {
-		return "", errors.New("write failed")
-	}
-	err = f.Sync()
-	return userfile, err
+	n.Logdown("err", clientIp+" download file failed: "+err.Error())
+	c.JSON(http.StatusInternalServerError, "file download failed, please try again later.")
+	return
 }
 
 func (n *Node) CheckLocalFile(fid string) (int64, string, error) {
 	fpath := filepath.Join(n.GetDirs().FileDir, fid)
+	n.Logopen("info", " check file: "+fpath)
 	fstat, err := os.Stat(fpath)
 	if err == nil {
 		if fstat.Size() > 0 {
@@ -262,7 +160,8 @@ func (n *Node) CheckLocalFile(fid string) (int64, string, error) {
 		}
 		os.Remove(fpath)
 	}
-	fpath = filepath.Join(n.GetCacheDir(), fid)
+	fpath = filepath.Join(n.Workspace(), "filecache", fid)
+	n.Logopen("info", " check file: "+fpath)
 	fstat, err = os.Stat(fpath)
 	if err == nil {
 		if fstat.Size() > 0 {
@@ -270,5 +169,6 @@ func (n *Node) CheckLocalFile(fid string) (int64, string, error) {
 		}
 		os.Remove(fpath)
 	}
+	n.Logopen("err", " check file failed: no cached")
 	return 0, "", errors.New("not fount")
 }

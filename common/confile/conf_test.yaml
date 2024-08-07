@@ -1,0 +1,51 @@
+# The rpc endpoint of the chain node
+Rpc:
+  # test network
+  - "wss://testnet-rpc.cess.network/ws/"
+# Bootstrap Nodes
+Boot:
+  # test network
+  - "_dnsaddr.boot-miner-testnet.cess.network"
+# Account mnemonic
+# Substrate well-known mnemonic:
+#   - https://github.com/substrate-developer-hub/substrate-developer-hub.github.io/issues/613
+Mnemonic: "bottom drive obey lake curtain smoke basket hold race lonely fit walk"
+# Service workspace
+Workspace: "/"
+# P2P communication port
+P2P_Port: 4001
+# Service listening port
+HTTP_Port: 8080
+# Access mode: public / private
+# In public mode, only users in Accounts can't access it. 
+# In private mode, only users in Accounts can access it.
+Access: public
+# Account black/white list
+Accounts:
+# If you want to expose your oss service, please configure its domain name
+Domain: ""
+
+# User Files Cacher config
+# File cache size, default 512G, (unit is byte)
+CacheSize:
+# File cache expiration time, default 3 hour (unit is minutes)
+Expiration:
+# Directory to store file cache, default path: Workspace/filecache/
+CacheDir:
+
+# Storage Node Selector config
+# Used to find better storage node partners for DeOSS to upload or download files
+# Two strategies for using your specified storage nodes, "priority" or "fixed", default is "priority"
+SelectStrategy: 
+# JSON file used to specify the storage node. If it does not exist, it will be automatically created.
+# You can configure which storage nodes to use or not use in this file.
+NodeFilePath:
+# Maximum number of storage nodes allowed for long-term cooperation, default 120
+MaxNodeNum:
+# Maximum tolerable TTL for communication with storage nodes, default 500 ms (unit is milliseconds)
+MaxTTL:
+# Available storage node list refresh time, default 4 hours (unit is hours)
+RefreshTime:
+
+# Priority miners for use 
+Miners:

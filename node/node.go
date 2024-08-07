@@ -8,20 +8,21 @@
 package node
 
 import (
+	_ "embed"
 	"encoding/json"
 	"fmt"
 	"log"
 	"os"
 	"path/filepath"
 	"sync"
-	"sync/atomic"
 	"time"
 
+	"github.com/CESSProject/DeOSS/common/confile"
+	"github.com/CESSProject/DeOSS/common/db"
+	"github.com/CESSProject/DeOSS/common/logger"
+	"github.com/CESSProject/DeOSS/common/peerrecord"
+	"github.com/CESSProject/DeOSS/common/trackfile"
 	"github.com/CESSProject/DeOSS/configs"
-	"github.com/CESSProject/DeOSS/inter"
-	"github.com/CESSProject/DeOSS/pkg/confile"
-	"github.com/CESSProject/DeOSS/pkg/db"
-	"github.com/CESSProject/DeOSS/pkg/logger"
 	"github.com/CESSProject/cess-go-sdk/chain"
 	"github.com/CESSProject/cess-go-tools/cacher"
 	"github.com/CESSProject/cess-go-tools/scheduler"
@@ -30,27 +31,21 @@ import (
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/oschwald/geoip2-golang"
 	"github.com/pkg/errors"
 )
 
 type Node struct {
-	signkey            []byte
-	processingFiles    []string
-	processingFileLock *sync.RWMutex
-	trackLock          *sync.RWMutex
-	lock               *sync.RWMutex
-	blacklistLock      *sync.RWMutex
-	storagePeersLock   *sync.RWMutex
-	findPeer           *atomic.Uint32
-	storagePeers       map[string]struct{}
-	blacklist          map[string]int64
-	trackDir           string
-	fadebackDir        string
-	inter.TrackFile
+	signkey     []byte
+	trackLock   *sync.RWMutex
+	geoip       *geoip2.Reader
+	trackDir    string
+	fadebackDir string
+	trackfile.TrackFile
 	confile.Confile
 	logger.Logger
 	db.Cache
-	PeerRecord
+	peerrecord.PeerRecord
 	cacher.FileCache
 	scheduler.Selector
 	*chain.ChainClient
@@ -58,24 +53,24 @@ type Node struct {
 	*gin.Engine
 }
 
+//go:embed GeoLite2-City.mmdb
+var geoLite2 string
+
 // New is used to build a node instance
 func New() *Node {
 	return &Node{
-		processingFileLock: new(sync.RWMutex),
-		trackLock:          new(sync.RWMutex),
-		lock:               new(sync.RWMutex),
-		blacklistLock:      new(sync.RWMutex),
-		storagePeersLock:   new(sync.RWMutex),
-		PeerRecord:         NewPeerRecord(),
-		TrackFile:          inter.NewTeeRecord(),
-		processingFiles:    make([]string, 0),
-		storagePeers:       make(map[string]struct{}, 0),
-		blacklist:          make(map[string]int64, 0),
-		findPeer:           new(atomic.Uint32),
+		trackLock:  new(sync.RWMutex),
+		PeerRecord: peerrecord.NewPeerRecord(),
+		TrackFile:  trackfile.NewTeeRecord(),
 	}
 }
 
 func (n *Node) Run() {
+	geoip, err := geoip2.FromBytes([]byte(geoLite2))
+	if err != nil {
+		log.Fatal(err)
+	}
+	n.geoip = geoip
 	gin.SetMode(gin.ReleaseMode)
 	n.Engine = gin.Default()
 	config := cors.DefaultConfig()
@@ -89,6 +84,8 @@ func (n *Node) Run() {
 	n.Engine.GET(fmt.Sprintf("/download/:%s", HTTP_ParameterName_Fid), n.Download_file)
 	n.Engine.GET(fmt.Sprintf("/canfiles/:%s", HTTP_ParameterName_Fid), n.GetCanFileHandle)
 	n.Engine.GET(fmt.Sprintf("/open/:%s", HTTP_ParameterName_Fid), n.Preview_file)
+
+	n.Engine.GET(fmt.Sprintf("/location/:%s", HTTP_ParameterName_Fid), n.Get_location)
 
 	n.Engine.PUT("/bucket", n.Put_bucket)
 	n.Engine.PUT("/file", n.Put_file)
@@ -104,7 +101,7 @@ func (n *Node) Run() {
 	// tasks
 	go n.TaskMgt()
 
-	err := n.Engine.Run(fmt.Sprintf(":%d", n.GetHttpPort()))
+	err = n.Engine.Run(fmt.Sprintf(":%d", n.GetHttpPort()))
 	if err != nil {
 		log.Fatalf("err: %v", err)
 	}
@@ -123,37 +120,6 @@ func (n *Node) InitNodeSelector(strategy string, nodeFilePath string, maxNodeNum
 	//refresh the user-configured storage node list
 	n.Selector.FlushlistedPeerNodes(scheduler.DEFAULT_TIMEOUT, n.GetDHTable())
 	return nil
-}
-
-func (n *Node) SaveStoragePeer(peerid string) {
-	n.storagePeersLock.Lock()
-	n.storagePeers[peerid] = struct{}{}
-	n.storagePeersLock.Unlock()
-}
-
-func (n *Node) DeleteStoragePeer(peerid string) {
-	n.storagePeersLock.Lock()
-	delete(n.storagePeers, peerid)
-	n.storagePeersLock.Unlock()
-}
-
-func (n *Node) HasStoragePeer(peerid string) bool {
-	n.storagePeersLock.RLock()
-	defer n.storagePeersLock.RUnlock()
-	_, ok := n.storagePeers[peerid]
-	return ok
-}
-
-func (n *Node) GetAllStoragePeerId() []string {
-	n.storagePeersLock.RLock()
-	defer n.storagePeersLock.RUnlock()
-	var result = make([]string, len(n.storagePeers))
-	var i int
-	for k := range n.storagePeers {
-		result[i] = k
-		i++
-	}
-	return result
 }
 
 func (n *Node) SetSignkey(signkey []byte) {

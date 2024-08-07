@@ -8,15 +8,14 @@
 package node
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
 	"time"
 
+	"github.com/CESSProject/DeOSS/common/utils"
 	"github.com/CESSProject/DeOSS/configs"
-	"github.com/CESSProject/DeOSS/pkg/utils"
 	"github.com/CESSProject/cess-go-sdk/chain"
 	sconfig "github.com/CESSProject/cess-go-sdk/config"
 	"github.com/CESSProject/cess-go-sdk/core/process"
@@ -227,12 +226,6 @@ func (n *Node) storageData(roothash string, segment []chain.SegmentDataInfo, com
 		}
 	}
 
-	// allpeers := n.GetAllStoragePeerId()
-	itor, err := n.NewPeersIterator(sconfig.DataShards + sconfig.ParShards)
-	if err != nil {
-		return err
-	}
-
 	var sucPeer = make(map[string]struct{}, sconfig.DataShards+sconfig.ParShards)
 
 	for _, value := range completeList {
@@ -241,6 +234,70 @@ func (n *Node) storageData(roothash string, segment []chain.SegmentDataInfo, com
 			continue
 		}
 		sucPeer[base58.Encode([]byte(string(minfo.PeerId[:])))] = struct{}{}
+	}
+
+	priorityMiners := n.GetPriorityMiners()
+
+	for index, v := range dataGroup {
+		completed = false
+		for _, value := range completeList {
+			if uint8(value.Index) == index {
+				completed = true
+				n.Logtrack("info", fmt.Sprintf("[%s] The %dth batch fragments already report", roothash, index))
+				break
+			}
+		}
+
+		if completed {
+			continue
+		}
+		n.Logtrack("info", fmt.Sprintf("[%s] Prepare to transfer the %dth batch of fragments (%d) to priority miners", roothash, index, len(v)))
+		for _, peerid := range priorityMiners {
+			failed = true
+			if _, ok := sucPeer[peerid]; ok {
+				continue
+			}
+
+			addrs, ok := n.GetPeer(peerid)
+			if !ok {
+				n.Logtrack("info", fmt.Sprintf("[%s] not found this peer: %s", roothash, peerid))
+				continue
+			}
+
+			n.Peerstore().AddAddrs(addrs.ID, addrs.Addrs, time.Minute)
+
+			n.Logtrack("info", fmt.Sprintf("[%s] Will transfer to %s", roothash, peerid))
+			for j := 0; j < len(v); j++ {
+				for k := 0; k < 3; k++ {
+					err = n.WriteDataAction(addrs.ID, v[j], roothash, filepath.Base(v[j]))
+					if err != nil {
+						time.Sleep(chain.BlockInterval * 3)
+						continue
+					}
+					failed = false
+					break
+				}
+				if failed {
+					n.Logtrack("err", fmt.Sprintf("[%s] transfer to %s failed: %v", roothash, addrs.ID.String(), err))
+					n.Feedback(addrs.ID.String(), false)
+					break
+				}
+				n.Logtrack("info", fmt.Sprintf("[%s] The %dth fragment of the %dth batch is transferred to %s", roothash, j, index, addrs.ID.String()))
+			}
+			n.Peerstore().ClearAddrs(addrs.ID)
+			if !failed {
+				sucPeer[addrs.ID.String()] = struct{}{}
+				n.Feedback(addrs.ID.String(), true)
+				n.Logtrack("info", fmt.Sprintf("[%s] The %dth batch of fragments is transferred to %s", roothash, index, addrs.ID.String()))
+				break
+			}
+		}
+	}
+
+	// allpeers := n.GetAllStoragePeerId()
+	itor, err := n.NewPeersIterator(sconfig.DataShards + sconfig.ParShards)
+	if err != nil {
+		return err
 	}
 
 	for index, v := range dataGroup {
@@ -265,16 +322,11 @@ func (n *Node) storageData(roothash string, segment []chain.SegmentDataInfo, com
 				continue
 			}
 
-			err = n.Connect(context.TODO(), peer)
-			if err != nil {
-				n.Feedback(peer.ID.String(), false)
-				continue
-			}
-
+			n.Peerstore().AddAddrs(peer.ID, peer.Addrs, time.Minute)
 			n.Logtrack("info", fmt.Sprintf("[%s] Will transfer to %s", roothash, peer.ID.String()))
 			for j := 0; j < len(v); j++ {
-				for k := 0; k < 10; k++ {
-					err = n.WriteFileAction(peer.ID, roothash, v[j])
+				for k := 0; k < 3; k++ {
+					err = n.WriteDataAction(peer.ID, v[j], roothash, filepath.Base(v[j]))
 					if err != nil {
 						time.Sleep(chain.BlockInterval * 3)
 						continue
@@ -289,6 +341,7 @@ func (n *Node) storageData(roothash string, segment []chain.SegmentDataInfo, com
 				}
 				n.Logtrack("info", fmt.Sprintf("[%s] The %dth fragment of the %dth batch is transferred to %s", roothash, j, index, peer.ID.String()))
 			}
+			n.Peerstore().ClearAddrs(peer.ID)
 			if !failed {
 				sucPeer[peer.ID.String()] = struct{}{}
 				n.Feedback(peer.ID.String(), true)

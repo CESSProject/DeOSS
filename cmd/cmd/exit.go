@@ -45,7 +45,7 @@ func cmd_exit_func(cmd *cobra.Command, args []string) {
 	}
 	defer n.ChainClient.Close()
 
-	err = n.InitExtrinsicsName()
+	err = n.InitExtrinsicsNameForOSS()
 	if err != nil {
 		log.Println("The rpc address does not match the software version, please check the rpc address.")
 		os.Exit(1)

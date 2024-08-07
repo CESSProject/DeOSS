@@ -14,16 +14,15 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/CESSProject/DeOSS/common/confile"
+	"github.com/CESSProject/DeOSS/common/db"
+	"github.com/CESSProject/DeOSS/common/logger"
+	"github.com/CESSProject/DeOSS/common/utils"
 	"github.com/CESSProject/DeOSS/configs"
 	"github.com/CESSProject/DeOSS/node"
-	"github.com/CESSProject/DeOSS/pkg/confile"
-	"github.com/CESSProject/DeOSS/pkg/db"
-	"github.com/CESSProject/DeOSS/pkg/logger"
-	"github.com/CESSProject/DeOSS/pkg/utils"
 	cess "github.com/CESSProject/cess-go-sdk"
 	"github.com/CESSProject/cess-go-sdk/chain"
 	sutils "github.com/CESSProject/cess-go-sdk/utils"
-	"github.com/CESSProject/cess-go-tools/scheduler"
 	p2pgo "github.com/CESSProject/p2p-go"
 	"github.com/CESSProject/p2p-go/core"
 	"github.com/CESSProject/p2p-go/out"
@@ -76,12 +75,12 @@ func cmd_run_func(cmd *cobra.Command, args []string) {
 		cess.TransactionTimeout(configs.TimeOut_WaitBlock),
 	)
 	if err != nil {
-		out.Err(err.Error())
+		out.Err(fmt.Sprintf("[cess.New] %v", err))
 		os.Exit(1)
 	}
 	defer n.ChainClient.Close()
 
-	err = n.InitExtrinsicsName()
+	err = n.InitExtrinsicsNameForOSS()
 	if err != nil {
 		log.Println("The rpc address does not match the software version, please check the rpc address.")
 		os.Exit(1)
@@ -118,20 +117,17 @@ func cmd_run_func(cmd *cobra.Command, args []string) {
 		p2pgo.BootPeers(n.GetBootNodes()),
 	)
 	if err != nil {
-		out.Err(err.Error())
+		out.Err(fmt.Sprintf("[p2pgo.New] %v", err))
 		os.Exit(1)
 	}
 	defer n.PeerNode.Close()
 
+	n.LoadPeer(filepath.Join(n.Workspace(), "peer_record"))
+
 	go node.Subscribe(
 		ctx, n.PeerNode.GetHost(),
 		n.PeerNode.GetBootnode(),
-		func(p peer.AddrInfo) {
-			n.SavePeer(p)
-			if n.HasStoragePeer(p.ID.String()) {
-				n.FlushPeerNodes(scheduler.DEFAULT_TIMEOUT, p)
-			}
-		},
+		func(p peer.AddrInfo) { n.SavePeer(p) },
 	)
 	time.Sleep(time.Second)
 
@@ -230,6 +226,8 @@ func buildConfigFile(cmd *cobra.Command) (confile.Confile, error) {
 	if err == nil {
 		return cfg, nil
 	}
+
+	return cfg, err
 
 	rpc, err := cmd.Flags().GetStringSlice("rpc")
 	if err != nil {
@@ -382,15 +380,6 @@ func buildDir(workspace string) (string, string, string, string, error) {
 
 	feedbackDir := filepath.Join(workspace, configs.Feedback)
 	if err := os.MkdirAll(feedbackDir, 0755); err != nil {
-		return "", "", "", "", err
-	}
-
-	ufileDir := filepath.Join(workspace, configs.Ufile)
-	if err := os.MkdirAll(ufileDir, 0755); err != nil {
-		return "", "", "", "", err
-	}
-	dfileDir := filepath.Join(workspace, configs.Dfile)
-	if err := os.MkdirAll(dfileDir, 0755); err != nil {
 		return "", "", "", "", err
 	}
 

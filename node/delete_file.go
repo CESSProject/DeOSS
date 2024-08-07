@@ -10,7 +10,7 @@ package node
 import (
 	"net/http"
 
-	"github.com/CESSProject/DeOSS/pkg/utils"
+	"github.com/CESSProject/DeOSS/common/utils"
 	"github.com/gin-gonic/gin"
 )
 

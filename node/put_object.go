@@ -14,7 +14,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/CESSProject/DeOSS/pkg/utils"
+	"github.com/CESSProject/DeOSS/common/utils"
 	"github.com/CESSProject/cess-go-sdk/chain"
 	"github.com/CESSProject/cess-go-sdk/core/process"
 	sutils "github.com/CESSProject/cess-go-sdk/utils"

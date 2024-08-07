@@ -17,7 +17,7 @@ _dnsaddr.boot-miner-testnet.cess.cloud
 
 ### CESS test network public gateway
 
-| Address | `http://deoss-pub-gateway.cess.cloud/`           |
+| Address | `https://deoss-pub-gateway.cess.cloud/`           |
 | ------- | ------------------------------------------------- |
 
 | Account | `cXhwBytXqrZLr1qM5NHJhCzEMckSTzNKw17ci2aHft6ETSQm9` |
@@ -25,7 +25,7 @@ _dnsaddr.boot-miner-testnet.cess.cloud
 
 ### 🚰 CESS test network faucet
 ```
-https://testnet-faucet.cess.cloud/
+https://www.cess.network/faucet.html
 ```
 
 ## :warning: Attention
@@ -87,7 +87,7 @@ service iptables restart
 ### Method one
 Download the latest release of the binary application directly at：
 ```
-wget https://github.com/CESSProject/DeOSS/releases/download/v0.3.6/DeOSS0.3.6.linux-amd64.tar.gz
+wget https://github.com/CESSProject/DeOSS/releases/download/v0.3.7/DeOSS0.3.7.linux-amd64.tar.gz
 ```
 
 ### Method two
@@ -206,7 +206,7 @@ nohup ./deoss run 2>&1 &
 | role              | deoss                                                |
 | peer id           | 12D3KooWFAcDpT7vTtbsS361P14z8LpgxPMRywQr19sAdNfdDBYE |
 | signature account | cXhwBytXqrZLr1qM5NHJhCzEMckSTzNKw17ci2aHft6ETSQm9    |
-| domain name       | http://deoss-pub-gateway.cess.cloud/                 |
+| domain name       | https://deoss-pub-gateway.cess.cloud/                |
 +-------------------+------------------------------------------------------+
 ```
 
