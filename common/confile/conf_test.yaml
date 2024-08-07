@@ -28,6 +28,10 @@ storage:
     # test network
     - "_dnsaddr.boot-miner-testnet.cess.network"
 
+user:
+  # high priority accounts will not be restricted or blacklisted when accessing the gateway
+  account:
+
 access:
   # access mode: [public | private]
   # In public mode, only users in account can't access it
@@ -62,5 +66,5 @@ selector:
   refresh: 4
 
 shunt:
-  # prioritize miners who store files
-  miner:
+  # give priority to storing files to miners with these peerids
+  peerid:

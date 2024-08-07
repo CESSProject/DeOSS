@@ -73,25 +73,19 @@ func New() *Node {
 
 // run
 func (n *Node) Run() {
-	geoip, err := geoip2.FromBytes([]byte(geoLite2))
-	if err != nil {
-		log.Fatal(err)
-	}
-	n.geoip = geoip
-	gin.SetMode(gin.ReleaseMode)
+	gin.SetMode(n.Config.Application.Mode)
 	n.Engine = gin.Default()
 	config := cors.DefaultConfig()
 	config.AllowAllOrigins = true
-	config.AddAllowHeaders("*")
 	n.Engine.MaxMultipartMemory = MaxMemUsed
 	n.Engine.Use(cors.New(config))
+
 	n.Engine.GET("/version", n.Get_version)
 	n.Engine.GET("/bucket", n.Get_bucket)
 	n.Engine.GET(fmt.Sprintf("/metadata/:%s", HTTP_ParameterName_Fid), n.Get_metadata)
 	n.Engine.GET(fmt.Sprintf("/download/:%s", HTTP_ParameterName_Fid), n.Download_file)
 	n.Engine.GET(fmt.Sprintf("/canfiles/:%s", HTTP_ParameterName_Fid), n.GetCanFileHandle)
 	n.Engine.GET(fmt.Sprintf("/open/:%s", HTTP_ParameterName_Fid), n.Preview_file)
-
 	n.Engine.GET(fmt.Sprintf("/location/:%s", HTTP_ParameterName_Fid), n.Get_location)
 
 	n.Engine.PUT("/bucket", n.Put_bucket)
@@ -99,16 +93,19 @@ func (n *Node) Run() {
 	n.Engine.PUT("/object", n.Put_object)
 	n.Engine.PUT("/chunks", n.PutChunksHandle)
 
+	// shunt
+	n.Engine.PUT("/shunt", n.Put_shunt)
+
 	n.Engine.DELETE(fmt.Sprintf("/file/:%s", HTTP_ParameterName), n.Delete_file)
 	n.Engine.DELETE(fmt.Sprintf("/bucket/:%s", HTTP_ParameterName), n.Delete_bucket)
 
 	n.Engine.GET("/404", n.NotFound)
-	out.Tip(fmt.Sprintf("Listening on port: %d", n.Config.Application.Port))
 
 	// tasks
 	go n.TaskMgt()
 
-	err = n.Engine.Run(fmt.Sprintf(":%d", n.Config.Application.Port))
+	out.Tip(fmt.Sprintf("Listening on port: %d", n.Config.Application.Port))
+	err := n.Engine.Run(fmt.Sprintf(":%d", n.Config.Application.Port))
 	if err != nil {
 		log.Fatalf("err: %v", err)
 	}
@@ -118,6 +115,10 @@ func (n *Node) Setup() error {
 	var err error
 	if n.Config == nil {
 		return errors.New("setup: empty config")
+	}
+	n.geoip, err = geoip2.FromBytes([]byte(geoLite2))
+	if err != nil {
+		return errors.Wrap(err, "setup: ")
 	}
 	n.signkey, err = sutils.CalcMD5(n.Config.Chain.Mnemonic)
 	if err != nil {

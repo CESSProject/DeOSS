@@ -193,40 +193,9 @@ func buildConfigFile(cmd *cobra.Command) (*confile.Config, error) {
 			return nil, errors.Wrapf(err, "[Stat %s]", configpath2)
 		}
 		conFilePath = configpath2
-	} else {
-		conFilePath = configs.DefaultConfig
 	}
 
 	return confile.NewConfig(conFilePath)
-}
-
-func buildDir(workspace string) (string, string, string, string, error) {
-	logDir := filepath.Join(workspace, configs.Log)
-	if err := os.MkdirAll(logDir, 0755); err != nil {
-		return "", "", "", "", err
-	}
-
-	cacheDir := filepath.Join(workspace, configs.Db)
-	if err := os.MkdirAll(cacheDir, 0755); err != nil {
-		return "", "", "", "", err
-	}
-
-	trackDir := filepath.Join(workspace, configs.Track)
-	if err := os.MkdirAll(trackDir, 0755); err != nil {
-		return "", "", "", "", err
-	}
-
-	feedbackDir := filepath.Join(workspace, configs.Feedback)
-	if err := os.MkdirAll(feedbackDir, 0755); err != nil {
-		return "", "", "", "", err
-	}
-
-	//make file cache dir
-	fileCache := filepath.Join(workspace, configs.FILE_CACHE)
-	if err := os.MkdirAll(fileCache, 0755); err != nil {
-		return "", "", "", "", err
-	}
-	return logDir, cacheDir, trackDir, feedbackDir, nil
 }
 
 func buildCache(cacheDir string) (db.Cache, error) {
