@@ -26,8 +26,11 @@ func init() {
 
 func (n *Node) retrieve_file(fid, savedir, cipher string) (string, error) {
 	userfile := filepath.Join(savedir, fid)
+	ok := false
 	retrieve_lock.Lock()
-	_, ok := retrieve_files[fid]
+	if _, ok = retrieve_files[fid]; !ok {
+		retrieve_files[fid] = struct{}{}
+	}
 	retrieve_lock.Unlock()
 	if ok {
 		tick := time.NewTicker(time.Second * 3)
@@ -44,9 +47,6 @@ func (n *Node) retrieve_file(fid, savedir, cipher string) (string, error) {
 			}
 		}
 	}
-	retrieve_lock.Lock()
-	retrieve_files[fid] = struct{}{}
-	retrieve_lock.Unlock()
 
 	defer func() {
 		retrieve_lock.Lock()
@@ -104,16 +104,14 @@ func (n *Node) retrieve_file(fid, savedir, cipher string) (string, error) {
 					n.Logdown("info", "not fount the peer: "+peerid)
 					continue
 				}
-				// err = n.Connect(context.TODO(), addr)
-				// if err != nil {
-				// 	n.Logdown("info", "connect to "+peerid+" failed: "+err.Error())
-				// 	continue
-				// }
+				n.Peerstore().AddAddrs(addr.ID, addr.Addrs, time.Minute)
 				err = n.ReadDataAction(addr.ID, string(fragment.Hash[:]), fragmentpath, sconfig.FragmentSize)
 				if err != nil {
+					n.Peerstore().ClearAddrs(addr.ID)
 					n.Logdown("info", " ReadDataAction failed: "+err.Error())
 					continue
 				}
+				n.Peerstore().ClearAddrs(addr.ID)
 			} else {
 				_, err = os.Stat(fragmentpath)
 				if err != nil {

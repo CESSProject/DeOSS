@@ -850,10 +850,7 @@ func (n *Node) GetSegment(fdir, fhash, cipher string, sid int) (fpath string, er
 			continue
 		}
 		fragmentPath := filepath.Join(fdir, string(fragment.Hash[:]))
-		if err = n.ReadFileAction(
-			peer.ID(miner.PeerId[:]), fhash, segmentHash,
-			fragmentPath, sconfig.FragmentSize,
-		); err != nil {
+		if err = n.ReadDataAction(peer.ID(miner.PeerId[:]), string(fragment.Hash[:]), fragmentPath, sconfig.FragmentSize); err != nil {
 			continue
 		}
 		count++

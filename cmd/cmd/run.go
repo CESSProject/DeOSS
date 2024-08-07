@@ -75,7 +75,7 @@ func cmd_run_func(cmd *cobra.Command, args []string) {
 		cess.TransactionTimeout(configs.TimeOut_WaitBlock),
 	)
 	if err != nil {
-		out.Err(err.Error())
+		out.Err(fmt.Sprintf("[cess.New] %v", err))
 		os.Exit(1)
 	}
 	defer n.ChainClient.Close()
@@ -117,7 +117,7 @@ func cmd_run_func(cmd *cobra.Command, args []string) {
 		p2pgo.BootPeers(n.GetBootNodes()),
 	)
 	if err != nil {
-		out.Err(err.Error())
+		out.Err(fmt.Sprintf("[p2pgo.New] %v", err))
 		os.Exit(1)
 	}
 	defer n.PeerNode.Close()

@@ -105,6 +105,8 @@ func (n *Node) Put_file(c *gin.Context) {
 		return
 	}
 
+	n.Logput("info", clientIp+" cache file path: "+fpath)
+
 	fname, length, code, err := saveFormFileToFile(c, fpath)
 	if err != nil {
 		n.Logput("err", clientIp+" saveFormFileToFile: "+err.Error())
@@ -150,6 +152,15 @@ func (n *Node) Put_file(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, err)
 		return
 	}
+
+	_, err = os.Stat(newPath)
+	if err != nil {
+		n.Logput("err", clientIp+" "+err.Error())
+		c.JSON(http.StatusInternalServerError, err)
+		return
+	}
+
+	n.Logput("info", clientIp+" new file path: "+newPath)
 
 	switch duplicate {
 	case Duplicate1:
