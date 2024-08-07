@@ -236,7 +236,7 @@ func (n *Node) storageData(roothash string, segment []chain.SegmentDataInfo, com
 		sucPeer[base58.Encode([]byte(string(minfo.PeerId[:])))] = struct{}{}
 	}
 
-	priorityMiners := n.GetPriorityMiners()
+	priorityMiners := n.Config.Shunt.Miner
 
 	for index, v := range dataGroup {
 		completed = false

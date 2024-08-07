@@ -16,7 +16,6 @@ require (
 	github.com/gin-contrib/cors v1.7.1
 	github.com/gin-gonic/gin v1.9.1
 	github.com/google/uuid v1.6.0
-	github.com/howeyc/gopass v0.0.0-20210920133722-c8aef6fb66ef
 	github.com/jedib0t/go-pretty/v6 v6.5.8
 	github.com/libp2p/go-libp2p v0.36.0
 	github.com/libp2p/go-libp2p-pubsub v0.11.0

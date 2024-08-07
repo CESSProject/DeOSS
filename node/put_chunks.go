@@ -490,7 +490,7 @@ func (n *Node) GetCanFileHandle(c *gin.Context) {
 			return
 		}
 	}
-	cacheDir := n.GetCacheDir()
+	cacheDir := n.Config.Cacher.Directory
 	if _, err := os.Stat(cacheDir); err != nil {
 		cacheDir = fdir
 	}

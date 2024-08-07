@@ -24,10 +24,12 @@ import (
 	"github.com/CESSProject/DeOSS/common/trackfile"
 	"github.com/CESSProject/DeOSS/configs"
 	"github.com/CESSProject/cess-go-sdk/chain"
+	sutils "github.com/CESSProject/cess-go-sdk/utils"
 	"github.com/CESSProject/cess-go-tools/cacher"
 	"github.com/CESSProject/cess-go-tools/scheduler"
 	"github.com/CESSProject/p2p-go/core"
 	"github.com/CESSProject/p2p-go/out"
+	"github.com/centrifuge/go-substrate-rpc-client/v4/signature"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -36,18 +38,22 @@ import (
 )
 
 type Node struct {
-	signkey     []byte
-	trackLock   *sync.RWMutex
-	geoip       *geoip2.Reader
-	trackDir    string
-	fadebackDir string
+	signkey   []byte
+	trackLock *sync.RWMutex
+	geoip     *geoip2.Reader
+	basespace string
+	fileDir   string
+	tmpDir    string
+	logDir    string
+	dbDir     string
+	trackDir  string
 	trackfile.TrackFile
-	confile.Confile
 	logger.Logger
 	db.Cache
 	peerrecord.PeerRecord
 	cacher.FileCache
 	scheduler.Selector
+	*confile.Config
 	*chain.ChainClient
 	*core.PeerNode
 	*gin.Engine
@@ -65,6 +71,7 @@ func New() *Node {
 	}
 }
 
+// run
 func (n *Node) Run() {
 	geoip, err := geoip2.FromBytes([]byte(geoLite2))
 	if err != nil {
@@ -96,15 +103,82 @@ func (n *Node) Run() {
 	n.Engine.DELETE(fmt.Sprintf("/bucket/:%s", HTTP_ParameterName), n.Delete_bucket)
 
 	n.Engine.GET("/404", n.NotFound)
-	out.Tip(fmt.Sprintf("Listening on port: %d", n.GetHttpPort()))
+	out.Tip(fmt.Sprintf("Listening on port: %d", n.Config.Application.Port))
 
 	// tasks
 	go n.TaskMgt()
 
-	err = n.Engine.Run(fmt.Sprintf(":%d", n.GetHttpPort()))
+	err = n.Engine.Run(fmt.Sprintf(":%d", n.Config.Application.Port))
 	if err != nil {
 		log.Fatalf("err: %v", err)
 	}
+}
+
+func (n *Node) Setup() error {
+	var err error
+	if n.Config == nil {
+		return errors.New("setup: empty config")
+	}
+	n.signkey, err = sutils.CalcMD5(n.Config.Chain.Mnemonic)
+	if err != nil {
+		return errors.Wrap(err, "setup: ")
+	}
+	keyringPair, err := signature.KeyringPairFromSecret(n.Config.Chain.Mnemonic, 0)
+	if err != nil {
+		return errors.Wrap(err, "setup: ")
+	}
+	account, err := sutils.EncodePublicKeyAsCessAccount(keyringPair.PublicKey)
+	if err != nil {
+		return errors.Wrap(err, "setup: ")
+	}
+	n.basespace = filepath.Join(n.Application.Workspace, account, configs.NameSpace)
+
+	err = n.creatDir(n.basespace)
+	if err != nil {
+		return errors.Wrap(err, "setup: ")
+	}
+	return nil
+}
+
+func (n *Node) GetBasespace() string {
+	return n.basespace
+}
+
+func (n *Node) GetDBDir() string {
+	return n.dbDir
+}
+
+func (n *Node) GetLogDir() string {
+	return n.logDir
+}
+
+func (n *Node) creatDir(basespace string) error {
+	n.fileDir = filepath.Join(basespace, "file")
+	n.tmpDir = filepath.Join(basespace, "tmp")
+	n.logDir = filepath.Join(basespace, "log")
+	n.dbDir = filepath.Join(basespace, "db")
+	n.trackDir = filepath.Join(basespace, "track")
+	err := os.MkdirAll(n.fileDir, 0755)
+	if err != nil {
+		return err
+	}
+	err = os.MkdirAll(n.tmpDir, 0755)
+	if err != nil {
+		return err
+	}
+	err = os.MkdirAll(n.logDir, 0755)
+	if err != nil {
+		return err
+	}
+	err = os.MkdirAll(n.dbDir, 0755)
+	if err != nil {
+		return err
+	}
+	err = os.MkdirAll(n.trackDir, 0755)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (n *Node) InitFileCache(exp time.Duration, maxSpace int64, cacheDir string) {
@@ -120,18 +194,6 @@ func (n *Node) InitNodeSelector(strategy string, nodeFilePath string, maxNodeNum
 	//refresh the user-configured storage node list
 	n.Selector.FlushlistedPeerNodes(scheduler.DEFAULT_TIMEOUT, n.GetDHTable())
 	return nil
-}
-
-func (n *Node) SetSignkey(signkey []byte) {
-	n.signkey = signkey
-}
-
-func (n *Node) SetTrackDir(dir string) {
-	n.trackDir = dir
-}
-
-func (n *Node) SetFadebackDir(dir string) {
-	n.fadebackDir = dir
 }
 
 func (n *Node) WriteTrackFile(fid string, data []byte) error {
@@ -206,11 +268,12 @@ func (n *Node) DeleteTrackFile(filehash string) {
 }
 
 func (n *Node) RebuildDirs() {
-	os.RemoveAll(n.GetDirs().TmpDir)
-	os.RemoveAll(filepath.Join(n.Workspace(), configs.Db))
-	os.RemoveAll(filepath.Join(n.Workspace(), configs.Log))
-	os.RemoveAll(filepath.Join(n.Workspace(), configs.Track))
-	os.MkdirAll(n.GetDirs().FileDir, 0755)
-	os.MkdirAll(n.GetDirs().TmpDir, 0755)
-	os.MkdirAll(filepath.Join(n.Workspace(), configs.Track), 0755)
+	os.RemoveAll(n.tmpDir)
+	os.RemoveAll(n.dbDir)
+	os.RemoveAll(n.logDir)
+	os.RemoveAll(n.trackDir)
+	os.MkdirAll(n.tmpDir, 0755)
+	os.MkdirAll(n.dbDir, 0755)
+	os.MkdirAll(n.logDir, 0755)
+	os.MkdirAll(n.trackDir, 0755)
 }

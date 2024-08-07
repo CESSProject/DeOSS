@@ -24,9 +24,7 @@ import (
 	"github.com/CESSProject/cess-go-sdk/chain"
 	sutils "github.com/CESSProject/cess-go-sdk/utils"
 	p2pgo "github.com/CESSProject/p2p-go"
-	"github.com/CESSProject/p2p-go/core"
 	"github.com/CESSProject/p2p-go/out"
-	"github.com/howeyc/gopass"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
@@ -36,43 +34,29 @@ import (
 // which is used to start the deoss service.
 func cmd_run_func(cmd *cobra.Command, args []string) {
 	var (
-		registerFlag bool
-		err          error
-		logDir       string
-		dbDir        string
-		trackDir     string
-		fadebackDir  string
-		syncSt       chain.SysSyncState
-		n            = node.New()
+		err error
 	)
+
 	ctx := cmd.Context()
-	// Building Profile Instances
-	n.Confile, err = buildConfigFile(cmd)
+	n := node.New()
+	n.Config, err = buildConfigFile(cmd)
+	if err != nil {
+		out.Err("buildConfigFile: " + err.Error())
+		os.Exit(1)
+	}
+
+	err = n.Setup()
 	if err != nil {
 		out.Err(err.Error())
 		os.Exit(1)
 	}
 
-	if !core.FreeLocalPort(uint32(n.GetHttpPort())) {
-		out.Err(fmt.Sprintf("port [%d] is in use", n.GetHttpPort()))
-		os.Exit(1)
-	}
-
-	signKey, err := sutils.CalcMD5(n.Confile.GetMnemonic())
-	if err != nil {
-		out.Err(err.Error())
-		os.Exit(1)
-	}
-
-	n.SetSignkey(signKey)
-
-	// Build sdk
 	n.ChainClient, err = cess.New(
 		ctx,
 		cess.Name(configs.Name),
-		cess.ConnectRpcAddrs(n.GetRpcAddr()),
-		cess.Mnemonic(n.GetMnemonic()),
-		cess.TransactionTimeout(configs.TimeOut_WaitBlock),
+		cess.ConnectRpcAddrs(n.Config.Chain.Rpc),
+		cess.Mnemonic(n.Config.Chain.Mnemonic),
+		cess.TransactionTimeout(time.Second*time.Duration(n.Config.Chain.Timeout)),
 	)
 	if err != nil {
 		out.Err(fmt.Sprintf("[cess.New] %v", err))
@@ -86,6 +70,7 @@ func cmd_run_func(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
+	var syncSt chain.SysSyncState
 	for {
 		syncSt, err = n.SystemSyncState()
 		if err != nil {
@@ -100,6 +85,7 @@ func cmd_run_func(cmd *cobra.Command, args []string) {
 		time.Sleep(time.Second * time.Duration(utils.Ternary(int64(syncSt.HighestBlock-syncSt.CurrentBlock)*6, 30)))
 	}
 
+	registerFlag := false
 	ossinfo, err := n.QueryOss(n.GetSignatureAccPulickey(), -1)
 	if err != nil {
 		if err.Error() == chain.ERR_Empty {
@@ -112,9 +98,9 @@ func cmd_run_func(cmd *cobra.Command, args []string) {
 
 	n.PeerNode, err = p2pgo.New(
 		ctx,
-		p2pgo.ListenPort(n.GetP2pPort()),
-		p2pgo.Workspace(filepath.Join(n.GetWorkspace(), n.GetSignatureAcc(), configs.Name)),
-		p2pgo.BootPeers(n.GetBootNodes()),
+		p2pgo.Workspace(n.GetBasespace()),
+		p2pgo.ListenPort(int(n.Config.Storage.Port)),
+		p2pgo.BootPeers(n.Config.Storage.Boot),
 	)
 	if err != nil {
 		out.Err(fmt.Sprintf("[p2pgo.New] %v", err))
@@ -122,7 +108,7 @@ func cmd_run_func(cmd *cobra.Command, args []string) {
 	}
 	defer n.PeerNode.Close()
 
-	n.LoadPeer(filepath.Join(n.Workspace(), "peer_record"))
+	n.LoadPeer(filepath.Join(n.GetBasespace(), "peer_record"))
 
 	go node.Subscribe(
 		ctx, n.PeerNode.GetHost(),
@@ -134,7 +120,7 @@ func cmd_run_func(cmd *cobra.Command, args []string) {
 	out.Tip(fmt.Sprintf("chain network: %s", n.GetNetworkEnv()))
 
 	if registerFlag {
-		_, err = n.RegisterOss(n.GetPeerPublickey(), n.GetDomainName())
+		_, err = n.RegisterOss(n.GetPeerPublickey(), n.Config.Application.Url)
 		if err != nil {
 			out.Err(fmt.Sprintf("register deoss err: %v", err))
 			os.Exit(1)
@@ -143,8 +129,8 @@ func cmd_run_func(cmd *cobra.Command, args []string) {
 	} else {
 		newPeerid := n.GetPeerPublickey()
 		if !sutils.CompareSlice([]byte(string(ossinfo.Peerid[:])), newPeerid) ||
-			n.GetDomainName() != string(ossinfo.Domain) {
-			txhash, err := n.UpdateOss(string(newPeerid), n.GetDomainName())
+			n.Config.Application.Url != string(ossinfo.Domain) {
+			txhash, err := n.UpdateOss(string(newPeerid), n.Config.Application.Url)
 			if err != nil {
 				out.Err(fmt.Sprintf("[%s] update deoss err: %v", txhash, err))
 				os.Exit(1)
@@ -152,56 +138,46 @@ func cmd_run_func(cmd *cobra.Command, args []string) {
 		}
 	}
 
-	logDir, dbDir, trackDir, fadebackDir, err = buildDir(n.Workspace())
-	if err != nil {
-		out.Err(err.Error())
-		os.Exit(1)
-	}
-	n.SetTrackDir(trackDir)
-	n.SetFadebackDir(fadebackDir)
-
-	//init DeOSS extension components
-	cacheDir := n.Confile.GetCacheDir()
+	// init extension components
+	cacheDir := n.Config.Cacher.Directory
 	if cacheDir == "" {
-		cacheDir = filepath.Join(n.Workspace(), configs.FILE_CACHE)
+		cacheDir = filepath.Join(n.GetBasespace(), configs.FILE_CACHE)
 	}
 	n.InitFileCache(
-		time.Duration(n.Confile.GetCacheItemExp()),
-		n.Confile.GetCacheSize(),
+		time.Duration(n.Config.Cacher.Expiration),
+		int64(n.Config.Cacher.Size),
 		cacheDir,
 	)
-	nodeFilePath := n.Confile.GetNodeFilePath()
+	nodeFilePath := n.Config.Selector.Filter
 	if nodeFilePath == "" {
-		nodeFilePath = filepath.Join(n.Workspace(), "storage_nodes.json")
+		nodeFilePath = filepath.Join(n.GetBasespace(), "storage_nodes.json")
 	}
 	n.InitNodeSelector(
-		n.Confile.GetSelectStrategy(),
+		n.Config.Selector.Strategy,
 		nodeFilePath,
-		n.Confile.GetMaxNodeNum(),
-		n.Confile.GetMaxTTL(),
-		n.Confile.GetRefreshTime(),
+		int(n.Config.Selector.Number),
+		int64(n.Config.Selector.Ttl),
+		int64(n.Config.Selector.Refresh),
 	)
 
-	// Build cache
-	n.Cache, err = buildCache(dbDir)
+	n.Cache, err = buildCache(n.GetDBDir())
 	if err != nil {
 		out.Err(err.Error())
 		os.Exit(1)
 	}
 
-	// Build Log
-	n.Logger, err = buildLogs(logDir)
+	n.Logger, err = buildLogs(n.GetLogDir())
 	if err != nil {
 		out.Err(err.Error())
 		os.Exit(1)
 	}
 
-	out.Tip(n.Workspace())
+	out.Tip(n.GetBasespace())
 
 	n.Run()
 }
 
-func buildConfigFile(cmd *cobra.Command) (confile.Confile, error) {
+func buildConfigFile(cmd *cobra.Command) (*confile.Config, error) {
 	var conFilePath string
 	configpath1, _ := cmd.Flags().GetString("config")
 	configpath2, _ := cmd.Flags().GetString("c")
@@ -221,145 +197,7 @@ func buildConfigFile(cmd *cobra.Command) (confile.Confile, error) {
 		conFilePath = configs.DefaultConfig
 	}
 
-	cfg := confile.NewConfigfile()
-	err := cfg.Parse(conFilePath)
-	if err == nil {
-		return cfg, nil
-	}
-
-	return cfg, err
-
-	rpc, err := cmd.Flags().GetStringSlice("rpc")
-	if err != nil {
-		return cfg, errors.Wrapf(err, "[cmd.Flags().GetStringSlice(\"rpc\")]")
-	}
-
-	if len(rpc) == 0 {
-		return cfg, errors.New("Please specify the rpc address with --rpc")
-	}
-	cfg.SetRpcAddr(rpc)
-
-	boot, err := cmd.Flags().GetStringSlice("boot")
-	if err != nil {
-		return cfg, errors.Wrapf(err, "[cmd.Flags().GetStringSlice(\"boot\")]")
-	}
-	if len(boot) == 0 {
-		return cfg, errors.New("Please specify the boot node address with --boot")
-	}
-	cfg.SetBootNodes(boot)
-
-	workspace, err := cmd.Flags().GetString("ws")
-	if err != nil {
-		return cfg, err
-	}
-	if workspace == "" {
-		return cfg, errors.New("Please specify the sorkspace with --ws")
-	}
-	err = cfg.SetWorkspace(workspace)
-	if err != nil {
-		return cfg, errors.Wrapf(err, "[SetWorkspace %s]", workspace)
-	}
-
-	http_port, err := cmd.Flags().GetInt("http_port")
-	if err != nil {
-		return cfg, errors.Wrapf(err, "[cmd.Flags().GetInt(\"http_port\")]")
-	}
-
-	p2p_port, err := cmd.Flags().GetInt("p2p_port")
-	if err != nil {
-		return cfg, errors.Wrapf(err, "[cmd.Flags().GetInt(\"p2p_port\")]")
-	}
-
-	err = cfg.SetHttpPort(http_port)
-	if err != nil {
-		return cfg, errors.Wrapf(err, "[SetHttpPort %d]", http_port)
-	}
-	err = cfg.SetP2pPort(p2p_port)
-	if err != nil {
-		return cfg, errors.Wrapf(err, "[SetP2pPort %d]", p2p_port)
-	}
-
-	mnemonic, err := cmd.Flags().GetString("mnemonic")
-	if err != nil {
-		return cfg, errors.Wrapf(err, "[cmd.Flags().GetString(\"mnemonic\")]")
-	}
-	if mnemonic == "" {
-		out.Input("Please enter the mnemonic of the staking account:")
-		for {
-			pwd, err := gopass.GetPasswdMasked()
-			if err != nil {
-				if err.Error() == "interrupted" || err.Error() == "interrupt" || err.Error() == "killed" {
-					os.Exit(0)
-				}
-				out.Input("Invalid mnemonic, please check and re-enter:")
-				continue
-			}
-			if len(pwd) == 0 {
-				out.Input("The mnemonic you entered is empty, please re-enter:")
-				continue
-			}
-			err = cfg.SetMnemonic(string(pwd))
-			if err != nil {
-				out.Input("Invalid mnemonic, please check and re-enter:")
-				continue
-			}
-			break
-		}
-	} else {
-		err = cfg.SetMnemonic(mnemonic)
-		if err != nil {
-			return cfg, errors.Wrapf(err, "[SetMnemonic] [%s]", mnemonic)
-		}
-	}
-	return cfg, nil
-}
-
-func buildAuthenticationConfig(cmd *cobra.Command) (confile.Confile, error) {
-	var conFilePath string
-	configpath1, _ := cmd.Flags().GetString("config")
-	configpath2, _ := cmd.Flags().GetString("c")
-	if configpath1 != "" {
-		conFilePath = configpath1
-	} else if configpath2 != "" {
-		conFilePath = configpath2
-	} else {
-		conFilePath = configs.DefaultConfig
-	}
-
-	cfg := confile.NewConfigfile()
-	err := cfg.Parse(conFilePath)
-	if err == nil {
-		return cfg, err
-	}
-
-	rpc, err := cmd.Flags().GetStringSlice("rpc")
-	if err != nil {
-		return cfg, err
-	}
-	cfg.SetRpcAddr(rpc)
-
-	out.Input("Please enter the mnemonic of the staking account:")
-	for {
-		pwd, err := gopass.GetPasswdMasked()
-		if err != nil {
-			if err.Error() == "interrupted" || err.Error() == "interrupt" || err.Error() == "killed" {
-				os.Exit(0)
-			}
-			out.Input("Invalid mnemonic, please check and re-enter:")
-			continue
-		}
-		if len(pwd) == 0 {
-			out.Input("The mnemonic you entered is empty, please re-enter:")
-			continue
-		}
-		err = cfg.SetMnemonic(string(pwd))
-		if err != nil {
-			out.Input("Invalid mnemonic, please check and re-enter:")
-			continue
-		}
-		break
-	}
-	return cfg, nil
+	return confile.NewConfig(conFilePath)
 }
 
 func buildDir(workspace string) (string, string, string, string, error) {

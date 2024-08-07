@@ -261,24 +261,22 @@ func (n *Node) AccessControl(account string) error {
 		return fmt.Errorf("%s is not a CESS account, no permissions", account)
 	}
 
-	bwlist := n.GetAccounts()
+	bwlist := n.Config.Access.Account
 
-	if n.GetAccess() == configs.Access_Public {
+	switch n.Config.Access.Mode {
+	case configs.Access_Public:
 		for _, v := range bwlist {
 			if v == account {
 				return fmt.Errorf("your account [%s] does not have permissions", account)
 			}
 		}
 		return nil
-	}
-
-	if n.GetAccess() == configs.Access_Private {
+	case configs.Access_Private:
 		for _, v := range bwlist {
 			if v == account {
 				return nil
 			}
 		}
 	}
-
 	return fmt.Errorf("your account [%s] does not have permissions", account)
 }
