@@ -24,10 +24,8 @@ const (
 	Log = "log"
 	// database dir
 	Db = "db"
-	// tracked files
+	// tracked file dir
 	Track = "track"
-	//
-	Feedback = "feedback"
 	//
 	FILE_CACHE = "filecache"
 )

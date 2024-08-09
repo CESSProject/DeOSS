@@ -8,7 +8,7 @@ require (
 	github.com/CESSProject/cess-go-sdk v0.6.2-0.20240805070224-ca5be6963b49
 	github.com/CESSProject/cess-go-tools v0.2.12
 	github.com/CESSProject/go-keyring v0.0.0-20220614131247-ee3a8da30fde
-	github.com/CESSProject/p2p-go v0.4.1-0.20240807071449-1ee8e19f5d66
+	github.com/CESSProject/p2p-go v0.4.1-0.20240809013702-e989d204843e
 	github.com/btcsuite/btcutil v1.0.3-0.20201208143702-a53e38424cce
 	github.com/cbergoon/merkletree v0.2.0
 	github.com/centrifuge/go-substrate-rpc-client/v4 v4.2.1
@@ -16,9 +16,8 @@ require (
 	github.com/gin-contrib/cors v1.7.1
 	github.com/gin-gonic/gin v1.9.1
 	github.com/google/uuid v1.6.0
-	github.com/howeyc/gopass v0.0.0-20210920133722-c8aef6fb66ef
 	github.com/jedib0t/go-pretty/v6 v6.5.8
-	github.com/libp2p/go-libp2p v0.36.0
+	github.com/libp2p/go-libp2p v0.36.1
 	github.com/libp2p/go-libp2p-pubsub v0.11.0
 	github.com/mr-tron/base58 v1.2.0
 	github.com/multiformats/go-multiaddr v0.13.0

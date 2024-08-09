@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"time"
 
 	"github.com/CESSProject/DeOSS/configs"
 	"github.com/CESSProject/DeOSS/node"
@@ -30,7 +31,7 @@ func cmd_stat_func(cmd *cobra.Command, args []string) {
 		n   = node.New()
 	)
 
-	n.Confile, err = buildAuthenticationConfig(cmd)
+	n.Config, err = buildConfigFile(cmd)
 	if err != nil {
 		log.Println(err)
 		os.Exit(1)
@@ -39,9 +40,9 @@ func cmd_stat_func(cmd *cobra.Command, args []string) {
 	n.ChainClient, err = cess.New(
 		context.Background(),
 		cess.Name(configs.Name),
-		cess.ConnectRpcAddrs(n.Confile.GetRpcAddr()),
-		cess.Mnemonic(n.Confile.GetMnemonic()),
-		cess.TransactionTimeout(configs.TimeOut_WaitBlock),
+		cess.ConnectRpcAddrs(n.Config.Chain.Rpc),
+		cess.Mnemonic(n.Config.Chain.Mnemonic),
+		cess.TransactionTimeout(time.Second*time.Duration(n.Config.Chain.Timeout)),
 	)
 	if err != nil {
 		log.Println(err)
@@ -49,12 +50,7 @@ func cmd_stat_func(cmd *cobra.Command, args []string) {
 	}
 	defer n.GetSubstrateAPI().Client.Close()
 
-	pubkey, err := n.Confile.GetPublickey()
-	if err != nil {
-		log.Println(err)
-		os.Exit(1)
-	}
-	ossinfo, err := n.QueryOss(pubkey, -1)
+	ossinfo, err := n.QueryOss(n.GetSignatureAccPulickey(), -1)
 	if err != nil {
 		if err.Error() == chain.ERR_Empty {
 			log.Printf("[err] You are not registered as an oss role\n")

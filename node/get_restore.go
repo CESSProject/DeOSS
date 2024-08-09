@@ -75,7 +75,7 @@ func (n *Node) GetRestoreHandle(c *gin.Context) {
 	}
 
 	var userfils_file userFiles
-	data, err = os.ReadFile(filepath.Join(n.GetDirs().FileDir, account))
+	data, err = os.ReadFile(filepath.Join(n.fileDir, account))
 	if err == nil {
 		json.Unmarshal(data, &userfils_file)
 	}
@@ -87,7 +87,7 @@ func (n *Node) GetRestoreHandle(c *gin.Context) {
 	}
 
 	var userDeletedfils_file userFiles
-	data, err = os.ReadFile(filepath.Join(n.GetDirs().FileDir, account))
+	data, err = os.ReadFile(filepath.Join(n.fileDir, account))
 	if err == nil {
 		json.Unmarshal(data, &userDeletedfils_file)
 	}

@@ -11,6 +11,7 @@ import (
 	"context"
 	"log"
 	"os"
+	"time"
 
 	"github.com/CESSProject/DeOSS/configs"
 	"github.com/CESSProject/DeOSS/node"
@@ -26,7 +27,7 @@ func cmd_exit_func(cmd *cobra.Command, args []string) {
 		n   = node.New()
 	)
 
-	n.Confile, err = buildAuthenticationConfig(cmd)
+	n.Config, err = buildConfigFile(cmd)
 	if err != nil {
 		log.Println(err)
 		os.Exit(1)
@@ -35,9 +36,9 @@ func cmd_exit_func(cmd *cobra.Command, args []string) {
 	n.ChainClient, err = cess.New(
 		context.Background(),
 		cess.Name(configs.Name),
-		cess.ConnectRpcAddrs(n.Confile.GetRpcAddr()),
-		cess.Mnemonic(n.Confile.GetMnemonic()),
-		cess.TransactionTimeout(configs.TimeOut_WaitBlock),
+		cess.ConnectRpcAddrs(n.Config.Chain.Rpc),
+		cess.Mnemonic(n.Config.Chain.Mnemonic),
+		cess.TransactionTimeout(time.Second*time.Duration(n.Config.Chain.Timeout)),
 	)
 	if err != nil {
 		log.Println(err)

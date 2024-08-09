@@ -19,13 +19,13 @@ import (
 // cmd_config_func is an implementation of the config command,
 // which is used to generate configuration file.
 func cmd_config_func(cmd *cobra.Command, args []string) {
-	f, err := os.Create(confile.ProfileDefault)
+	f, err := os.Create(confile.DefaultConfig)
 	if err != nil {
 		log.Printf("[err] %v\n", err)
 		os.Exit(1)
 	}
 	defer f.Close()
-	_, err = f.WriteString(confile.ProfileTemplete)
+	_, err = f.WriteString(confile.ConfigTemplete)
 	if err != nil {
 		log.Printf("[err] %v\n", err)
 		os.Exit(1)
@@ -37,10 +37,10 @@ func cmd_config_func(cmd *cobra.Command, args []string) {
 	}
 	pwd, err := os.Getwd()
 	if err != nil {
-		log.Printf("[ok] %v\n", confile.ProfileDefault)
+		log.Printf("[ok] %v\n", confile.DefaultConfig)
 		os.Exit(0)
 	}
-	path := filepath.Join(pwd, confile.ProfileDefault)
+	path := filepath.Join(pwd, confile.DefaultConfig)
 	log.Printf("[ok] %v\n", path)
 	os.Exit(0)
 }

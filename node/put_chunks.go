@@ -8,6 +8,7 @@
 package node
 
 import (
+	"context"
 	"encoding/json"
 	"io"
 	"io/fs"
@@ -23,6 +24,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/CESSProject/DeOSS/common/coordinate"
 	"github.com/CESSProject/DeOSS/common/utils"
 	"github.com/CESSProject/cess-go-sdk/chain"
 	sconfig "github.com/CESSProject/cess-go-sdk/config"
@@ -113,9 +115,24 @@ func (n *Node) PutChunksHandle(c *gin.Context) {
 	}
 	contentLength := c.Request.ContentLength
 
-	if clientIp == "" || clientIp == " " {
+	if clientIp == "" {
 		clientIp = c.ClientIP()
 	}
+
+	shuntminers := c.Request.Header.Values(HTTPHeader_Miner)
+	longitudes := c.Request.Header.Values(HTTPHeader_Longitude)
+	latitudes := c.Request.Header.Values(HTTPHeader_Latitude)
+	shuntminerslength := len(shuntminers)
+	if shuntminerslength > 0 {
+		n.Logput("info", fmt.Sprintf("shuntminers: %d, %v", shuntminerslength, shuntminers))
+	}
+	points, err := coordinate.ConvertToRange(longitudes, latitudes)
+	if err != nil {
+		n.Logput("err", clientIp+" "+err.Error())
+		c.JSON(http.StatusBadRequest, err.Error())
+		return
+	}
+
 	if cansProto == "true" && !strings.Contains(filename, CANS_PROTO_FLAG) {
 		filename = fmt.Sprintf("%s%s", CANS_PROTO_FLAG, filename)
 	}
@@ -153,7 +170,7 @@ func (n *Node) PutChunksHandle(c *gin.Context) {
 		}
 	}
 
-	if blockIdx%7 == 0 && !checkExpiredFiles(filepath.Join(n.GetDirs().FileDir, account)) {
+	if blockIdx%7 == 0 && !checkExpiredFiles(filepath.Join(n.fileDir, account)) {
 		c.JSON(http.StatusForbidden, "the number of files being uploaded exceeds the limit")
 		return
 	}
@@ -164,7 +181,7 @@ func (n *Node) PutChunksHandle(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, ERR_InternalServer)
 		return
 	}
-	savedir := filepath.Join(n.GetDirs().FileDir, account, fdir)
+	savedir := filepath.Join(n.fileDir, account, fdir)
 	_, err = os.Stat(savedir)
 	if err != nil {
 		err = os.MkdirAll(savedir, 0755)
@@ -376,7 +393,7 @@ func (n *Node) PutChunksHandle(c *gin.Context) {
 	delete(chunkReq, account)
 	chunkReqLock.Unlock()
 
-	fragmentsDir := filepath.Join(n.GetDirs().FileDir, account)
+	fragmentsDir := filepath.Join(n.fileDir, account)
 	segment, fid, err := process.FullProcessing(fpath, cipher, fragmentsDir)
 	if err != nil {
 		n.Logchunk("err", clientIp+" FullProcessing: "+err.Error())
@@ -393,7 +410,7 @@ func (n *Node) PutChunksHandle(c *gin.Context) {
 		return
 	}
 
-	newPath := filepath.Join(n.GetDirs().FileDir, fid)
+	newPath := filepath.Join(n.fileDir, fid)
 	err = os.Rename(fpath, newPath)
 	if err != nil {
 		n.Logchunk("err", clientIp+" Rename: "+err.Error())
@@ -425,7 +442,12 @@ func (n *Node) PutChunksHandle(c *gin.Context) {
 		return
 	}
 
-	code, err = saveToTrackFile(n, fid, filename, bucketName, territoryName, fragmentsDir, cipher, segment, pkey, uint64(fstat.Size()))
+	var shuntminer = ShuntMiner{
+		Miners:   shuntminers,
+		Complete: make([]bool, len(shuntminers)),
+	}
+
+	code, err = saveToTrackFile(n, fid, filename, bucketName, territoryName, fragmentsDir, cipher, segment, pkey, uint64(fstat.Size()), shuntminer, points)
 	if err != nil {
 		n.Logchunk("err", clientIp+" saveToTrackFile: "+err.Error())
 		c.JSON(code, err.Error())
@@ -470,7 +492,7 @@ func (n *Node) GetCanFileHandle(c *gin.Context) {
 		c.JSON(http.StatusNotFound, fmt.Sprintf("bad json request params,%v", err))
 		return
 	}
-	fdir := filepath.Join(n.GetDirs().FileDir, fid)
+	fdir := filepath.Join(n.fileDir, fid)
 	if _, err := os.Stat(fdir); err != nil {
 		if err = os.MkdirAll(fdir, 0755); err != nil {
 			c.JSON(http.StatusInternalServerError, err.Error())
@@ -490,7 +512,7 @@ func (n *Node) GetCanFileHandle(c *gin.Context) {
 			return
 		}
 	}
-	cacheDir := n.GetCacheDir()
+	cacheDir := n.Config.Cacher.Directory
 	if _, err := os.Stat(cacheDir); err != nil {
 		cacheDir = fdir
 	}
@@ -850,7 +872,10 @@ func (n *Node) GetSegment(fdir, fhash, cipher string, sid int) (fpath string, er
 			continue
 		}
 		fragmentPath := filepath.Join(fdir, string(fragment.Hash[:]))
-		if err = n.ReadDataAction(peer.ID(miner.PeerId[:]), string(fragment.Hash[:]), fragmentPath, sconfig.FragmentSize); err != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+		defer cancel()
+		_, err = n.ReadDataAction(ctx, peer.ID(miner.PeerId[:]), string(fragment.Hash[:]), fragmentPath)
+		if err != nil {
 			continue
 		}
 		count++
