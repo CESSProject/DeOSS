@@ -21,6 +21,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/mr-tron/base58/base58"
+	ma "github.com/multiformats/go-multiaddr"
 )
 
 type NodeInfo struct {
@@ -148,4 +149,15 @@ func (n *Node) parseCity(str string) (float64, float64, bool) {
 		}
 	}
 	return 0, 0, false
+}
+
+func (n *Node) getAddrsCoordinate(addrs []ma.Multiaddr) (coordinate.Coordinate, error) {
+	length := len(addrs)
+	for i := 0; i < length; i++ {
+		longitude, latitude, ok := n.parseCity(addrs[i].String())
+		if ok {
+			return coordinate.Coordinate{Longitude: longitude, Latitude: latitude}, nil
+		}
+	}
+	return coordinate.Coordinate{}, fmt.Errorf("not found coordinate: %v", addrs)
 }
