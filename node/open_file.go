@@ -8,6 +8,7 @@ SPDX-License-Identifier: Apache-2.0
 package node
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -94,7 +95,7 @@ func (n *Node) Preview_file(c *gin.Context) {
 		return
 	}
 
-	fpath = filepath.Join(n.GetDirs().FileDir, fid)
+	fpath = filepath.Join(n.fileDir, fid)
 	peerList, _ := n.QueryAllOssPeerId(-1)
 	for _, v := range peerList {
 		n.Logopen("info", fmt.Sprintf("[%s] will req to gateway: %s", clientIp, v))
@@ -106,7 +107,9 @@ func (n *Node) Preview_file(c *gin.Context) {
 			continue
 		}
 		n.Peerstore().AddAddrs(addr.ID, addr.Addrs, time.Minute)
-		err = n.ReadDataAction(addr.ID, fid, fpath, size)
+		ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+		defer cancel()
+		_, err = n.ReadDataAction(ctx, addr.ID, fid, fpath)
 		if err != nil {
 			n.Logopen("info", clientIp+" open the file from gateway, ReadDataAction failed: "+err.Error())
 			n.Peerstore().ClearAddrs(addr.ID)
@@ -131,7 +134,7 @@ func (n *Node) Preview_file(c *gin.Context) {
 	// }
 
 	// download from miner
-	fpath, err = n.retrieve_file(fid, n.GetDirs().FileDir, "")
+	fpath, err = n.retrieve_file(fid, n.fileDir, "")
 	if err != nil {
 		n.Logopen("err", fmt.Sprintf("[%s] Download file [%s] : %v", clientIp, fid, err))
 		c.JSON(http.StatusInternalServerError, "File download failed, please try again later.")

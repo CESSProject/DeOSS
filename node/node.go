@@ -8,7 +8,6 @@
 package node
 
 import (
-	_ "embed"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -33,14 +32,12 @@ import (
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"github.com/oschwald/geoip2-golang"
 	"github.com/pkg/errors"
 )
 
 type Node struct {
 	signkey   []byte
 	trackLock *sync.RWMutex
-	geoip     *geoip2.Reader
 	basespace string
 	fileDir   string
 	tmpDir    string
@@ -58,9 +55,6 @@ type Node struct {
 	*core.PeerNode
 	*gin.Engine
 }
-
-//go:embed GeoLite2-City.mmdb
-var geoLite2 string
 
 // New is used to build a node instance
 func New() *Node {
@@ -93,9 +87,6 @@ func (n *Node) Run() {
 	n.Engine.PUT("/object", n.Put_object)
 	n.Engine.PUT("/chunks", n.PutChunksHandle)
 
-	// shunt
-	n.Engine.PUT("/shunt", n.Put_shunt)
-
 	n.Engine.DELETE(fmt.Sprintf("/file/:%s", HTTP_ParameterName), n.Delete_file)
 	n.Engine.DELETE(fmt.Sprintf("/bucket/:%s", HTTP_ParameterName), n.Delete_bucket)
 
@@ -115,10 +106,6 @@ func (n *Node) Setup() error {
 	var err error
 	if n.Config == nil {
 		return errors.New("setup: empty config")
-	}
-	n.geoip, err = geoip2.FromBytes([]byte(geoLite2))
-	if err != nil {
-		return errors.Wrap(err, "setup: ")
 	}
 	n.signkey, err = sutils.CalcMD5(n.Config.Chain.Mnemonic)
 	if err != nil {
@@ -232,15 +219,35 @@ func (n *Node) WriteTrackFile(fid string, data []byte) error {
 	return err
 }
 
-func (n *Node) ParseTrackFile(filehash string) (RecordInfo, error) {
-	var result RecordInfo
+func (n *Node) ParseTrackFile(filehash string) (TrackerInfo, error) {
+	var result TrackerInfo
 	n.trackLock.RLock()
-	defer n.trackLock.RUnlock()
 	b, err := os.ReadFile(filepath.Join(n.trackDir, filehash))
 	if err != nil {
+		n.trackLock.RUnlock()
 		return result, err
 	}
+	n.trackLock.RUnlock()
+
 	err = json.Unmarshal(b, &result)
+	if err != nil {
+		var resultold RecordInfo
+		err = json.Unmarshal(b, &resultold)
+		if err != nil {
+			return result, err
+		}
+		result.Segment = resultold.Segment
+		result.Owner = resultold.Owner
+		result.Fid = resultold.Fid
+		result.FileName = resultold.FileName
+		result.BucketName = resultold.BucketName
+		result.TerritoryName = resultold.TerritoryName
+		result.CacheDir = resultold.CacheDir
+		result.Cipher = resultold.Cipher
+		result.FileSize = resultold.FileSize
+		result.PutFlag = resultold.PutFlag
+		return result, nil
+	}
 	return result, err
 }
 

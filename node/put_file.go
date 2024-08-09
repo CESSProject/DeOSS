@@ -17,6 +17,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/CESSProject/DeOSS/common/coordinate"
 	"github.com/CESSProject/DeOSS/common/utils"
 	sconfig "github.com/CESSProject/cess-go-sdk/config"
 	"github.com/CESSProject/cess-go-sdk/core/process"
@@ -39,8 +40,7 @@ func (n *Node) Put_file(c *gin.Context) {
 	defer c.Request.Body.Close()
 
 	account := c.Request.Header.Get(HTTPHeader_Account)
-	if account != "cXkdXokcMa32BAYkmsGjhRGA2CYmLUN2pq69U8k9taXsQPHGp" &&
-		account != "cXic3WhctsJ9cExmjE9vog49xaLuVbDLcFi2odeEnvV5Sbq4f" {
+	if !n.IsHighPriorityAccount(account) {
 		if _, ok := <-max_concurrent_req_ch; !ok {
 			c.JSON(http.StatusTooManyRequests, "service is busy, please try again later.")
 			return
@@ -63,14 +63,24 @@ func (n *Node) Put_file(c *gin.Context) {
 	ethAccount := c.Request.Header.Get(HTTPHeader_EthAccount)
 	message := c.Request.Header.Get(HTTPHeader_Message)
 	signature := c.Request.Header.Get(HTTPHeader_Signature)
+	shuntminers := c.Request.Header.Values(HTTPHeader_Miner)
+	longitudes := c.Request.Header.Values(HTTPHeader_Longitude)
+	latitudes := c.Request.Header.Values(HTTPHeader_Latitude)
 	contentLength := c.Request.ContentLength
 	n.Logput("info", utils.StringBuilder(400, clientIp, account, ethAccount, bucketName, territoryName, cipher, message, signature))
+	shuntminerslength := len(shuntminers)
+	if shuntminerslength > 0 {
+		n.Logput("info", fmt.Sprintf("shuntminers: %d, %v", shuntminerslength, shuntminers))
+	}
+	points, err := coordinate.ConvertToRange(longitudes, latitudes)
+	if err != nil {
+		n.Logput("err", clientIp+" "+err.Error())
+	}
 	if contentLength <= 0 {
 		n.Logput("err", clientIp+" "+ERR_EmptyFile)
 		c.JSON(http.StatusBadRequest, ERR_EmptyFile)
 		return
 	}
-
 	pkey, code, err := verifySignature(n, account, ethAccount, message, signature)
 	if err != nil {
 		n.Logput("err", clientIp+" verifySignature: "+err.Error())
@@ -145,7 +155,7 @@ func (n *Node) Put_file(c *gin.Context) {
 		return
 	}
 
-	newPath := filepath.Join(n.GetDirs().FileDir, fid)
+	newPath := filepath.Join(n.fileDir, fid)
 	err = os.Rename(fpath, newPath)
 	if err != nil {
 		n.Logput("err", clientIp+" Rename: "+err.Error())
@@ -179,7 +189,12 @@ func (n *Node) Put_file(c *gin.Context) {
 		return
 	}
 
-	code, err = saveToTrackFile(n, fid, filename, bucketName, territoryName, cacheDir, cipher, segment, pkey, uint64(length))
+	var shuntminer = ShuntMiner{
+		Miners:   shuntminers,
+		Complete: make([]bool, len(shuntminers)),
+	}
+
+	code, err = saveToTrackFile(n, fid, filename, bucketName, territoryName, cacheDir, cipher, segment, pkey, uint64(length), shuntminer, points)
 	if err != nil {
 		n.Logput("err", clientIp+" saveToTrackFile: "+err.Error())
 		c.JSON(code, err)
@@ -208,7 +223,7 @@ func createCacheDir(n *Node, account string) (string, string, int, error) {
 		fpath    string
 	)
 	for {
-		cacheDir = filepath.Join(n.GetDirs().FileDir, account, time.Now().Format(time.TimeOnly))
+		cacheDir = filepath.Join(n.fileDir, account, time.Now().Format(time.DateTime))
 		_, err = os.Stat(cacheDir)
 		if err != nil {
 			err = os.MkdirAll(cacheDir, 0755)

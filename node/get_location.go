@@ -14,6 +14,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/CESSProject/DeOSS/common/coordinate"
 	"github.com/CESSProject/cess-go-sdk/chain"
 	sconfig "github.com/CESSProject/cess-go-sdk/config"
 	sutils "github.com/CESSProject/cess-go-sdk/utils"
@@ -141,7 +142,7 @@ func (n *Node) parseCity(str string) (float64, float64, bool) {
 		if ip.IsLoopback() || ip.IsPrivate() {
 			continue
 		}
-		city, err := n.geoip.City(ip)
+		city, err := coordinate.GetCity(ip)
 		if err == nil {
 			return city.Location.Longitude, city.Location.Latitude, true
 		}

@@ -9,11 +9,13 @@ package node
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"os"
 	"path/filepath"
 
+	"github.com/CESSProject/DeOSS/common/coordinate"
 	"github.com/CESSProject/DeOSS/common/utils"
 	"github.com/CESSProject/cess-go-sdk/chain"
 	"github.com/CESSProject/cess-go-sdk/core/process"
@@ -26,11 +28,13 @@ func (n *Node) Put_object(c *gin.Context) {
 	defer c.Request.Body.Close()
 
 	account := c.Request.Header.Get(HTTPHeader_Account)
-	if _, ok := <-max_concurrent_req_ch; !ok {
-		c.JSON(http.StatusTooManyRequests, "service is busy, please try again later.")
-		return
+	if !n.IsHighPriorityAccount(account) {
+		if _, ok := <-max_concurrent_req_ch; !ok {
+			c.JSON(http.StatusTooManyRequests, "service is busy, please try again later.")
+			return
+		}
+		defer func() { max_concurrent_req_ch <- true }()
 	}
-	defer func() { max_concurrent_req_ch <- true }()
 
 	if !checkDeOSSStatus(n, c) {
 		return
@@ -48,6 +52,9 @@ func (n *Node) Put_object(c *gin.Context) {
 	ethAccount := c.Request.Header.Get(HTTPHeader_EthAccount)
 	message := c.Request.Header.Get(HTTPHeader_Message)
 	signature := c.Request.Header.Get(HTTPHeader_Signature)
+	shuntminers := c.Request.Header.Values(HTTPHeader_Miner)
+	longitudes := c.Request.Header.Values(HTTPHeader_Longitude)
+	latitudes := c.Request.Header.Values(HTTPHeader_Latitude)
 	contentLength := c.Request.ContentLength
 	n.Logput("info", utils.StringBuilder(400, clientIp, account, ethAccount, bucketName, territoryName, cipher, message, signature))
 	if contentLength <= 0 {
@@ -55,7 +62,14 @@ func (n *Node) Put_object(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, ERR_EmptyBody)
 		return
 	}
-
+	shuntminerslength := len(shuntminers)
+	if shuntminerslength > 0 {
+		n.Logput("info", fmt.Sprintf("shuntminers: %d, %v", shuntminerslength, shuntminers))
+	}
+	points, err := coordinate.ConvertToRange(longitudes, latitudes)
+	if err != nil {
+		n.Logput("err", clientIp+" "+err.Error())
+	}
 	pkey, code, err := verifySignature(n, account, ethAccount, message, signature)
 	if err != nil {
 		n.Logput("err", clientIp+" verifySignature: "+err.Error())
@@ -117,7 +131,7 @@ func (n *Node) Put_object(c *gin.Context) {
 		c.JSON(code, err)
 		return
 	}
-	newPath := filepath.Join(n.GetDirs().FileDir, fid)
+	newPath := filepath.Join(n.fileDir, fid)
 	err = os.Rename(fpath, newPath)
 	if err != nil {
 		n.Logput("err", clientIp+" Rename: "+err.Error())
@@ -141,8 +155,11 @@ func (n *Node) Put_object(c *gin.Context) {
 		c.JSON(http.StatusOK, map[string]string{"fid": fid})
 		return
 	}
-
-	code, err = saveToTrackFile(n, fid, filename, bucketName, territoryName, cacheDir, cipher, segmentInfo, pkey, uint64(length))
+	var shuntminer = ShuntMiner{
+		Miners:   shuntminers,
+		Complete: make([]bool, len(shuntminers)),
+	}
+	code, err = saveToTrackFile(n, fid, filename, bucketName, territoryName, cacheDir, cipher, segmentInfo, pkey, uint64(length), shuntminer, points)
 	if err != nil {
 		n.Logput("err", clientIp+" saveToTrackFile: "+err.Error())
 		c.JSON(code, err)
@@ -193,10 +210,12 @@ func checkDuplicates(n *Node, fid string, pkey []byte) (DuplicateType, int, erro
 	return Duplicate1, http.StatusOK, nil
 }
 
-func saveToTrackFile(n *Node, fid, file_name, bucket_name, territory_name, cacheDir, cipher string, segment []chain.SegmentDataInfo, pkey []byte, size uint64) (int, error) {
-	var recordInfo = &RecordInfo{
+func saveToTrackFile(n *Node, fid, file_name, bucket_name, territory_name, cacheDir, cipher string, segment []chain.SegmentDataInfo, pkey []byte, size uint64, shuntminer ShuntMiner, points coordinate.Range) (int, error) {
+	var recordInfo = &TrackerInfo{
 		Segment:       segment,
 		Owner:         pkey,
+		ShuntMiner:    shuntminer,
+		Points:        points,
 		Fid:           fid,
 		FileName:      file_name,
 		BucketName:    bucket_name,

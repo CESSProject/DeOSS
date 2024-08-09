@@ -8,11 +8,13 @@ SPDX-License-Identifier: Apache-2.0
 package node
 
 import (
+	"context"
 	"net/http"
 	"os"
 	"path/filepath"
 	"time"
 
+	"github.com/CESSProject/DeOSS/configs"
 	"github.com/CESSProject/cess-go-sdk/chain"
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
@@ -83,7 +85,7 @@ func (n *Node) Download_file(c *gin.Context) {
 		size = int64(fmeta.FileSize.Uint64())
 	}
 
-	fpath = filepath.Join(n.GetDirs().FileDir, fid)
+	fpath = filepath.Join(n.fileDir, fid)
 	peerList, _ := n.QueryAllOssPeerId(-1)
 	for _, v := range peerList {
 		n.Logdown("info", clientIp+" will request to gateway: "+v)
@@ -97,7 +99,9 @@ func (n *Node) Download_file(c *gin.Context) {
 			continue
 		}
 		n.Peerstore().AddAddrs(addr.ID, addr.Addrs, time.Minute)
-		err = n.ReadDataAction(addr.ID, fid, fpath, size)
+		ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+		defer cancel()
+		_, err = n.ReadDataAction(ctx, addr.ID, fid, fpath)
 		if err != nil {
 			n.Peerstore().ClearAddrs(addr.ID)
 			n.Logdown("info", clientIp+" request to gateway to read file failed: "+err.Error())
@@ -124,7 +128,7 @@ func (n *Node) Download_file(c *gin.Context) {
 	}
 
 	// download from miner
-	fpath, err = n.retrieve_file(fid, n.GetDirs().FileDir, cipher)
+	fpath, err = n.retrieve_file(fid, n.fileDir, cipher)
 	if err != nil {
 		n.Logdown("err", clientIp+" download file failed: "+err.Error())
 		c.JSON(http.StatusInternalServerError, "file download failed, please try again later.")
@@ -151,7 +155,7 @@ func (n *Node) Download_file(c *gin.Context) {
 }
 
 func (n *Node) CheckLocalFile(fid string) (int64, string, error) {
-	fpath := filepath.Join(n.GetDirs().FileDir, fid)
+	fpath := filepath.Join(n.fileDir, fid)
 	n.Logopen("info", " check file: "+fpath)
 	fstat, err := os.Stat(fpath)
 	if err == nil {
@@ -160,7 +164,7 @@ func (n *Node) CheckLocalFile(fid string) (int64, string, error) {
 		}
 		os.Remove(fpath)
 	}
-	fpath = filepath.Join(n.Workspace(), "filecache", fid)
+	fpath = filepath.Join(n.GetBasespace(), configs.FILE_CACHE, fid)
 	n.Logopen("info", " check file: "+fpath)
 	fstat, err = os.Stat(fpath)
 	if err == nil {

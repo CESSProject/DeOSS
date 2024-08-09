@@ -211,6 +211,16 @@ func NewConfig(config_file string) (*Config, error) {
 	return c, nil
 }
 
+func (c *Config) IsHighPriorityAccount(acc string) bool {
+	length := len(c.User.Account)
+	for i := 0; i < length; i++ {
+		if acc == c.User.Account[i] {
+			return true
+		}
+	}
+	return false
+}
+
 func FreeLocalPort(port uint32) bool {
 	conn, err := net.DialTimeout("tcp", fmt.Sprintf("127.0.0.1:%d", port), time.Second*3)
 	if err != nil {

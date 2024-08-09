@@ -7,24 +7,66 @@
 
 package node
 
+import (
+	"github.com/CESSProject/DeOSS/common/coordinate"
+	"github.com/CESSProject/cess-go-sdk/chain"
+)
+
+type TrackerInfo struct {
+	Segment       []chain.SegmentDataInfo `json:"segment"`
+	Owner         []byte                  `json:"owner"`
+	ShuntMiner    ShuntMiner              `json:"shunt_miner"`
+	Points        coordinate.Range        `json:"range"`
+	Fid           string                  `json:"fid"`
+	FileName      string                  `json:"file_name"`
+	BucketName    string                  `json:"bucket_name"`
+	TerritoryName string                  `json:"territory_name"`
+	CacheDir      string                  `json:"cache_dir"`
+	Cipher        string                  `json:"cipher"`
+	FileSize      uint64                  `json:"file_size"`
+	PutFlag       bool                    `json:"put_flag"`
+}
+
+// old version
+type RecordInfo struct {
+	Segment       []chain.SegmentDataInfo `json:"segment"`
+	Owner         []byte                  `json:"owner"`
+	Fid           string                  `json:"fid"`
+	FileName      string                  `json:"file_name"`
+	BucketName    string                  `json:"bucket_name"`
+	TerritoryName string                  `json:"territory_name"`
+	CacheDir      string                  `json:"cache_dir"`
+	Cipher        string                  `json:"cipher"`
+	FileSize      uint64                  `json:"file_size"`
+	PutFlag       bool                    `json:"put_flag"`
+}
+
+type ShuntMiner struct {
+	Miners   []string `json:"miners"`
+	Complete []bool   `json:"complete"`
+}
+
+// MinTrackerInfoLength = len(json.Marshal(TrackerInfo{}))
+const MinTrackerInfoLength = 223
+
 // HTTP HEADER
 const (
-	HTTPHeader_Authorization = "Authorization"
-	HTTPHeader_Bucket        = "Bucket"
-	HTTPHeader_Territory     = "Territory"
-	HTTPHeader_Account       = "Account"
-	HTTPHeader_EthAccount    = "EthAcc"
-	HTTPHeader_Digest        = "Digest"
-	HTTPHeader_Operation     = "Operation"
-	HTTPHeader_Message       = "Message"
-	HTTPHeader_Signature     = "Signature"
-	HTTPHeader_Fid           = "Fid"
-	HTTPHeader_Cipher        = "Cipher"
-	HTTPHeader_BIdx          = "BlockIndex"
-	HTTPHeader_BNum          = "BlockNumber"
-	HTTPHeader_Fname         = "FileName"
-	HTTPHeader_TSize         = "TotalSize"
-	HTTPHeader_Format        = "Format"
+	HTTPHeader_Bucket     = "Bucket"
+	HTTPHeader_Territory  = "Territory"
+	HTTPHeader_Account    = "Account"
+	HTTPHeader_EthAccount = "EthAcc"
+	HTTPHeader_Message    = "Message"
+	HTTPHeader_Signature  = "Signature"
+	HTTPHeader_Miner      = "Miner"
+	HTTPHeader_Longitude  = "Longitude"
+	HTTPHeader_Latitude   = "Latitude"
+	HTTPHeader_Fid        = "Fid"
+	HTTPHeader_Cipher     = "Cipher"
+	HTTPHeader_BIdx       = "BlockIndex"
+	HTTPHeader_BNum       = "BlockNumber"
+	HTTPHeader_Fname      = "FileName"
+	HTTPHeader_TSize      = "TotalSize"
+	HTTPHeader_Format     = "Format"
 )
 
 const (
@@ -35,44 +77,36 @@ const (
 )
 
 const (
-	HTTP_ParameterName       = "name"
-	HTTP_ParameterName_Fid   = "fid"
-	HTTP_Parameter_BucketNme = "bucket_name"
-	FormFileKey1             = "file"
-	FormFileKey2             = "File"
-	FormFileKey3             = "FILE"
+	HTTP_ParameterName     = "name"
+	HTTP_ParameterName_Fid = "fid"
 )
 
-const TokenDated = 60 * 60 * 24 * 30
 const MaxMemUsed = 512 << 20
 
 const (
-	//ERR_ReportProblem = "Sorry, please report this problem to the service provider:"
-
 	INFO_PutRequest         = "PutRequest"
 	INFO_PostRestoreRequest = "PostRestoreRequest"
 	INFO_GetRequest         = "GetRequest"
 	INFO_GetRestoreRequest  = "GetRestoreRequest"
 	INFO_DelRequest         = "DelRequest"
 
-	ERR_DuplicateOrder        = "duplicate order"
-	ERR_MissToken             = "InvalidHead.MissToken"
-	ERR_EmptySeed             = "InvalidProfile.EmptySeed"
-	ERR_MissingAccount        = "InvalidHead.MissingAccount"
-	ERR_InvalidAccount        = "InvalidHead.Account"
-	ERR_NoPermission          = "InvalidToken.NoPermission"
-	ERR_InvalidToken          = "InvalidHead.Token"
-	ERR_InvalidName           = "InvalidParameter.Name"
-	ERR_InvalidFilehash       = "InvalidParameter.FileHash"
-	ERR_InvalidParaBucketName = "InvalidParameter.BucketName"
-	ERR_InvalidBucketName     = "InvalidHead.BucketName"
-	ERR_EmptyBucketName       = "Invalid.EmptyBucketName"
-	ERR_UnauthorizedSpace     = "UnauthorizedSpace"
-	ERR_EmptyFile             = "InvalidBody.EmptyFile"
-	ERR_EmptyBody             = "InvalidBody.EmptyBody"
-	ERR_ReadBody              = "InvalidBody.ReadErr"
-	ERR_ParseBody             = "InvalidBody.ParseErr"
-	//ERR_SpaceExpired          = "space expired"
+	ERR_DuplicateOrder             = "duplicate order"
+	ERR_MissToken                  = "InvalidHead.MissToken"
+	ERR_EmptySeed                  = "InvalidProfile.EmptySeed"
+	ERR_MissingAccount             = "InvalidHead.MissingAccount"
+	ERR_InvalidAccount             = "InvalidHead.Account"
+	ERR_NoPermission               = "InvalidToken.NoPermission"
+	ERR_InvalidToken               = "InvalidHead.Token"
+	ERR_InvalidName                = "InvalidParameter.Name"
+	ERR_InvalidFilehash            = "InvalidParameter.FileHash"
+	ERR_InvalidParaBucketName      = "InvalidParameter.BucketName"
+	ERR_InvalidBucketName          = "InvalidHead.BucketName"
+	ERR_EmptyBucketName            = "Invalid.EmptyBucketName"
+	ERR_UnauthorizedSpace          = "UnauthorizedSpace"
+	ERR_EmptyFile                  = "InvalidBody.EmptyFile"
+	ERR_EmptyBody                  = "InvalidBody.EmptyBody"
+	ERR_ReadBody                   = "InvalidBody.ReadErr"
+	ERR_ParseBody                  = "InvalidBody.ParseErr"
 	ERR_NotEnoughSpace             = "not enough account space"
 	ERR_InsufficientTerritorySpace = "insufficient territory space"
 

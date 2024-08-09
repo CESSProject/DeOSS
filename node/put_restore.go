@@ -107,7 +107,7 @@ func (n *Node) RestoreFile(c *gin.Context) {
 	var allUsedSpace int64
 	var count int64
 	for i := 0; i < len(restoreList.Files); i++ {
-		fstat, err := os.Stat(filepath.Join(n.GetDirs().FileDir, restoreList.Files[i]))
+		fstat, err := os.Stat(filepath.Join(n.fileDir, restoreList.Files[i]))
 		if err != nil {
 			continue
 		}
@@ -127,11 +127,11 @@ func (n *Node) RestoreFile(c *gin.Context) {
 	}
 
 	for i := 0; i < len(restoreList.Files); i++ {
-		fstat, err := os.Stat(filepath.Join(n.GetDirs().FileDir, restoreList.Files[i]))
+		fstat, err := os.Stat(filepath.Join(n.fileDir, restoreList.Files[i]))
 		if err != nil {
 			continue
 		}
-		var recordInfo = &RecordInfo{
+		var recordInfo = &TrackerInfo{
 			Segment:       nil,
 			Owner:         pkey,
 			Fid:           restoreList.Files[i],

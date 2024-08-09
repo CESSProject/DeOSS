@@ -1,6 +1,7 @@
 package node
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -105,7 +106,9 @@ func (n *Node) retrieve_file(fid, savedir, cipher string) (string, error) {
 					continue
 				}
 				n.Peerstore().AddAddrs(addr.ID, addr.Addrs, time.Minute)
-				err = n.ReadDataAction(addr.ID, string(fragment.Hash[:]), fragmentpath, sconfig.FragmentSize)
+				ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+				defer cancel()
+				_, err = n.ReadDataAction(ctx, addr.ID, string(fragment.Hash[:]), fragmentpath)
 				if err != nil {
 					n.Peerstore().ClearAddrs(addr.ID)
 					n.Logdown("info", " ReadDataAction failed: "+err.Error())
