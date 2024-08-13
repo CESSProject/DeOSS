@@ -8,20 +8,21 @@ If you find any system errors or you have better suggestions, please submit an i
 ## 📢 Announcement
 ### CESS test network rpc endpoints
 ```
-wss://testnet-rpc.cess.cloud/ws/
+wss://testnet-rpc.cess.network/ws/
 ```
 ### CESS test network bootstrap node
 ```
-_dnsaddr.boot-miner-testnet.cess.cloud
+_dnsaddr.boot-miner-testnet.cess.network
 ```
 
 ### CESS test network public gateway
 
-| Address | `https://deoss-pub-gateway.cess.cloud/`           |
+| Account | Address |
 | ------- | ------------------------------------------------- |
+| cXf3X3ugTnivQA9iDRYmLNzxSqybgDtpStBjFcBZEoH33UVaz | https://deoss-sgp.cess.network |
+| cXjy16zpi3kFU6ThDHeTifpwHop4YjaF3EvYipTeJSbTjmayP | https://deoss-sv.cess.network  |
+| cXhkf7fFTToo8476oeRqxyWVnxF8ESsd8b7Yh258v6n26RTkL | https://deoss-fra.cess.network |
 
-| Account | `cXhwBytXqrZLr1qM5NHJhCzEMckSTzNKw17ci2aHft6ETSQm9` |
-| ------- | --------------------------------------------------- |
 
 ### 🚰 CESS test network faucet
 ```
@@ -144,52 +145,76 @@ Use `deoss` to generate configuration file templates directly in the current dir
 The contents of the configuration file template are as follows. The contents inside are the defaults and you will need to modify them as appropriate. By default, `deoss` uses `conf.yaml` in the current directory as the runtime configuration file. You can use `-c` or `-config` to specify the location of the configuration file.
 
 ```yaml
-# RPC endpoint of the chain node
-Rpc:
-  # test network
-  - "wss://testnet-rpc.cess.cloud/ws/"
-# bootstrap nodes
-Boot:
-  # test network
-  - "_dnsaddr.boot-miner-testnet.cess.cloud"
-# signature account mnemonic
-Mnemonic: "xxx ... xxx"
-# service workspace
-Workspace: /
-# P2P communication port
-P2P_Port: 4001
-# service listening port
-HTTP_Port: 8080
-# Access mode: public / private
-# In public mode, only users in Accounts can't access it. 
-# In private mode, only users in Accounts can access it.
-Access: public
-# Account black/white list
-Accounts:
-# If you want to expose your oss service, please configure its domain name
-Domain:
+application:
+  # gateway's workspace
+  workspace: "/"
+  # gateway's url
+  url: ""
+  # gateway run mode  [debug | release]
+  mode: "release"
+  # gateway API communication port
+  port: 8080
 
-# User Files Cacher config
-# File cache size, default 512G, (unit is byte)
-CacheSize: 10
-# File cache expiration time, default 3 hour (unit is minutes)
-Expiration:
-# Directory to store file cache, default path: Workspace/filecache/
-CacheDir:
+chain:
+  # signature account mnemonic
+  # substrate well-known mnemonic:
+  #   - https://github.com/substrate-developer-hub/substrate-developer-hub.github.io/issues/613
+  mnemonic: "bottom drive obey lake curtain smoke basket hold race lonely fit walk"
+  # waiting for transaction timeout, default is 15 seconds
+  timeout: 30
+  # rpc endpoint list
+  rpc:
+    # test network
+    - "wss://testnet-rpc.cess.network/ws/"
 
-# Storage Node Selector config
-# Used to find better storage node partners for DeOSS to upload or download files
-# Two strategies for using your specified storage nodes, "priority" or "fixed", default is "priority"
-SelectStrategy: 
-# JSON file used to specify the storage node. If it does not exist, it will be automatically created.
-# You can configure which storage nodes to use or not use in this file.
-NodeFilePath:
-# Maximum number of storage nodes allowed for long-term cooperation, default 120
-MaxNodeNum:
-# Maximum tolerable TTL for communication with storage nodes, default 500 ms (unit is milliseconds)
-MaxTTL:
-# Available storage node list refresh time, default 4 hours (unit is hours)
-RefreshTime:
+storage:
+  # communication ports in the storage network
+  port: 4001
+  # bootstrap nodes in the storage network
+  boot:
+    # test network
+    - "_dnsaddr.boot-miner-testnet.cess.network"
+
+user:
+  # high priority accounts will not be restricted or blacklisted when accessing the gateway
+  account:
+
+access:
+  # access mode: [public | private]
+  # In public mode, only users in account can't access it
+  # In private mode, only users in account can access it
+  mode: public
+  # account black/white list
+  account:
+
+# user files cacher config
+cacher:
+  # file cache size, default 512G, (unit is byte)
+  size: 549755813888
+  # file cache expiration time, default 3 hour (unit is minutes)
+  expiration: 180
+  # directory to store file cache, default path: workspace/filecache/
+  directory:
+
+# storage mode selector config
+selector:
+  # used to find better storage node partners for gateway to upload or download files,
+  # two strategies for using your specified storage nodes, [priority | fixed]
+  strategy: priority
+  # storage miner filter file, json format, if it does not exist, it will be automatically created.
+  # you can configure which storage nodes to use or not use in this file.
+  # default path: workspace/storage_nodes.json
+  filter:
+  # maximum number of storage nodes allowed for long-term cooperation, default 120
+  number: 120
+  # maximum tolerable TTL for communication with storage nodes, default 500 ms (unit is milliseconds)
+  ttl: 500000000
+  # available storage node list refresh time, default 4 hours (unit is hours)
+  refresh: 4
+
+shunt:
+  # give priority to storing files to miners with these peerids
+  peerid:
 ```
 
 ## 🟢 Usage for DeOSS
@@ -205,8 +230,8 @@ nohup ./deoss run 2>&1 &
 +-------------------+------------------------------------------------------+
 | role              | deoss                                                |
 | peer id           | 12D3KooWFAcDpT7vTtbsS361P14z8LpgxPMRywQr19sAdNfdDBYE |
-| signature account | cXhwBytXqrZLr1qM5NHJhCzEMckSTzNKw17ci2aHft6ETSQm9    |
-| domain name       | https://deoss-pub-gateway.cess.cloud/                |
+| signature account | cXjy16zpi3kFU6ThDHeTifpwHop4YjaF3EvYipTeJSbTjmayP    |
+| domain name       | https://deoss-sv.cess.network                        |
 +-------------------+------------------------------------------------------+
 ```
 
