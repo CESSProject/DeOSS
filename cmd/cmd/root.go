@@ -12,6 +12,7 @@ import (
 	"os"
 
 	"github.com/CESSProject/DeOSS/configs"
+	"github.com/joho/godotenv"
 	"github.com/spf13/cobra"
 )
 
@@ -47,6 +48,7 @@ func init() {
 	rootCmd.PersistentFlags().IntP("p2p_port", "", 4001, "p2p communication port")
 	rootCmd.PersistentFlags().StringSliceP("boot", "", nil, "bootstap nodes")
 	rootCmd.PersistentFlags().StringP("mnemonic", "", "", "wallet mnemonic")
+	godotenv.Load(".env.local")
 }
 
 func cmd_version() *cobra.Command {

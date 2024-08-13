@@ -174,6 +174,10 @@ func NewConfig(config_file string) (*Config, error) {
 		return nil, errors.Errorf("configuration file format error: %v", err)
 	}
 
+	if c.Mnemonic == "" {
+		c.Mnemonic = os.Getenv("MY_MNEMONIC")
+	}
+
 	_, err = signature.KeyringPairFromSecret(c.Mnemonic, 0)
 	if err != nil {
 		return nil, errors.Errorf("invalid mnemonic: %v", err)
