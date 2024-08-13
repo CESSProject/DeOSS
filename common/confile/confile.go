@@ -175,7 +175,7 @@ func NewConfig(config_file string) (*Config, error) {
 	}
 
 	if c.Mnemonic == "" {
-		c.Mnemonic = os.Getenv("MY_MNEMONIC")
+		c.Mnemonic = os.Getenv("mnemonic")
 	}
 
 	_, err = signature.KeyringPairFromSecret(c.Mnemonic, 0)

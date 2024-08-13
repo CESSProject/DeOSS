@@ -12,6 +12,8 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/CESSProject/DeOSS/common/confile"
@@ -24,6 +26,7 @@ import (
 	sutils "github.com/CESSProject/cess-go-sdk/utils"
 	p2pgo "github.com/CESSProject/p2p-go"
 	"github.com/CESSProject/p2p-go/out"
+	"github.com/centrifuge/go-substrate-rpc-client/v4/signature"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
@@ -38,10 +41,14 @@ func cmd_run_func(cmd *cobra.Command, args []string) {
 
 	ctx := cmd.Context()
 	n := node.New()
-	n.Config, err = buildConfigFile(cmd)
+
+	n.Config, err = readEnv()
 	if err != nil {
-		out.Err("buildConfigFile: " + err.Error())
-		os.Exit(1)
+		n.Config, err = buildConfigFile(cmd)
+		if err != nil {
+			out.Err("buildConfigFile: " + err.Error())
+			os.Exit(1)
+		}
 	}
 
 	err = n.Setup()
@@ -168,6 +175,133 @@ func cmd_run_func(cmd *cobra.Command, args []string) {
 	out.Tip(n.GetBasespace())
 
 	n.Run()
+}
+
+func readEnv() (*confile.Config, error) {
+	var c = &confile.Config{}
+
+	// workspace
+	c.Workspace = os.Getenv("workspace")
+	err := os.MkdirAll(c.Workspace, 0755)
+	if err != nil {
+		return nil, errors.Errorf("create workspace: %v", err)
+	}
+
+	// url
+	c.Url = os.Getenv("url")
+
+	// mode
+	c.Application.Mode = os.Getenv("mode")
+	if c.Application.Mode != configs.App_Mode_Release && c.Application.Mode != configs.App_Mode_Debug {
+		if c.Application.Mode == "" {
+			c.Application.Mode = configs.App_Mode_Release
+		} else {
+			return nil, errors.New("invalid application mode: " + c.Application.Mode)
+		}
+	}
+
+	// port
+	port, err := strconv.Atoi(os.Getenv("port"))
+	if err != nil {
+		return nil, errors.Errorf("invalid application port: %v", err)
+	}
+	if !confile.FreeLocalPort(uint32(port)) {
+		return nil, errors.Errorf("the port %d is in use", port)
+	}
+	c.Application.Port = uint32(port)
+
+	// mnemonic
+	c.Mnemonic = os.Getenv("mnemonic")
+	_, err = signature.KeyringPairFromSecret(c.Mnemonic, 0)
+	if err != nil {
+		return nil, errors.Errorf("invalid mnemonic in env: %v", err)
+	}
+
+	// timeout
+	timeout, err := strconv.Atoi(os.Getenv("timeout"))
+	if err != nil {
+		c.Timeout = configs.DefaultTxTimeOut
+	} else {
+		c.Timeout = timeout
+	}
+
+	// rpc
+	rpcs := strings.Split(os.Getenv("rpc"), " ")
+	if len(rpcs) <= 0 {
+		c.Rpc = []string{configs.DefaultRpcAddress}
+	} else {
+		c.Rpc = rpcs
+	}
+
+	// storage network port
+	sport, err := strconv.Atoi(os.Getenv("sport"))
+	if err != nil {
+		return nil, errors.Errorf("invalid storage network port: %v", err)
+	}
+	if !confile.FreeLocalPort(uint32(sport)) {
+		return nil, errors.Errorf("the port %d is in use", port)
+	}
+	c.Storage.Port = uint32(sport)
+
+	// boot
+	boots := strings.Split(os.Getenv("boot"), " ")
+	if len(boots) <= 0 {
+		c.Storage.Boot = []string{configs.DefaultRpcAddress}
+	} else {
+		c.Storage.Boot = boots
+	}
+
+	// high priority account
+	accounts := strings.Split(os.Getenv("account"), " ")
+	c.User.Account = accounts
+
+	// black/white mode
+	c.Access.Mode = os.Getenv("bwmode")
+	if c.Access.Mode != configs.Access_Public && c.Access.Mode != configs.Access_Private {
+		if c.Access.Mode == "" {
+			c.Access.Mode = configs.Access_Public
+		} else {
+			return nil, errors.New("invalid access mode")
+		}
+	}
+
+	// black/white account
+	bwaccounts := strings.Split(os.Getenv("bwaccount"), " ")
+	c.User.Account = bwaccounts
+
+	// cache size
+	size, _ := strconv.Atoi(os.Getenv("size"))
+	c.Cacher.Size = uint64(size)
+
+	// cache expiration
+	expiration, _ := strconv.Atoi(os.Getenv("expiration"))
+	c.Cacher.Expiration = uint32(expiration)
+
+	// cache directory
+	c.Cacher.Directory = os.Getenv("directory")
+
+	// selector strategy
+	c.Selector.Strategy = os.Getenv("strategy")
+
+	// selector filter
+	c.Selector.Filter = os.Getenv("filter")
+
+	// selector number
+	number, _ := strconv.Atoi(os.Getenv("number"))
+	c.Selector.Number = uint64(number)
+
+	// selector TTL
+	ttl, _ := strconv.Atoi(os.Getenv("ttl"))
+	c.Selector.Ttl = uint64(ttl)
+
+	// selector refresh
+	refresh, _ := strconv.Atoi(os.Getenv("refresh"))
+	c.Selector.Refresh = uint32(refresh)
+
+	// high priority peerid
+	peerids := strings.Split(os.Getenv("peerid"), " ")
+	c.Peerid = peerids
+	return c, nil
 }
 
 func buildConfigFile(cmd *cobra.Command) (*confile.Config, error) {
