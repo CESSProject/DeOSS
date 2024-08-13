@@ -262,17 +262,30 @@ func (n *Node) AccessControl(account string) error {
 	}
 
 	bwlist := n.Config.Access.Account
-
+	var flag bool
 	switch n.Config.Access.Mode {
 	case configs.Access_Public:
 		for _, v := range bwlist {
 			if v == account {
-				return fmt.Errorf("your account [%s] does not have permissions", account)
+				for _, vv := range n.Config.User.Account {
+					if account == vv {
+						flag = true
+						break
+					}
+				}
+				if !flag {
+					return fmt.Errorf("your account [%s] does not have permissions", account)
+				}
 			}
 		}
 		return nil
 	case configs.Access_Private:
 		for _, v := range bwlist {
+			if v == account {
+				return nil
+			}
+		}
+		for _, v := range n.Config.User.Account {
 			if v == account {
 				return nil
 			}

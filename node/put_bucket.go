@@ -9,6 +9,8 @@ package node
 
 import (
 	"net/http"
+	"strconv"
+	"time"
 
 	"github.com/CESSProject/DeOSS/common/utils"
 	"github.com/CESSProject/cess-go-sdk/chain"
@@ -84,6 +86,26 @@ func verifySignature(n *Node, account, ethAccount, message, signature string) ([
 		err  error
 	)
 
+	timestamp, err := strconv.ParseInt(message, 10, 64)
+	if err != nil {
+		t, err := time.Parse(time.DateTime, message)
+		if err == nil {
+			if time.Now().After(t) {
+				return nil, http.StatusForbidden, errors.New("signature has expired")
+			}
+		}
+	} else {
+		if isUnixTimestamp(timestamp) {
+			if time.Now().Unix() >= timestamp {
+				return nil, http.StatusForbidden, errors.New("signature has expired")
+			}
+		} else if isUnixMillTimestamp(timestamp) {
+			if time.Now().UnixMilli() >= timestamp {
+				return nil, http.StatusForbidden, errors.New("signature has expired")
+			}
+		}
+	}
+
 	if err = n.AccessControl(account); err != nil {
 		return nil, http.StatusBadRequest, err
 	}
@@ -114,4 +136,11 @@ func verifySignature(n *Node, account, ethAccount, message, signature string) ([
 	}
 
 	return pkey, http.StatusOK, nil
+}
+
+func isUnixTimestamp(timestamp int64) bool {
+	return timestamp >= 1e9 && timestamp < 1e12
+}
+func isUnixMillTimestamp(timestamp int64) bool {
+	return timestamp >= 1e12 && timestamp < 1e15
 }
