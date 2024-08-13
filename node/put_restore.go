@@ -122,7 +122,7 @@ func (n *Node) RestoreFile(c *gin.Context) {
 	code, err := checkSapce(n, pkey, territoryName, allUsedSpace, 1000)
 	if err != nil {
 		n.Log("info", fmt.Sprintf("[%v] %v", clientIp, ERR_AccountNotExist))
-		c.JSON(code, err)
+		c.JSON(code, err.Error())
 		return
 	}
 

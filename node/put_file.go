@@ -84,7 +84,7 @@ func (n *Node) Put_file(c *gin.Context) {
 	pkey, code, err := verifySignature(n, account, ethAccount, message, signature)
 	if err != nil {
 		n.Logput("err", clientIp+" verifySignature: "+err.Error())
-		c.JSON(code, err)
+		c.JSON(code, err.Error())
 		return
 	}
 
@@ -97,21 +97,21 @@ func (n *Node) Put_file(c *gin.Context) {
 	code, err = checkAuth(n, pkey)
 	if err != nil {
 		n.Logput("err", clientIp+" checkAuth: "+err.Error())
-		c.JSON(code, err)
+		c.JSON(code, err.Error())
 		return
 	}
 
 	code, err = checkSapce(n, pkey, territoryName, contentLength, 30)
 	if err != nil {
 		n.Logput("err", clientIp+" checkSapce: "+err.Error())
-		c.JSON(code, err)
+		c.JSON(code, err.Error())
 		return
 	}
 
 	cacheDir, fpath, code, err := createCacheDir(n, account)
 	if err != nil {
 		n.Logput("err", clientIp+" createCacheDir: "+err.Error())
-		c.JSON(code, err)
+		c.JSON(code, err.Error())
 		return
 	}
 
@@ -120,7 +120,7 @@ func (n *Node) Put_file(c *gin.Context) {
 	fname, length, code, err := saveFormFileToFile(c, fpath)
 	if err != nil {
 		n.Logput("err", clientIp+" saveFormFileToFile: "+err.Error())
-		c.JSON(code, err)
+		c.JSON(code, err.Error())
 		return
 	}
 
@@ -142,7 +142,7 @@ func (n *Node) Put_file(c *gin.Context) {
 	segment, fid, err := process.FullProcessing(fpath, cipher, cacheDir)
 	if err != nil {
 		n.Logput("err", clientIp+" FullProcessing: "+err.Error())
-		c.JSON(http.StatusInternalServerError, err)
+		c.JSON(http.StatusInternalServerError, err.Error())
 		return
 	}
 
@@ -151,7 +151,7 @@ func (n *Node) Put_file(c *gin.Context) {
 	duplicate, code, err := checkDuplicates(n, fid, pkey)
 	if err != nil {
 		n.Logput("err", clientIp+" checkDuplicates: "+err.Error())
-		c.JSON(code, err)
+		c.JSON(code, err.Error())
 		return
 	}
 
@@ -159,14 +159,14 @@ func (n *Node) Put_file(c *gin.Context) {
 	err = os.Rename(fpath, newPath)
 	if err != nil {
 		n.Logput("err", clientIp+" Rename: "+err.Error())
-		c.JSON(http.StatusInternalServerError, err)
+		c.JSON(http.StatusInternalServerError, err.Error())
 		return
 	}
 
 	_, err = os.Stat(newPath)
 	if err != nil {
 		n.Logput("err", clientIp+" "+err.Error())
-		c.JSON(http.StatusInternalServerError, err)
+		c.JSON(http.StatusInternalServerError, err.Error())
 		return
 	}
 
@@ -177,7 +177,7 @@ func (n *Node) Put_file(c *gin.Context) {
 		blockhash, err := n.PlaceStorageOrder(fid, filename, bucketName, territoryName, segment, pkey, uint64(length))
 		if err != nil {
 			n.Logput("err", clientIp+" PlaceStorageOrder: "+err.Error())
-			c.JSON(http.StatusInternalServerError, err)
+			c.JSON(http.StatusInternalServerError, err.Error())
 			return
 		}
 		n.Logput("info", clientIp+" duplicate file: "+fid+" storage order hash: "+blockhash)
@@ -197,7 +197,7 @@ func (n *Node) Put_file(c *gin.Context) {
 	code, err = saveToTrackFile(n, fid, filename, bucketName, territoryName, cacheDir, cipher, segment, pkey, uint64(length), shuntminer, points)
 	if err != nil {
 		n.Logput("err", clientIp+" saveToTrackFile: "+err.Error())
-		c.JSON(code, err)
+		c.JSON(code, err.Error())
 		return
 	}
 
@@ -209,7 +209,7 @@ func (n *Node) Put_file(c *gin.Context) {
 	blockhash, err := n.PlaceStorageOrder(fid, filename, bucketName, territoryName, segment, pkey, uint64(length))
 	if err != nil {
 		n.Logput("err", clientIp+" PlaceStorageOrder: "+err.Error())
-		c.JSON(http.StatusInternalServerError, err)
+		c.JSON(http.StatusInternalServerError, err.Error())
 		return
 	}
 	n.Logput("info", clientIp+" uploaded suc and the storage order hash: "+blockhash)

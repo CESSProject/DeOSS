@@ -397,7 +397,7 @@ func (n *Node) PutChunksHandle(c *gin.Context) {
 	segment, fid, err := process.FullProcessing(fpath, cipher, fragmentsDir)
 	if err != nil {
 		n.Logchunk("err", clientIp+" FullProcessing: "+err.Error())
-		c.JSON(http.StatusInternalServerError, err)
+		c.JSON(http.StatusInternalServerError, err.Error())
 		return
 	}
 
@@ -406,7 +406,7 @@ func (n *Node) PutChunksHandle(c *gin.Context) {
 	duplicate, code, err := checkDuplicates(n, fid, pkey)
 	if err != nil {
 		n.Logchunk("err", clientIp+" checkDuplicates: "+err.Error())
-		c.JSON(code, err)
+		c.JSON(code, err.Error())
 		return
 	}
 
@@ -414,7 +414,7 @@ func (n *Node) PutChunksHandle(c *gin.Context) {
 	err = os.Rename(fpath, newPath)
 	if err != nil {
 		n.Logchunk("err", clientIp+" Rename: "+err.Error())
-		c.JSON(http.StatusInternalServerError, err)
+		c.JSON(http.StatusInternalServerError, err.Error())
 		return
 	}
 
@@ -430,7 +430,7 @@ func (n *Node) PutChunksHandle(c *gin.Context) {
 		blockhash, err := n.PlaceStorageOrder(fid, filename, bucketName, territoryName, segment, pkey, uint64(fstat.Size()))
 		if err != nil {
 			n.Logchunk("err", clientIp+" PlaceStorageOrder: "+err.Error())
-			c.JSON(http.StatusInternalServerError, err)
+			c.JSON(http.StatusInternalServerError, err.Error())
 			return
 		}
 		n.Logchunk("info", clientIp+" duplicate file: "+fid+" storage order hash: "+blockhash)
@@ -457,14 +457,14 @@ func (n *Node) PutChunksHandle(c *gin.Context) {
 	err = n.MoveFileToCache(fid, newPath)
 	if err != nil {
 		n.Logchunk("err", clientIp+" MoveFileToCache: "+err.Error())
-		c.JSON(http.StatusInternalServerError, err)
+		c.JSON(http.StatusInternalServerError, err.Error())
 		return
 	}
 
 	blockhash, err := n.PlaceStorageOrder(fid, filename, bucketName, territoryName, segment, pkey, uint64(fstat.Size()))
 	if err != nil {
 		n.Logchunk("err", clientIp+" PlaceStorageOrder: "+err.Error())
-		c.JSON(http.StatusInternalServerError, err)
+		c.JSON(http.StatusInternalServerError, err.Error())
 		return
 	}
 	n.Logchunk("info", clientIp+" uploaded suc and the storage order hash: "+blockhash)

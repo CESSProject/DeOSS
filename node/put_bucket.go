@@ -47,7 +47,7 @@ func (n *Node) Put_bucket(c *gin.Context) {
 	pkey, code, err := verifySignature(n, account, ethAccount, message, signature)
 	if err != nil {
 		n.Logput("err", clientIp+" verifySignature: "+err.Error())
-		c.JSON(code, err)
+		c.JSON(code, err.Error())
 		return
 	}
 
@@ -61,7 +61,7 @@ func (n *Node) Put_bucket(c *gin.Context) {
 	code, err = checkAuth(n, pkey)
 	if err != nil {
 		n.Logput("err", clientIp+" checkAuth: "+err.Error())
-		c.JSON(code, err)
+		c.JSON(code, err.Error())
 		return
 	}
 
