@@ -15,7 +15,6 @@ import (
 	"time"
 
 	"github.com/CESSProject/DeOSS/common/confile"
-	"github.com/CESSProject/DeOSS/common/db"
 	"github.com/CESSProject/DeOSS/common/logger"
 	"github.com/CESSProject/DeOSS/common/utils"
 	"github.com/CESSProject/DeOSS/configs"
@@ -160,12 +159,6 @@ func cmd_run_func(cmd *cobra.Command, args []string) {
 		int64(n.Config.Selector.Refresh),
 	)
 
-	n.Cache, err = buildCache(n.GetDBDir())
-	if err != nil {
-		out.Err(err.Error())
-		os.Exit(1)
-	}
-
 	n.Logger, err = buildLogs(n.GetLogDir())
 	if err != nil {
 		out.Err(err.Error())
@@ -196,10 +189,6 @@ func buildConfigFile(cmd *cobra.Command) (*confile.Config, error) {
 	}
 
 	return confile.NewConfig(conFilePath)
-}
-
-func buildCache(cacheDir string) (db.Cache, error) {
-	return db.NewCache(cacheDir, 0, 0, configs.NameSpace)
 }
 
 func buildLogs(logDir string) (logger.Logger, error) {

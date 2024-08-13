@@ -45,6 +45,5 @@ func (n *Node) Delete_file(c *gin.Context) {
 		return
 	}
 	n.Logdel("info", clientIp+" DeleteFile suc: "+blockHash)
-	n.Delete([]byte("transfer:" + fid))
 	c.JSON(200, map[string]string{"block hash": blockHash})
 }
