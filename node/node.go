@@ -41,8 +41,7 @@ type Node struct {
 	fileDir   string
 	tmpDir    string
 	logDir    string
-	//dbDir     string
-	trackDir string
+	trackDir  string
 	trackfile.TrackFile
 	logger.Logger
 	peerrecord.PeerRecord
