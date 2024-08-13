@@ -29,7 +29,6 @@ require (
 	github.com/spf13/cobra v1.8.0
 	github.com/spf13/viper v1.18.2
 	github.com/stretchr/testify v1.9.0
-	github.com/syndtr/goleveldb v1.0.1-0.20210819022825-2ae1ddf74ef7
 	github.com/vedhavyas/go-subkey/v2 v2.0.0
 	go.uber.org/zap v1.27.0
 	golang.org/x/crypto v0.25.0

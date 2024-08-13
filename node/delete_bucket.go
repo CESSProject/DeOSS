@@ -31,10 +31,10 @@ func (n *Node) Delete_bucket(c *gin.Context) {
 	bucketName := c.Param(HTTP_ParameterName)
 	n.Logdel("info", utils.StringBuilder(400, clientIp, account, ethAccount, bucketName, message, signature))
 
-	pkey, err := n.VerifyAccountSignature(account, message, signature)
+	pkey, code, err := verifySignature(n, account, ethAccount, message, signature)
 	if err != nil {
-		n.Logdel("err", clientIp+" VerifyAccountSignature: "+err.Error())
-		c.JSON(http.StatusBadRequest, err.Error())
+		n.Logput("err", clientIp+" verifySignature: "+err.Error())
+		c.JSON(code, err.Error())
 		return
 	}
 

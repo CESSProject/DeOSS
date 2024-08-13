@@ -17,7 +17,6 @@ import (
 	"time"
 
 	"github.com/CESSProject/DeOSS/common/confile"
-	"github.com/CESSProject/DeOSS/common/db"
 	"github.com/CESSProject/DeOSS/common/logger"
 	"github.com/CESSProject/DeOSS/common/peerrecord"
 	"github.com/CESSProject/DeOSS/common/trackfile"
@@ -42,11 +41,9 @@ type Node struct {
 	fileDir   string
 	tmpDir    string
 	logDir    string
-	dbDir     string
 	trackDir  string
 	trackfile.TrackFile
 	logger.Logger
-	db.Cache
 	peerrecord.PeerRecord
 	cacher.FileCache
 	scheduler.Selector
@@ -90,7 +87,10 @@ func (n *Node) Run() {
 	n.Engine.DELETE(fmt.Sprintf("/file/:%s", HTTP_ParameterName), n.Delete_file)
 	n.Engine.DELETE(fmt.Sprintf("/bucket/:%s", HTTP_ParameterName), n.Delete_bucket)
 
-	n.Engine.GET("/404", n.NotFound)
+	n.Engine.GET("/favicon.ico", func(c *gin.Context) {
+		c.Header("Cache-Control", "public, max-age=31536000")
+		c.File("./static/favicon.ico")
+	})
 
 	// tasks
 	go n.TaskMgt()
@@ -132,10 +132,6 @@ func (n *Node) GetBasespace() string {
 	return n.basespace
 }
 
-func (n *Node) GetDBDir() string {
-	return n.dbDir
-}
-
 func (n *Node) GetLogDir() string {
 	return n.logDir
 }
@@ -144,7 +140,6 @@ func (n *Node) creatDir(basespace string) error {
 	n.fileDir = filepath.Join(basespace, "file")
 	n.tmpDir = filepath.Join(basespace, "tmp")
 	n.logDir = filepath.Join(basespace, "log")
-	n.dbDir = filepath.Join(basespace, "db")
 	n.trackDir = filepath.Join(basespace, "track")
 	err := os.MkdirAll(n.fileDir, 0755)
 	if err != nil {
@@ -155,10 +150,6 @@ func (n *Node) creatDir(basespace string) error {
 		return err
 	}
 	err = os.MkdirAll(n.logDir, 0755)
-	if err != nil {
-		return err
-	}
-	err = os.MkdirAll(n.dbDir, 0755)
 	if err != nil {
 		return err
 	}
@@ -277,11 +268,9 @@ func (n *Node) DeleteTrackFile(filehash string) {
 
 func (n *Node) RebuildDirs() {
 	os.RemoveAll(n.tmpDir)
-	os.RemoveAll(n.dbDir)
 	os.RemoveAll(n.logDir)
 	os.RemoveAll(n.trackDir)
 	os.MkdirAll(n.tmpDir, 0755)
-	os.MkdirAll(n.dbDir, 0755)
 	os.MkdirAll(n.logDir, 0755)
 	os.MkdirAll(n.trackDir, 0755)
 }

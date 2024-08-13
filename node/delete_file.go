@@ -24,6 +24,7 @@ func (n *Node) Delete_file(c *gin.Context) {
 	if clientIp == "" {
 		clientIp = c.ClientIP()
 	}
+
 	ethAccount := c.Request.Header.Get(HTTPHeader_EthAccount)
 	message := c.Request.Header.Get(HTTPHeader_Message)
 	signature := c.Request.Header.Get(HTTPHeader_Signature)
@@ -31,10 +32,10 @@ func (n *Node) Delete_file(c *gin.Context) {
 	fid := c.Param(HTTP_ParameterName)
 	n.Logdel("info", utils.StringBuilder(400, clientIp, account, ethAccount, fid, message, signature))
 
-	pkey, err := n.VerifyAccountSignature(account, message, signature)
+	pkey, code, err := verifySignature(n, account, ethAccount, message, signature)
 	if err != nil {
-		n.Logdel("err", clientIp+" VerifyAccountSignature: "+err.Error())
-		c.JSON(http.StatusBadRequest, err.Error())
+		n.Logput("err", clientIp+" verifySignature: "+err.Error())
+		c.JSON(code, err.Error())
 		return
 	}
 
@@ -44,7 +45,7 @@ func (n *Node) Delete_file(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, err.Error())
 		return
 	}
+	n.RemoveCacheRecord(fid)
 	n.Logdel("info", clientIp+" DeleteFile suc: "+blockHash)
-	n.Delete([]byte("transfer:" + fid))
 	c.JSON(200, map[string]string{"block hash": blockHash})
 }

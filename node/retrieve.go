@@ -11,6 +11,7 @@ import (
 	sconfig "github.com/CESSProject/cess-go-sdk/config"
 	"github.com/CESSProject/cess-go-sdk/core/erasure"
 	sutils "github.com/CESSProject/cess-go-sdk/utils"
+	"github.com/CESSProject/p2p-go/core"
 	"github.com/mr-tron/base58"
 	"github.com/pkg/errors"
 )
@@ -90,7 +91,7 @@ func (n *Node) retrieve_file(fid, savedir, cipher string) (string, error) {
 			fragmentpath := filepath.Join(savedir, string(fragment.Hash[:]))
 			fragmentpaths[k] = fragmentpath
 			n.Logdown("info", "will download fragment: "+string(fragment.Hash[:]))
-			if string(fragment.Hash[:]) != "2daeb1f36095b44b318410b3f4e8b5d989dcc7bb023d1426c492dab0a3053e74" {
+			if string(fragment.Hash[:]) != core.ZeroFileHash_8M {
 				account, _ := sutils.EncodePublicKeyAsCessAccount(fragment.Miner[:])
 				n.Logdown("info", "will query the storage miner: "+account)
 				miner, err := n.QueryMinerItems(fragment.Miner[:], -1)
@@ -135,6 +136,7 @@ func (n *Node) retrieve_file(fid, savedir, cipher string) (string, error) {
 	if len(segmentspath) != len(fmeta.SegmentList) {
 		return "", errors.New("download failed")
 	}
+
 	var writecount = 0
 	for i := 0; i < len(segmentspath); i++ {
 		buf, err := os.ReadFile(segmentspath[i])

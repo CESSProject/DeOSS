@@ -14,11 +14,18 @@ const (
 	// MinimumBalance is the minimum balance required for the program to run
 	// The unit is pico
 	MinimumBalance = 2 * CESSTokenPrecision
+
+	//
+	MaxTrackThread = 10
+
+	//
+	DefaultTxTimeOut = 30
 )
 
-const FileCacheExpirationTime = 720
-
-const MaxTrackThread = 10
+const (
+	DefaultRpcAddress  = "wss://testnet-rpc.cess.network/ws/"
+	DefaultBootAddress = "_dnsaddr.boot-miner-testnet.cess.network"
+)
 
 const (
 	Access_Public  = "public"

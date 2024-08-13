@@ -20,12 +20,6 @@ const (
 )
 
 const (
-	// log file dir
-	Log = "log"
-	// database dir
-	Db = "db"
-	// tracked file dir
-	Track = "track"
 	//
 	FILE_CACHE = "filecache"
 )
