@@ -137,7 +137,11 @@ func (n *Node) Preview_file(c *gin.Context) {
 	fpath, err = n.retrieve_file(fid, n.fileDir, "")
 	if err != nil {
 		n.Logopen("err", fmt.Sprintf("[%s] Download file [%s] : %v", clientIp, fid, err))
-		c.JSON(http.StatusInternalServerError, "File download failed, please try again later.")
+		if strings.Contains(err.Error(), "being retrieved") {
+			c.JSON(http.StatusForbidden, err.Error())
+			return
+		}
+		c.JSON(http.StatusInternalServerError, "File download failed, it is recommended to use another gateway.")
 		return
 	}
 	n.Logopen("info", fmt.Sprintf("[%s] Download file [%s] suc", clientIp, fid))

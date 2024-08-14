@@ -51,6 +51,8 @@ func (n *Node) TaskMgt() {
 				if err != nil {
 					n.Log("err", schain.ERR_RPC_CONNECTION.Error())
 					out.Err(schain.ERR_RPC_CONNECTION.Error())
+				} else {
+					n.Log("info", "rpc reconnect suc: "+n.GetCurrentRpcAddr())
 				}
 			}
 			count++

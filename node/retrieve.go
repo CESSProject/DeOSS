@@ -9,6 +9,7 @@ import (
 	"time"
 
 	sconfig "github.com/CESSProject/cess-go-sdk/config"
+	"github.com/CESSProject/cess-go-sdk/core/crypte"
 	"github.com/CESSProject/cess-go-sdk/core/erasure"
 	sutils "github.com/CESSProject/cess-go-sdk/utils"
 	"github.com/CESSProject/p2p-go/core"
@@ -30,25 +31,13 @@ func (n *Node) retrieve_file(fid, savedir, cipher string) (string, error) {
 	userfile := filepath.Join(savedir, fid)
 	ok := false
 	retrieve_lock.Lock()
-	if _, ok = retrieve_files[fid]; !ok {
-		retrieve_files[fid] = struct{}{}
-	}
-	retrieve_lock.Unlock()
+	_, ok = retrieve_files[fid]
 	if ok {
-		tick := time.NewTicker(time.Second * 3)
-		for {
-			select {
-			case <-tick.C:
-				retrieve_lock.Lock()
-				_, ok = retrieve_files[fid]
-				retrieve_lock.Unlock()
-				if !ok {
-					_, err := os.Stat(userfile)
-					return userfile, err
-				}
-			}
-		}
+		retrieve_lock.Unlock()
+		return "", errors.New("The file is being retrieved from the storage network, please try again later.")
 	}
+	retrieve_files[fid] = struct{}{}
+	retrieve_lock.Unlock()
 
 	defer func() {
 		retrieve_lock.Lock()
@@ -62,6 +51,7 @@ func (n *Node) retrieve_file(fid, savedir, cipher string) (string, error) {
 			return userfile, nil
 		}
 	}
+
 	os.MkdirAll(savedir, 0755)
 	f, err := os.Create(userfile)
 	if err != nil {
@@ -141,13 +131,26 @@ func (n *Node) retrieve_file(fid, savedir, cipher string) (string, error) {
 	for i := 0; i < len(segmentspath); i++ {
 		buf, err := os.ReadFile(segmentspath[i])
 		if err != nil {
-			fmt.Println("segmentspath not equal fmeta segmentspath")
-			os.Exit(0)
+			n.Logdown("err", fmt.Sprintf("ReadFile(%s): %v", segmentspath[i], err))
+			return "", err
 		}
-		if (writecount + 1) >= len(fmeta.SegmentList) {
-			f.Write(buf[:(fmeta.FileSize.Uint64() - uint64(writecount*sconfig.SegmentSize))])
+		if cipher != "" {
+			buffer, err := crypte.AesCbcDecrypt(buf, []byte(cipher))
+			if err != nil {
+				n.Logdown("err", fmt.Sprintf("AesCbcDecrypt(%s) with cipher: %s failed: %v", segmentspath[i], cipher, err))
+				return "", err
+			}
+			if (writecount + 1) >= len(fmeta.SegmentList) {
+				f.Write(buffer[:(fmeta.FileSize.Uint64() - uint64(writecount*sconfig.SegmentSize))])
+			} else {
+				f.Write(buffer)
+			}
 		} else {
-			f.Write(buf)
+			if (writecount + 1) >= len(fmeta.SegmentList) {
+				f.Write(buf[:(fmeta.FileSize.Uint64() - uint64(writecount*sconfig.SegmentSize))])
+			} else {
+				f.Write(buf)
+			}
 		}
 		writecount++
 	}

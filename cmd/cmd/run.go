@@ -234,7 +234,7 @@ func readEnv() (*confile.Config, error) {
 	}
 
 	// storage network port
-	sport, err := strconv.Atoi(os.Getenv("sport"))
+	sport, err := strconv.Atoi(os.Getenv("storage_port"))
 	if err != nil {
 		return nil, errors.Errorf("invalid storage network port: %v", err)
 	}
