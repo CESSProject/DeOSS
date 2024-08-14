@@ -86,10 +86,7 @@ service iptables restart
 
 ## 🏗 Get the binary program
 ### Method one
-Download the latest release of the binary application directly at：
-```
-wget https://github.com/CESSProject/DeOSS/releases/download/v0.3.7/DeOSS0.3.7.linux-amd64.tar.gz
-```
+Download the latest release code directly at： [Releases](https://github.com/CESSProject/DeOSS/releases)
 
 ### Method two
 Compile the binary program from the DeOSS source code and follow the process as follows:
