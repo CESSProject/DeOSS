@@ -68,6 +68,8 @@ func (n *Node) Run() {
 	n.Engine = gin.Default()
 	config := cors.DefaultConfig()
 	config.AllowAllOrigins = true
+	config.AddAllowHeaders("*")
+	config.AddExposeHeaders("*")
 	n.Engine.MaxMultipartMemory = MaxMemUsed
 	n.Engine.Use(cors.New(config))
 

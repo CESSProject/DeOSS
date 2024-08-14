@@ -72,7 +72,12 @@ func init() {
 }
 
 func (n *Node) PutChunksHandle(c *gin.Context) {
+	clientIp := c.Request.Header.Get("X-Forwarded-For")
 	account := c.Request.Header.Get(HTTPHeader_Account)
+	if clientIp == "" {
+		clientIp = c.ClientIP()
+	}
+
 	chunkReqLock.Lock()
 	_, ok := chunkReq[account]
 	chunkReqLock.Unlock()
@@ -89,6 +94,7 @@ func (n *Node) PutChunksHandle(c *gin.Context) {
 		chunkReqLock.Lock()
 		chunkReq[account] = time.Now().Unix()
 		chunkReqLock.Unlock()
+		n.Logchunk("info", clientIp+" chunk upload: "+account)
 	}
 
 	var (
@@ -97,7 +103,6 @@ func (n *Node) PutChunksHandle(c *gin.Context) {
 		chunksInfo ChunksInfo
 	)
 
-	clientIp := c.Request.Header.Get("X-Forwarded-For")
 	bucketName := c.Request.Header.Get(HTTPHeader_Bucket)
 	territoryName := c.Request.Header.Get(HTTPHeader_Territory)
 	cipher := c.Request.Header.Get(HTTPHeader_Cipher)
@@ -115,20 +120,13 @@ func (n *Node) PutChunksHandle(c *gin.Context) {
 	}
 	contentLength := c.Request.ContentLength
 
-	if clientIp == "" {
-		clientIp = c.ClientIP()
-	}
-
 	shuntminers := c.Request.Header.Values(HTTPHeader_Miner)
 	longitudes := c.Request.Header.Values(HTTPHeader_Longitude)
 	latitudes := c.Request.Header.Values(HTTPHeader_Latitude)
-	shuntminerslength := len(shuntminers)
-	if shuntminerslength > 0 {
-		n.Logput("info", fmt.Sprintf("shuntminers: %d, %v", shuntminerslength, shuntminers))
-	}
+
 	points, err := coordinate.ConvertToRange(longitudes, latitudes)
 	if err != nil {
-		n.Logput("err", clientIp+" "+err.Error())
+		n.Logchunk("err", clientIp+" "+err.Error())
 		c.JSON(http.StatusBadRequest, err.Error())
 		return
 	}
