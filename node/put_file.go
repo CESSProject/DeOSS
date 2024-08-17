@@ -201,11 +201,6 @@ func (n *Node) Put_file(c *gin.Context) {
 		return
 	}
 
-	err = n.MoveFileToCache(fid, newPath)
-	if err != nil {
-		n.Logput("err", clientIp+" MoveFileToCache: "+err.Error())
-	}
-
 	blockhash, err := n.PlaceStorageOrder(fid, filename, bucketName, territoryName, segment, pkey, uint64(length))
 	if err != nil {
 		n.Logput("err", clientIp+" PlaceStorageOrder: "+err.Error())

@@ -15,7 +15,6 @@ import (
 
 	schain "github.com/CESSProject/cess-go-sdk/chain"
 	sconfig "github.com/CESSProject/cess-go-sdk/config"
-	"github.com/CESSProject/cess-go-tools/scheduler"
 	"github.com/CESSProject/p2p-go/out"
 	"github.com/mr-tron/base58"
 )
@@ -95,10 +94,10 @@ func (n *Node) RefreshMiner(ch chan<- bool) {
 			if minerinfo.IdleSpace.Uint64() >= sconfig.FragmentSize {
 				peerid := base58.Encode([]byte(string(minerinfo.PeerId[:])))
 				n.SavePeerAccount(n.GetSignatureAcc(), peerid)
-				addrinfo, ok := n.GetPeer(peerid)
-				if ok {
-					n.FlushPeerNodes(scheduler.DEFAULT_TIMEOUT, addrinfo)
-				}
+				// addrinfo, ok := n.GetPeer(peerid)
+				// if ok {
+				// 	n.FlushPeerNodes(scheduler.DEFAULT_TIMEOUT, addrinfo)
+				// }
 			}
 		}
 	}
