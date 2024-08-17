@@ -185,7 +185,7 @@ func (n *Node) trackFile(trackfile string) error {
 		}
 
 		err = n.storageData(recordFile, storageOrder.CompleteList)
-		n.FlushlistedPeerNodes(5*time.Second, n.GetDHTable()) //refresh the user-configured storage node list
+		//n.FlushlistedPeerNodes(5*time.Second, n.GetDHTable()) //refresh the user-configured storage node list
 		if err != nil {
 			n.Logtrack("err", err.Error())
 			return err
@@ -302,7 +302,7 @@ func (n *Node) shuntAllStorage(record TrackerInfo, dataGroup map[uint8]datagroup
 				value.Miner = acconut
 				value.Peerid = addr.ID.String()
 				dataGroup[index] = value
-				n.Feedback(addr.ID.String(), true)
+				//n.Feedback(addr.ID.String(), true)
 				n.Logtrack("info", fmt.Sprintf("[%s] %dth batch of all fragments is transferred to %s", record.Fid, index, addr.ID.String()))
 				break
 			}
@@ -357,7 +357,7 @@ func (n *Node) shuntPartStorage(record TrackerInfo, dataGroup map[uint8]datagrou
 				value.Miner = acconut
 				value.Peerid = addr.ID.String()
 				dataGroup[index] = value
-				n.Feedback(addr.ID.String(), true)
+				//n.Feedback(addr.ID.String(), true)
 				n.Logtrack("info", fmt.Sprintf("[%s] shunt part: %dth batch fragments all transferred to: %s %s", record.Fid, index, acconut, addr.ID.String()))
 				break
 			}
@@ -420,7 +420,7 @@ func (n *Node) rangeStorage(record TrackerInfo, dataGroup map[uint8]datagroup) e
 				value.Complete = true
 				value.Peerid = peer.ID.String()
 				dataGroup[index] = value
-				n.Feedback(peer.ID.String(), true)
+				//n.Feedback(peer.ID.String(), true)
 				n.Logtrack("info", fmt.Sprintf("[%s] %dth batch of all fragments is transferred to %s", record.Fid, index, peer.ID.String()))
 				break
 			}
@@ -482,7 +482,7 @@ func (n *Node) highPriorityStorage(record TrackerInfo, dataGroup map[uint8]datag
 				value.Complete = true
 				value.Peerid = peerid
 				dataGroup[index] = value
-				n.Feedback(peerid, true)
+				//n.Feedback(peerid, true)
 				n.Logtrack("info", fmt.Sprintf("[%s] %dth batch of all fragments is transferred to %s", record.Fid, index, peerid))
 				break
 			}
@@ -493,12 +493,9 @@ func (n *Node) highPriorityStorage(record TrackerInfo, dataGroup map[uint8]datag
 }
 
 func (n *Node) lastStorage(record TrackerInfo, dataGroup map[uint8]datagroup) error {
-	// allpeers := n.GetAllStoragePeerId()
-	itor, err := n.NewPeersIterator(sconfig.DataShards + sconfig.ParShards)
-	if err != nil {
-		return err
-	}
+	var err error
 	failed := true
+	allpeers := n.GetAllPeerId()
 	var sucPeer = make(map[string]struct{}, 0)
 	for index, v := range dataGroup {
 		if v.Complete {
@@ -506,8 +503,12 @@ func (n *Node) lastStorage(record TrackerInfo, dataGroup map[uint8]datagroup) er
 			continue
 		}
 		failed = true
-		for peer, ok := itor.GetPeer(); ok; peer, ok = itor.GetPeer() {
-			if _, ok := sucPeer[peer.ID.String()]; ok {
+		for _, peerid := range allpeers {
+			if _, ok := sucPeer[peerid]; ok {
+				continue
+			}
+			peer, ok := n.GetPeer(peerid)
+			if !ok {
 				continue
 			}
 			n.Logtrack("info", fmt.Sprintf("[%s] last storage: use peer: %s", record.Fid, peer.ID.String()))
@@ -534,7 +535,7 @@ func (n *Node) lastStorage(record TrackerInfo, dataGroup map[uint8]datagroup) er
 				value.Complete = true
 				value.Peerid = peer.ID.String()
 				dataGroup[index] = value
-				n.Feedback(peer.ID.String(), true)
+				//n.Feedback(peer.ID.String(), true)
 				n.Logtrack("info", fmt.Sprintf("[%s] last storage: the %dth batch of fragments all transferred to: %s", record.Fid, index, peer.ID.String()))
 				break
 			}

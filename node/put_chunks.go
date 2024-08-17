@@ -452,13 +452,6 @@ func (n *Node) PutChunksHandle(c *gin.Context) {
 		return
 	}
 
-	err = n.MoveFileToCache(fid, newPath)
-	if err != nil {
-		n.Logchunk("err", clientIp+" MoveFileToCache: "+err.Error())
-		c.JSON(http.StatusInternalServerError, err.Error())
-		return
-	}
-
 	blockhash, err := n.PlaceStorageOrder(fid, filename, bucketName, territoryName, segment, pkey, uint64(fstat.Size()))
 	if err != nil {
 		n.Logchunk("err", clientIp+" PlaceStorageOrder: "+err.Error())
