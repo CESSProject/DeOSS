@@ -67,6 +67,7 @@ const (
 	HTTPHeader_Fname      = "FileName"
 	HTTPHeader_TSize      = "TotalSize"
 	HTTPHeader_Format     = "Format"
+	HTTPHeader_Range      = "Range"
 )
 
 const (
