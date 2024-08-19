@@ -15,6 +15,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -33,6 +34,7 @@ func (n *Node) Preview_file(c *gin.Context) {
 	fid := c.Param(HTTP_ParameterName_Fid)
 	account := c.Request.Header.Get(HTTPHeader_Account)
 	format := c.Request.Header.Get(HTTPHeader_Format)
+	rgn := c.Request.Header.Get(HTTPHeader_Range)
 	clientIp := c.Request.Header.Get("X-Forwarded-For")
 	if clientIp == "" {
 		clientIp = c.ClientIP()
@@ -42,7 +44,7 @@ func (n *Node) Preview_file(c *gin.Context) {
 	if format == "" && len(temp) > 1 {
 		format = temp[1]
 	}
-	n.Logopen("info", clientIp+" open file: "+fid+" account: "+account+" format: "+format)
+	n.Logopen("info", clientIp+" open file: "+fid+" account: "+account+" format: "+format+" Range: "+rgn)
 
 	var err error
 	var contenttype any
@@ -91,6 +93,11 @@ func (n *Node) Preview_file(c *gin.Context) {
 			return
 		}
 		n.Logopen("info", fmt.Sprintf("[%s] return the file [%s] from local", clientIp, fid))
+		if rgn != "" {
+			err = rangeRequest(c, rgn, contenttype.(string), fpath)
+			n.Logopen("info", fmt.Sprintf("[%s] return the file [%s] from local by range, err: %v", clientIp, fid, err))
+			return
+		}
 		n.ReturnFile(c, f, fid, contenttype.(string), format, size)
 		return
 	}
@@ -123,6 +130,11 @@ func (n *Node) Preview_file(c *gin.Context) {
 			return
 		}
 		n.Logopen("info", fmt.Sprintf("[%s] return the file [%s] from gateway", clientIp, fid))
+		if rgn != "" {
+			err = rangeRequest(c, rgn, contenttype.(string), fpath)
+			n.Logopen("info", fmt.Sprintf("[%s] return the file [%s] from local by range, err: %v", clientIp, fid, err))
+			return
+		}
 		n.ReturnFile(c, f, fid, contenttype.(string), format, size)
 		return
 	}
@@ -152,6 +164,11 @@ func (n *Node) Preview_file(c *gin.Context) {
 		return
 	}
 	n.Logopen("info", fmt.Sprintf("[%s] return the file [%s] from miner", clientIp, fid))
+	if rgn != "" {
+		err = rangeRequest(c, rgn, contenttype.(string), fpath)
+		n.Logopen("info", fmt.Sprintf("[%s] return the file [%s] from local by range, err: %v", clientIp, fid, err))
+		return
+	}
 	n.ReturnFile(c, f, fid, contenttype.(string), format, size)
 }
 
@@ -234,4 +251,57 @@ func OtherHeader(c *gin.Context, fname string) {
 	c.Header("Accept-control-allow-origin", "*")
 	c.Header("Cache-control", "public, max-age=2592000, no-transform, immutable")
 	c.Header("Content-disposition", fmt.Sprintf("inline; filename=%v", fname))
+}
+
+func rangeRequest(c *gin.Context, rng string, content_type string, file string) error {
+	f, err := os.Open(file)
+	if err != nil {
+		c.String(http.StatusNotFound, "File not found")
+		return fmt.Errorf("stat file err: %v", err)
+	}
+	defer f.Close()
+
+	fstat, err := f.Stat()
+	if err != nil {
+		c.String(http.StatusInternalServerError, "Error getting file info")
+		return fmt.Errorf("stat file err: %v", err)
+	}
+
+	ranges := strings.Split(rng, "=")
+	if len(ranges) != 2 || ranges[0] != "bytes" {
+		c.String(http.StatusRequestedRangeNotSatisfiable, "Invalid range header")
+		return fmt.Errorf("invalid range request: %s", rng)
+	}
+
+	rangeParts := strings.Split(ranges[1], "-")
+	if len(rangeParts) != 2 {
+		c.String(http.StatusRequestedRangeNotSatisfiable, "Invalid range header")
+		return fmt.Errorf("invalid range request: %s", rng)
+	}
+
+	start, err := strconv.ParseInt(rangeParts[0], 10, 64)
+	if err != nil || start < 0 {
+		c.String(http.StatusRequestedRangeNotSatisfiable, "Invalid range start")
+		return fmt.Errorf("invalid range request: %s", rng)
+	}
+
+	var end int64
+	if rangeParts[1] != "" {
+		end, err = strconv.ParseInt(rangeParts[1], 10, 64)
+		if err != nil || end < start || end >= fstat.Size() {
+			c.String(http.StatusRequestedRangeNotSatisfiable, "Invalid range end")
+			return fmt.Errorf("invalid range request: %s", rng)
+		}
+	} else {
+		end = fstat.Size() - 1
+	}
+
+	c.Header("Content-Range", fmt.Sprintf("bytes %d-%d/%d", start, end, fstat.Size()))
+	c.Header("Content-Length", strconv.FormatInt(end-start+1, 10))
+	c.Header("Content-type", content_type)
+	c.Status(http.StatusPartialContent)
+
+	f.Seek(start, io.SeekStart)
+	io.CopyN(c.Writer, f, end-start+1)
+	return nil
 }
