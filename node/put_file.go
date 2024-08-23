@@ -36,7 +36,7 @@ func init() {
 	}
 }
 
-func (n *Node) Put_file(c *gin.Context) {
+func (n *Node) PutFile(c *gin.Context) {
 	defer c.Request.Body.Close()
 
 	account := c.Request.Header.Get(HTTPHeader_Account)

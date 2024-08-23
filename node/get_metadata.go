@@ -28,7 +28,7 @@ type RtnUserBrief struct {
 	BucketName string `json:"bucket_name"`
 }
 
-func (n *Node) Get_metadata(c *gin.Context) {
+func (n *Node) GetFileMetadata(c *gin.Context) {
 	clientIp := c.Request.Header.Get("X-Forwarded-For")
 	if clientIp == "" {
 		clientIp = c.ClientIP()

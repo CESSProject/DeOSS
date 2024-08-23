@@ -75,20 +75,20 @@ func (n *Node) Run() {
 
 	n.Engine.GET("/version", n.Get_version)
 	n.Engine.GET("/bucket", n.Get_bucket)
-	n.Engine.GET(fmt.Sprintf("/metadata/:%s", HTTP_ParameterName_Fid), n.Get_metadata)
-	n.Engine.GET(fmt.Sprintf("/download/:%s", HTTP_ParameterName_Fid), n.Download_file)
+	n.Engine.GET(fmt.Sprintf("/metadata/:%s", HTTP_ParameterName_Fid), n.GetFileMetadata)
+	n.Engine.GET(fmt.Sprintf("/download/:%s", HTTP_ParameterName_Fid), n.DownloadFile)
 	n.Engine.GET(fmt.Sprintf("/canfiles/:%s", HTTP_ParameterName_Fid), n.GetCanFileHandle)
-	n.Engine.GET(fmt.Sprintf("/open/:%s", HTTP_ParameterName_Fid), n.Preview_file)
-	n.Engine.GET(fmt.Sprintf("/location/:%s", HTTP_ParameterName_Fid), n.Get_location)
+	n.Engine.GET(fmt.Sprintf("/open/:%s", HTTP_ParameterName_Fid), n.PreviewFile)
+	n.Engine.GET(fmt.Sprintf("/location/:%s", HTTP_ParameterName_Fid), n.GetFileLocation)
 
-	n.Engine.PUT("/bucket", n.Put_bucket)
-	n.Engine.PUT("/file", n.Put_file)
-	n.Engine.PUT("/object", n.Put_object)
+	n.Engine.PUT("/bucket", n.PutBucket)
+	n.Engine.PUT("/file", n.PutFile)
+	n.Engine.PUT("/object", n.PutObject)
 	n.Engine.PUT(fmt.Sprintf("/resume/:%s", HTTP_ParameterName), n.ResumeUpload)
 	n.Engine.PUT("/chunks", n.PutChunksHandle)
 
-	n.Engine.DELETE(fmt.Sprintf("/file/:%s", HTTP_ParameterName), n.Delete_file)
-	n.Engine.DELETE(fmt.Sprintf("/bucket/:%s", HTTP_ParameterName), n.Delete_bucket)
+	n.Engine.DELETE(fmt.Sprintf("/file/:%s", HTTP_ParameterName), n.DeleteFile)
+	n.Engine.DELETE(fmt.Sprintf("/bucket/:%s", HTTP_ParameterName), n.DeleteBucket)
 
 	n.Engine.GET("/favicon.ico", func(c *gin.Context) {
 		c.Header("Cache-Control", "public, max-age=31536000")
