@@ -15,7 +15,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func (n *Node) Delete_bucket(c *gin.Context) {
+func (n *Node) DeleteBucket(c *gin.Context) {
 	if !checkDeOSSStatus(n, c) {
 		return
 	}
@@ -44,7 +44,7 @@ func (n *Node) Delete_bucket(c *gin.Context) {
 		return
 	}
 
-	blockHash, err := n.DeleteBucket(pkey, bucketName)
+	blockHash, err := n.ChainClient.DeleteBucket(pkey, bucketName)
 	if err != nil {
 		n.Logdel("err", clientIp+" DeleteBucket failed: "+err.Error())
 		c.JSON(http.StatusBadRequest, err.Error())

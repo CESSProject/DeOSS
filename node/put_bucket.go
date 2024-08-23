@@ -19,7 +19,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-func (n *Node) Put_bucket(c *gin.Context) {
+func (n *Node) PutBucket(c *gin.Context) {
 	defer c.Request.Body.Close()
 
 	account := c.Request.Header.Get(HTTPHeader_Account)

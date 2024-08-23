@@ -15,7 +15,7 @@ import (
 )
 
 // delHandle is used to delete buckets or files
-func (n *Node) Delete_file(c *gin.Context) {
+func (n *Node) DeleteFile(c *gin.Context) {
 	if !checkDeOSSStatus(n, c) {
 		return
 	}
@@ -39,7 +39,7 @@ func (n *Node) Delete_file(c *gin.Context) {
 		return
 	}
 
-	blockHash, err := n.DeleteFile(pkey, fid)
+	blockHash, err := n.ChainClient.DeleteFile(pkey, fid)
 	if err != nil {
 		n.Logdel("err", clientIp+" DeleteFile failed: "+err.Error())
 		c.JSON(http.StatusBadRequest, err.Error())

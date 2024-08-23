@@ -34,7 +34,7 @@ type Location struct {
 	Latitude  float64 `json:"latitude"`
 }
 
-func (n *Node) Get_location(c *gin.Context) {
+func (n *Node) GetFileLocation(c *gin.Context) {
 	fid := c.Param(HTTP_ParameterName_Fid)
 
 	clientIp := c.Request.Header.Get("X-Forwarded-For")
