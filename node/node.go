@@ -84,6 +84,7 @@ func (n *Node) Run() {
 	n.Engine.PUT("/bucket", n.Put_bucket)
 	n.Engine.PUT("/file", n.Put_file)
 	n.Engine.PUT("/object", n.Put_object)
+	n.Engine.PUT(fmt.Sprintf("/resume/:%s", HTTP_ParameterName), n.ResumeUpload)
 	n.Engine.PUT("/chunks", n.PutChunksHandle)
 
 	n.Engine.DELETE(fmt.Sprintf("/file/:%s", HTTP_ParameterName), n.Delete_file)
