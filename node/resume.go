@@ -200,7 +200,7 @@ func (n *Node) ResumeUpload(c *gin.Context) {
 	}
 
 	_, err = io.CopyN(f, c.Request.Body, end-start+1)
-	if err != nil {
+	if err != nil && err != io.EOF {
 		n.Logput("err", clientIp+" CopyN: "+err.Error())
 		c.String(http.StatusInternalServerError, "Failed to write to file")
 		return
