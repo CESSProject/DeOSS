@@ -296,9 +296,8 @@ func readEnv() (*confile.Config, error) {
 	refresh, _ := strconv.Atoi(os.Getenv("refresh"))
 	c.Selector.Refresh = uint32(refresh)
 
-	// high priority peerid
-	peerids := strings.Split(os.Getenv("peerid"), " ")
-	c.Peerid = peerids
+	// specify storage miner account
+	c.Shunt.Account = strings.Split(os.Getenv("specify_miner"), " ")
 	return c, nil
 }
 

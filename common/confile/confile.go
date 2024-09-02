@@ -88,8 +88,8 @@ selector:
   refresh: 4
 
 shunt:
-  # give priority to storing files to miners with these peerids
-  peerid:`
+  # specify the storage miner account you want to store
+  account:`
 )
 
 type Application struct {
@@ -134,7 +134,7 @@ type Selector struct {
 }
 
 type Shunt struct {
-	Peerid []string `name:"peerid" toml:"peerid" yaml:"peerid"`
+	Account []string `name:"account" toml:"account" yaml:"account"`
 }
 
 type Config struct {
