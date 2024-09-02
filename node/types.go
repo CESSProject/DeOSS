@@ -111,11 +111,19 @@ const (
 	ERR_NotEnoughSpace             = "not enough account space"
 	ERR_InsufficientTerritorySpace = "insufficient territory space"
 
-	ERR_InternalServer   = "InternalError"
+	ERR_InternalServer   = "Internal system error"
 	ERR_FileNameTooLang  = "The file name length cannot exceed 63 characters"
 	ERR_FileNameTooShort = "The file name must be at least 3 characters long"
 	ERR_NoSpace          = "please purchase space first"
 	ERR_NoTerritory      = "please purchase territory first"
+
+	ERR_MissingContentRange = "Content-Range is missing from the request header"
+	ERR_IllegalContentRange = "Illegal Content-Range content"
+	ERR_FailedToRecvData    = "Failed to receive data"
+
+	ERR_RPCConnection = "Failed to connect to rpc, please try again later."
+	ERR_ServerBusy    = "Service is busy, please try again later."
+	ERR_EmptyFileName = "Empty file name"
 )
 
 const (
@@ -137,7 +145,7 @@ const (
 	ERR_AccountNotExist      = "account does not exist"
 	ERR_RpcFailed            = "rpc connection failed"
 	ERR_SpaceExpiresSoon     = "space expires soon"
-	ERR_TerritoryExpiresSoon = "territory expires soon"
+	ERR_TerritoryExpiresSoon = "territory will expire soon"
 	ERR_SpaceNotAuth         = "space is not authorized"
 	ERR_DeviceSpaceNoLeft    = "no space left on the server device"
 
@@ -165,3 +173,9 @@ const (
 	// in file.owners
 	Duplicate2 DuplicateType = 2
 )
+
+type RespType struct {
+	Code int    `json:"code"`
+	Msg  string `json:"msg"`
+	Data any    `json:"data"`
+}
