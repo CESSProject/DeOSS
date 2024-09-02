@@ -114,8 +114,6 @@ func cmd_run_func(cmd *cobra.Command, args []string) {
 	}
 	defer n.PeerNode.Close()
 
-	n.LoadPeer(filepath.Join(n.GetBasespace(), "peer_record"))
-
 	go node.Subscribe(
 		ctx, n.PeerNode.GetHost(),
 		n.PeerNode.GetBootnode(),

@@ -8,13 +8,14 @@
 package node
 
 import (
+	"fmt"
 	"math"
 	"path/filepath"
 	"strconv"
 	"time"
 
 	schain "github.com/CESSProject/cess-go-sdk/chain"
-	sconfig "github.com/CESSProject/cess-go-sdk/config"
+	sutils "github.com/CESSProject/cess-go-sdk/utils"
 	"github.com/CESSProject/p2p-go/out"
 	"github.com/mr-tron/base58"
 )
@@ -25,6 +26,19 @@ func (n *Node) TaskMgt() {
 		ch_trackFile    = make(chan bool, 1)
 		ch_refreshMiner = make(chan bool, 1)
 	)
+
+	err = n.LoadPeer(filepath.Join(n.Workspace(), "peer_record"))
+	if err != nil {
+		n.Log("err", "LoadPeer"+err.Error())
+	}
+	err = n.LoadAccountPeer(filepath.Join(n.Workspace(), "account_record"))
+	if err != nil {
+		n.Log("err", "LoadAccountPeer"+err.Error())
+	}
+	err = n.LoadBlacklist(filepath.Join(n.Workspace(), "blacklist_record"))
+	if err != nil {
+		n.Log("err", "LoadBlacklist"+err.Error())
+	}
 
 	ch_trackFile <- true
 
@@ -39,7 +53,7 @@ func (n *Node) TaskMgt() {
 
 	go n.RefreshMiner(ch_refreshMiner)
 
-	count := 0
+	//count := 0
 	chainState := true
 	for {
 		select {
@@ -54,11 +68,11 @@ func (n *Node) TaskMgt() {
 					n.Log("info", "rpc reconnect suc: "+n.GetCurrentRpcAddr())
 				}
 			}
-			count++
-			if count >= 4320 { //blacklist released every 12 hours
-				count = 0
-				n.ClearBlackList()
-			}
+			// count++
+			// if count >= 4320 { //blacklist released every 12 hours
+			// 	count = 0
+			// 	n.ClearBlackList()
+			// }
 
 		case <-task_Minute.C:
 			if len(ch_trackFile) > 0 {
@@ -78,26 +92,32 @@ func (n *Node) TaskMgt() {
 			}
 
 			go n.BackupPeer(filepath.Join(n.Workspace(), "peer_record"))
+			go n.BackupAccountPeer(filepath.Join(n.Workspace(), "account_record"))
+			go n.BackupBlacklist(filepath.Join(n.Workspace(), "blacklist_record"))
 		}
 	}
 }
 
 func (n *Node) RefreshMiner(ch chan<- bool) {
 	defer func() { ch <- true }()
+	peerid := ""
 	sminerList, err := n.QueryAllMiner(-1)
 	if err == nil {
 		for i := 0; i < len(sminerList); i++ {
 			minerinfo, err := n.QueryMinerItems(sminerList[i][:], -1)
 			if err != nil {
+				n.Log("err", err.Error())
 				continue
 			}
-			if minerinfo.IdleSpace.Uint64() >= sconfig.FragmentSize {
-				peerid := base58.Encode([]byte(string(minerinfo.PeerId[:])))
-				n.SavePeerAccount(n.GetSignatureAcc(), peerid)
-				// addrinfo, ok := n.GetPeer(peerid)
-				// if ok {
-				// 	n.FlushPeerNodes(scheduler.DEFAULT_TIMEOUT, addrinfo)
-				// }
+			acc, err := sutils.EncodePublicKeyAsCessAccount(sminerList[i][:])
+			if err != nil {
+				n.Log("err", err.Error())
+				continue
+			}
+			peerid = base58.Encode([]byte(string(minerinfo.PeerId[:])))
+			err = n.SavePeerAccount(acc, peerid, string(minerinfo.State), minerinfo.IdleSpace.Uint64())
+			if err != nil {
+				n.Log("err", fmt.Sprintf("SavePeerAccount: %s %s err: %v", acc, peerid, err))
 			}
 		}
 	}
