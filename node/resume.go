@@ -340,11 +340,6 @@ func (n *Node) ResumeUpload(c *gin.Context) {
 	}
 
 	n.Logput("info", clientIp+" new file path: "+newPath)
-	respData.Code = http.StatusOK
-	respData.Msg = "ok"
-	respData.Data = map[string]string{"fid": fid}
-	c.JSON(http.StatusOK, respData)
-	return
 
 	switch duplicate {
 	case Duplicate1:
