@@ -91,17 +91,17 @@ func verifySignature(n *Node, account, ethAccount, message, signature string) ([
 		t, err := time.Parse(time.DateTime, message)
 		if err == nil {
 			if time.Now().After(t) {
-				return nil, http.StatusForbidden, errors.New("signature has expired")
+				return nil, http.StatusForbidden, errors.New("Signature has expired")
 			}
 		}
 	} else {
 		if isUnixTimestamp(timestamp) {
 			if time.Now().Unix() >= timestamp {
-				return nil, http.StatusForbidden, errors.New("signature has expired")
+				return nil, http.StatusForbidden, errors.New("Signature has expired")
 			}
 		} else if isUnixMillTimestamp(timestamp) {
 			if time.Now().UnixMilli() >= timestamp {
-				return nil, http.StatusForbidden, errors.New("signature has expired")
+				return nil, http.StatusForbidden, errors.New("Signature has expired")
 			}
 		}
 	}
@@ -116,14 +116,14 @@ func verifySignature(n *Node, account, ethAccount, message, signature string) ([
 			return nil, http.StatusBadRequest, err
 		}
 		if ethAccInSian != ethAccount {
-			return nil, http.StatusBadRequest, errors.New("ETH signature verification failed")
+			return nil, http.StatusBadRequest, errors.New("Signature verification failed")
 		}
 		pkey, err = sutils.ParsingPublickey(account)
 		if err != nil {
 			return nil, http.StatusBadRequest, err
 		}
 		if len(pkey) == 0 {
-			return nil, http.StatusBadRequest, errors.New("invalid account")
+			return nil, http.StatusBadRequest, errors.New("Invalid account")
 		}
 	} else {
 		pkey, err = n.VerifyAccountSignature(account, message, signature)
@@ -131,7 +131,7 @@ func verifySignature(n *Node, account, ethAccount, message, signature string) ([
 			return nil, http.StatusBadRequest, err
 		}
 		if len(pkey) == 0 {
-			return nil, http.StatusBadRequest, errors.New("invalid signature")
+			return nil, http.StatusBadRequest, errors.New("Invalid signature")
 		}
 	}
 

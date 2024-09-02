@@ -14,6 +14,8 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
+	"time"
 
 	"github.com/CESSProject/DeOSS/common/coordinate"
 	"github.com/CESSProject/DeOSS/common/utils"
@@ -190,12 +192,20 @@ func saveObjectToFile(c *gin.Context, file string) (int64, int, error) {
 }
 
 func checkDuplicates(n *Node, fid string, pkey []byte) (DuplicateType, int, error) {
-	fmeta, err := n.QueryFile(fid, -1)
-	if err != nil {
-		if !errors.Is(err, chain.ERR_RPC_EMPTY_VALUE) {
-			return Duplicate0, http.StatusInternalServerError, err
+	var err error
+	var fmeta chain.FileMetadata
+	for i := 0; i < 3; i++ {
+		fmeta, err = n.QueryFile(fid, -1)
+		if err != nil {
+			if strings.Contains(err.Error(), chain.ERR_RPC_CONNECTION.Error()) {
+				time.Sleep(time.Second * 6)
+				continue
+			}
+			if !errors.Is(err, chain.ERR_RPC_EMPTY_VALUE) {
+				return Duplicate0, http.StatusInternalServerError, err
+			}
+			return Duplicate0, http.StatusOK, nil
 		}
-		return Duplicate0, http.StatusOK, nil
 	}
 	for _, v := range fmeta.Owner {
 		if sutils.CompareSlice(v.User[:], pkey) {

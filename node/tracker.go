@@ -170,18 +170,33 @@ func (n *Node) trackFile(trackfile string) error {
 			return errors.Errorf("[%s] Recorded filehash [%s] error", roothash, recordFile.Fid)
 		}
 
+		flag := false
 		if recordFile.Segment == nil {
-			resegmentInfo, reHash, err := process.FullProcessing(filepath.Join(n.fileDir, roothash), recordFile.Cipher, recordFile.CacheDir)
-			if err != nil {
-				resegmentInfo, reHash, err = process.FullProcessing(filepath.Join(n.GetBasespace(), configs.FILE_CACHE, roothash), recordFile.Cipher, recordFile.CacheDir)
+			flag = true
+		}
+
+		for i := 0; i < len(recordFile.Segment); i++ {
+			for j := 0; j < len(recordFile.Segment[i].FragmentHash); j++ {
+				_, err = os.Stat(recordFile.Segment[i].FragmentHash[j])
 				if err != nil {
-					return errors.Wrapf(err, "[FullProcessing]")
+					flag = true
+					break
 				}
 			}
-			if reHash != roothash {
+			if flag {
+				break
+			}
+		}
+
+		if flag {
+			segment, hash, err := n.reFullProcessing(roothash, recordFile.Cipher, recordFile.CacheDir)
+			if err != nil {
+				return errors.Wrapf(err, "reFullProcessing")
+			}
+			if recordFile.Fid != hash {
 				return errors.Wrapf(err, "The re-stored file hash is not consistent, please store it separately and specify the original encryption key.")
 			}
-			recordFile.Segment = resegmentInfo
+			recordFile.Segment = segment
 		}
 
 		err = n.storageData(recordFile, storageOrder.CompleteList)
@@ -542,4 +557,16 @@ func (n *Node) lastStorage(record TrackerInfo, dataGroup map[uint8]datagroup) er
 		}
 	}
 	return err
+}
+
+func (n *Node) reFullProcessing(fid, cipher, cacheDir string) ([]chain.SegmentDataInfo, string, error) {
+	err := os.MkdirAll(cacheDir, 0755)
+	if err != nil {
+		return nil, "", err
+	}
+	segmentDataInfo, hash, err := process.FullProcessing(filepath.Join(n.fileDir, fid), cipher, cacheDir)
+	if err != nil {
+		return process.FullProcessing(filepath.Join(n.GetBasespace(), configs.FILE_CACHE, fid), cipher, cacheDir)
+	}
+	return segmentDataInfo, hash, err
 }

@@ -672,12 +672,12 @@ func checkSapce(n *Node, pkey []byte, territoryName string, contentLength int64,
 		if err.Error() == chain.ERR_Empty {
 			return http.StatusForbidden, errors.New(ERR_NoTerritory)
 		}
-		return http.StatusInternalServerError, errors.New(ERR_RpcFailed)
+		return http.StatusInternalServerError, errors.New(ERR_RPCConnection)
 	}
 
 	blockheight, err := n.QueryBlockNumber("")
 	if err != nil {
-		return http.StatusInternalServerError, errors.New(ERR_RpcFailed)
+		return http.StatusInternalServerError, errors.New(ERR_RPCConnection)
 	}
 
 	if uint32(territoryInfo.Deadline) < (blockheight + deadLine) {
@@ -686,7 +686,7 @@ func checkSapce(n *Node, pkey []byte, territoryName string, contentLength int64,
 
 	remainingSpace, err := strconv.ParseUint(territoryInfo.RemainingSpace.String(), 10, 64)
 	if err != nil {
-		return http.StatusInternalServerError, err
+		return http.StatusInternalServerError, errors.New(ERR_InternalServer)
 	}
 
 	countSegment := contentLength / sconfig.SegmentSize
@@ -767,18 +767,25 @@ func checkExpiredFiles(rootDir string) bool {
 }
 
 func checkDeOSSStatus(n *Node, c *gin.Context) bool {
+	respData := RespType{}
 	if n.GetBalances() <= 1 {
-		msg := `The gateway account balance is insufficient, please feedback to us:
+		respData.Code = http.StatusInternalServerError
+		respData.Msg = `The gateway account balance is insufficient, please feedback to us:
 		https://twitter.com/CESS_Storage
 		https://t.me/CESS_Storage_official
 		https://discord.gg/tkZ4gfrK`
-		c.JSON(http.StatusInternalServerError, msg)
+		c.JSON(http.StatusInternalServerError, respData)
 		return false
 	}
 
 	if !n.GetRpcState() {
-		c.JSON(http.StatusInternalServerError, "RPC connection failed, please try again later.")
-		return false
+		err := n.ReconnectRpc()
+		if err != nil {
+			respData.Code = http.StatusInternalServerError
+			respData.Msg = ERR_RPCConnection
+			c.JSON(http.StatusInternalServerError, respData)
+			return false
+		}
 	}
 	return true
 }
