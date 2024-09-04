@@ -22,6 +22,10 @@ type PeerRecord interface {
 	// SavePeer saves or updates peer information
 	SavePeer(addr peer.AddrInfo) error
 	//
+	DeletePeer(peerid string)
+	//
+	DeletePeerByAccount(acc string)
+	//
 	SavePeerAccount(account string, peerid string, state string, idle_space uint64) error
 	//
 	HasPeer(peerid string) bool
@@ -30,7 +34,13 @@ type PeerRecord interface {
 	//
 	GetPeerByAccount(account string) (AccountInfo, bool)
 	//
+	GetAccountByPeer(peerid string) (string, bool)
+	//
 	GetAllPeerId() []string
+	//
+	GetAllWhitelist() []string
+	//
+	AddToWhitelist(peerid, account string)
 	//
 	AddToBlacklist(peerid, account, reason string)
 	//
@@ -53,40 +63,52 @@ type PeerRecord interface {
 	BackupBlacklist(path string) error
 	//
 	LoadBlacklist(path string) error
+	//
+	BackupWhitelist(path string) error
+	//
+	LoadWhitelist(path string) error
 }
 
 type PeerRecordType struct {
-	lock          *sync.RWMutex
-	accLock       *sync.RWMutex
-	blacklistLock *sync.RWMutex
-	peerList      map[string]peer.AddrInfo
-	accountList   map[string]AccountInfo
-	blacklist     map[string]BlacklistInfo
+	lock            *sync.RWMutex
+	accLock         *sync.RWMutex
+	blacklistLock   *sync.RWMutex
+	whitelistLock   *sync.RWMutex
+	peerAccountLock *sync.RWMutex
+	peerList        map[string]peer.AddrInfo
+	peerAccountList map[string]string
+	accountList     map[string]AccountInfo
+	blacklist       map[string]BlacklistInfo
+	whitelist       map[string]string
 }
 
 type AccountInfo struct {
 	peer.AddrInfo
-	Account   string `josn:"account"`
-	State     string `josn:"state"`
-	IdleSpace uint64 `josn:"idle_space"`
+	Account   string `json:"account"`
+	State     string `json:"state"`
+	IdleSpace uint64 `json:"idle_space"`
 }
 
 type BlacklistInfo struct {
 	peer.AddrInfo
-	Account string `josn:"account"`
-	Reason  string `josn:"reason"`
+	Account string `json:"account"`
+	Reason  string `json:"reason"`
 }
 
 var _ PeerRecord = (*PeerRecordType)(nil)
 
 func NewPeerRecord() PeerRecord {
 	return &PeerRecordType{
-		lock:          new(sync.RWMutex),
-		accLock:       new(sync.RWMutex),
-		blacklistLock: new(sync.RWMutex),
-		peerList:      make(map[string]peer.AddrInfo, 100),
-		accountList:   make(map[string]AccountInfo, 100),
-		blacklist:     make(map[string]BlacklistInfo, 100),
+		lock:            new(sync.RWMutex),
+		accLock:         new(sync.RWMutex),
+		blacklistLock:   new(sync.RWMutex),
+		whitelistLock:   new(sync.RWMutex),
+		peerAccountLock: new(sync.RWMutex),
+		peerList:        make(map[string]peer.AddrInfo, 100),
+		peerAccountList: make(map[string]string, 100),
+		accountList:     make(map[string]AccountInfo, 100),
+		blacklist:       make(map[string]BlacklistInfo, 100),
+		whitelist:       make(map[string]string, 100),
 	}
 }
 
@@ -107,6 +129,25 @@ func (p *PeerRecordType) SavePeer(addr peer.AddrInfo) error {
 	return nil
 }
 
+func (p PeerRecordType) DeletePeer(peerid string) {
+	p.lock.Lock()
+	delete(p.peerList, peerid)
+	p.lock.Unlock()
+
+	p.blacklistLock.Lock()
+	delete(p.blacklist, peerid)
+	p.blacklistLock.Unlock()
+}
+
+func (p PeerRecordType) DeletePeerByAccount(acc string) {
+	p.accLock.RLock()
+	value, ok := p.accountList[acc]
+	p.accLock.RUnlock()
+	if ok {
+		p.DeletePeer(value.ID.String())
+	}
+}
+
 func (p PeerRecordType) SavePeerAccount(account string, peerid string, state string, idle_space uint64) error {
 	p.lock.RLock()
 	addr, ok := p.peerList[peerid]
@@ -114,6 +155,7 @@ func (p PeerRecordType) SavePeerAccount(account string, peerid string, state str
 	if !ok {
 		return fmt.Errorf("not fount peer: %s", peerid)
 	}
+
 	p.accLock.Lock()
 	p.accountList[account] = AccountInfo{
 		AddrInfo:  addr,
@@ -122,6 +164,10 @@ func (p PeerRecordType) SavePeerAccount(account string, peerid string, state str
 		IdleSpace: idle_space,
 	}
 	p.accLock.Unlock()
+
+	p.peerAccountLock.Lock()
+	p.peerAccountList[peerid] = account
+	p.peerAccountLock.Unlock()
 
 	p.blacklistLock.Lock()
 	value, ok := p.blacklist[peerid]
@@ -154,6 +200,13 @@ func (p *PeerRecordType) GetPeerByAccount(account string) (AccountInfo, bool) {
 	return accountInfo, ok
 }
 
+func (p *PeerRecordType) GetAccountByPeer(peerid string) (string, bool) {
+	p.peerAccountLock.RLock()
+	acc, ok := p.peerAccountList[peerid]
+	p.peerAccountLock.RUnlock()
+	return acc, ok
+}
+
 func (p *PeerRecordType) GetAllPeerId() []string {
 	var result = make([]string, len(p.peerList))
 	p.lock.RLock()
@@ -164,6 +217,28 @@ func (p *PeerRecordType) GetAllPeerId() []string {
 		i++
 	}
 	return result
+}
+
+func (p *PeerRecordType) GetAllWhitelist() []string {
+	var i int
+	p.whitelistLock.RLock()
+	var result = make([]string, len(p.whitelist))
+	for k := range p.whitelist {
+		result[i] = k
+		i++
+	}
+	p.whitelistLock.RUnlock()
+	return result
+}
+
+func (p *PeerRecordType) AddToWhitelist(peerid, account string) {
+	p.whitelistLock.Lock()
+	p.whitelist[peerid] = account
+	p.whitelistLock.Unlock()
+
+	p.blacklistLock.Lock()
+	delete(p.blacklist, peerid)
+	p.blacklistLock.Unlock()
 }
 
 func (p *PeerRecordType) AddToBlacklist(peerid, account, reason string) {
@@ -178,6 +253,10 @@ func (p *PeerRecordType) AddToBlacklist(peerid, account, reason string) {
 		Reason:   reason,
 	}
 	p.blacklistLock.Unlock()
+
+	p.whitelistLock.Lock()
+	delete(p.whitelist, peerid)
+	p.whitelistLock.Unlock()
 }
 
 func (p *PeerRecordType) RemoveFromBlacklist(peerid string) {
@@ -291,5 +370,33 @@ func (p *PeerRecordType) LoadBlacklist(path string) error {
 	p.blacklistLock.Lock()
 	p.blacklist = data
 	p.blacklistLock.Unlock()
+	return nil
+}
+
+func (p *PeerRecordType) BackupWhitelist(path string) error {
+	p.whitelistLock.RLock()
+	buf, err := json.Marshal(p.whitelist)
+	if err != nil {
+		p.whitelistLock.RUnlock()
+		return err
+	}
+	p.whitelistLock.RUnlock()
+	err = sutils.WriteBufToFile(buf, path)
+	return err
+}
+
+func (p *PeerRecordType) LoadWhitelist(path string) error {
+	buf, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+	var data = make(map[string]string)
+	err = json.Unmarshal(buf, &data)
+	if err != nil {
+		return err
+	}
+	p.whitelistLock.Lock()
+	p.whitelist = data
+	p.whitelistLock.Unlock()
 	return nil
 }
