@@ -104,7 +104,7 @@ func (n *Node) GetFileLocation(c *gin.Context) {
 func (n *Node) getMinerAddr(account string) (peer.AddrInfo, string, error) {
 	accountInfo, ok := n.GetPeerByAccount(account)
 	if ok {
-		return accountInfo.AddrInfo, "", nil
+		return accountInfo.Addrs, "", nil
 	}
 	puk, err := sutils.ParsingPublickey(account)
 	if err != nil {

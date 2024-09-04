@@ -238,7 +238,7 @@ func (n *Node) storageData(record TrackerInfo, completeList []chain.CompleteInfo
 		value.Complete = true
 		value.Miner, _ = sutils.EncodePublicKeyAsCessAccount(v.Miner[:])
 		if p, ok := n.GetPeerByAccount(value.Miner); ok {
-			value.Peerid = p.ID.String()
+			value.Peerid = p.Addrs.ID.String()
 		}
 		dataGroup[uint8(v.Index)] = value
 	}
@@ -294,31 +294,31 @@ func (n *Node) shuntAllStorage(record TrackerInfo, dataGroup map[uint8]datagroup
 				continue
 			}
 
-			n.Peerstore().AddAddrs(addr.ID, addr.Addrs, time.Minute)
-			n.Logtrack("info", fmt.Sprintf("[%s] will transfer to the miner: %s", record.Fid, addr.ID.String()))
+			n.Peerstore().AddAddrs(addr.Addrs.ID, addr.Addrs.Addrs, time.Minute)
+			n.Logtrack("info", fmt.Sprintf("[%s] will transfer to the miner: %s", record.Fid, addr.Addrs.ID.String()))
 			for j := 0; j < len(v.File); j++ {
 				ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 				defer cancel()
-				err = n.WriteDataAction(ctx, addr.ID, v.File[j], record.Fid, filepath.Base(v.File[j]))
+				err = n.WriteDataAction(ctx, addr.Addrs.ID, v.File[j], record.Fid, filepath.Base(v.File[j]))
 				if err != nil {
 					failed = true
-					n.Logtrack("err", fmt.Sprintf("[%s] transfer to %s failed: %v", record.Fid, addr.ID.String(), err))
-					n.Feedback(addr.ID.String(), false)
+					n.Logtrack("err", fmt.Sprintf("[%s] transfer to %s failed: %v", record.Fid, addr.Addrs.ID.String(), err))
+					n.Feedback(addr.Addrs.ID.String(), false)
 					break
 				}
-				n.Logtrack("info", fmt.Sprintf("[%s] The %dth fragment of the %dth batch is transferred to %s", record.Fid, j, index, addr.ID.String()))
+				n.Logtrack("info", fmt.Sprintf("[%s] The %dth fragment of the %dth batch is transferred to %s", record.Fid, j, index, addr.Addrs.ID.String()))
 				failed = false
 			}
-			n.Peerstore().ClearAddrs(addr.ID)
+			n.Peerstore().ClearAddrs(addr.Addrs.ID)
 			if !failed {
 				var value datagroup
 				value = dataGroup[index]
 				value.Complete = true
 				value.Miner = acconut
-				value.Peerid = addr.ID.String()
+				value.Peerid = addr.Addrs.ID.String()
 				dataGroup[index] = value
 				//n.Feedback(addr.ID.String(), true)
-				n.Logtrack("info", fmt.Sprintf("[%s] %dth batch of all fragments is transferred to %s", record.Fid, index, addr.ID.String()))
+				n.Logtrack("info", fmt.Sprintf("[%s] %dth batch of all fragments is transferred to %s", record.Fid, index, addr.Addrs.ID.String()))
 				break
 			}
 			allcompleted = false
@@ -349,31 +349,31 @@ func (n *Node) shuntPartStorage(record TrackerInfo, dataGroup map[uint8]datagrou
 			if v.Complete {
 				continue
 			}
-			n.Peerstore().AddAddrs(addr.ID, addr.Addrs, time.Minute)
+			n.Peerstore().AddAddrs(addr.Addrs.ID, addr.Addrs.Addrs, time.Minute)
 			for j := 0; j < len(v.File); j++ {
-				n.Logtrack("info", fmt.Sprintf("[%s] shunt part: will transfer the %dth(%d-%d) batch of fragments to the miner: %s", record.Fid, index, len(v.File), j, addr.ID.String()))
+				n.Logtrack("info", fmt.Sprintf("[%s] shunt part: will transfer the %dth(%d-%d) batch of fragments to the miner: %s", record.Fid, index, len(v.File), j, addr.Addrs.ID.String()))
 				ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 				defer cancel()
-				err = n.WriteDataAction(ctx, addr.ID, v.File[j], record.Fid, filepath.Base(v.File[j]))
+				err = n.WriteDataAction(ctx, addr.Addrs.ID, v.File[j], record.Fid, filepath.Base(v.File[j]))
 				if err != nil {
 					failed = true
 					n.Logtrack("err", fmt.Sprintf("[%s] shunt part: transfer failed: %v", record.Fid, err))
-					n.Feedback(addr.ID.String(), false)
+					n.Feedback(addr.Addrs.ID.String(), false)
 					break
 				}
 				n.Logtrack("info", fmt.Sprintf("[%s] shunt part: transfer successful", record.Fid))
 				failed = false
 			}
-			n.Peerstore().ClearAddrs(addr.ID)
+			n.Peerstore().ClearAddrs(addr.Addrs.ID)
 			if !failed {
 				var value datagroup
 				value = dataGroup[index]
 				value.Complete = true
 				value.Miner = acconut
-				value.Peerid = addr.ID.String()
+				value.Peerid = addr.Addrs.ID.String()
 				dataGroup[index] = value
 				//n.Feedback(addr.ID.String(), true)
-				n.Logtrack("info", fmt.Sprintf("[%s] shunt part: %dth batch fragments all transferred to: %s %s", record.Fid, index, acconut, addr.ID.String()))
+				n.Logtrack("info", fmt.Sprintf("[%s] shunt part: %dth batch fragments all transferred to: %s %s", record.Fid, index, acconut, addr.Addrs.ID.String()))
 				break
 			}
 			allcompleted = false
@@ -470,35 +470,35 @@ func (n *Node) highPriorityStorage(record TrackerInfo, dataGroup map[uint8]datag
 				n.Logtrack("info", fmt.Sprintf("[%s] not found this peer: %s", record.Fid, acc))
 				continue
 			}
-			if _, ok := sucPeer[addrs.ID.String()]; ok {
+			if _, ok := sucPeer[addrs.Addrs.ID.String()]; ok {
 				continue
 			}
 
-			n.Peerstore().AddAddrs(addrs.ID, addrs.Addrs, time.Minute)
-			n.Logtrack("info", fmt.Sprintf("[%s] will transfer to the miner: %s", record.Fid, addrs.ID.String()))
+			n.Peerstore().AddAddrs(addrs.Addrs.ID, addrs.Addrs.Addrs, time.Minute)
+			n.Logtrack("info", fmt.Sprintf("[%s] will transfer to the miner: %s", record.Fid, addrs.Addrs.ID.String()))
 			for j := 0; j < len(v.File); j++ {
 				n.Logtrack("info", fmt.Sprintf("[%s] will transfer fragment: %s", record.Fid, v.File[j]))
 				ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 				defer cancel()
-				err = n.WriteDataAction(ctx, addrs.ID, v.File[j], record.Fid, filepath.Base(v.File[j]))
+				err = n.WriteDataAction(ctx, addrs.Addrs.ID, v.File[j], record.Fid, filepath.Base(v.File[j]))
 				if err != nil {
 					failed = true
-					n.Logtrack("err", fmt.Sprintf("[%s] transfer to %s failed: %v", record.Fid, addrs.ID.String(), err))
-					n.Feedback(addrs.ID.String(), false)
+					n.Logtrack("err", fmt.Sprintf("[%s] transfer to %s failed: %v", record.Fid, addrs.Addrs.ID.String(), err))
+					n.Feedback(addrs.Addrs.ID.String(), false)
 					break
 				}
-				n.Logtrack("info", fmt.Sprintf("[%s] The %dth fragment of the %dth batch is transferred to %s", record.Fid, j, index, addrs.ID.String()))
+				n.Logtrack("info", fmt.Sprintf("[%s] The %dth fragment of the %dth batch is transferred to %s", record.Fid, j, index, addrs.Addrs.ID.String()))
 				failed = false
 			}
-			n.Peerstore().ClearAddrs(addrs.ID)
+			n.Peerstore().ClearAddrs(addrs.Addrs.ID)
 			if !failed {
 				var value datagroup
 				value = dataGroup[index]
 				value.Complete = true
-				value.Peerid = addrs.ID.String()
+				value.Peerid = addrs.Addrs.ID.String()
 				dataGroup[index] = value
 				//n.Feedback(peerid, true)
-				n.Logtrack("info", fmt.Sprintf("[%s] %dth batch of all fragments is transferred to %s", record.Fid, index, addrs.ID.String()))
+				n.Logtrack("info", fmt.Sprintf("[%s] %dth batch of all fragments is transferred to %s", record.Fid, index, addrs.Addrs.ID.String()))
 				break
 			}
 		}

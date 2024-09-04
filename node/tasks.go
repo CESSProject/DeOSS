@@ -63,6 +63,7 @@ func (n *Node) TaskMgt() {
 
 	go n.RefreshMiner(ch_refreshMiner)
 	go n.RefreshBlacklist(ch_refreshBlacklist)
+	go n.TrackerV2()
 
 	//count := 0
 	chainState := true
@@ -87,11 +88,10 @@ func (n *Node) TaskMgt() {
 			// }
 
 		case <-task_Minute.C:
-			if len(ch_trackFile) > 0 {
-				<-ch_trackFile
-				//go n.Tracker(ch_trackFile)
-				go n.TrackerV2(ch_trackFile)
-			}
+			// if len(ch_trackFile) > 0 {
+			// 	<-ch_trackFile
+			// 	go n.Tracker(ch_trackFile)
+			// }
 
 			err := n.RefreshSelf()
 			if err != nil {
@@ -123,9 +123,9 @@ func (n *Node) RefreshBlacklist(ch chan<- bool) {
 	defer func() { ch <- true }()
 	allpeers := n.GetBlacklist()
 	for _, v := range allpeers {
-		if n.ConnectPeer(v.AddrInfo) {
-			n.RemoveFromBlacklist(v.ID.String())
-			n.AddToWhitelist(v.ID.String(), "")
+		if n.ConnectPeer(v.Addrs) {
+			n.RemoveFromBlacklist(v.Addrs.ID.String())
+			n.AddToWhitelist(v.Addrs.ID.String(), "")
 		}
 	}
 }

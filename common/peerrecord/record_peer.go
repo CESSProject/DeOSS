@@ -83,16 +83,16 @@ type PeerRecordType struct {
 }
 
 type AccountInfo struct {
-	peer.AddrInfo
-	Account   string `json:"account"`
-	State     string `json:"state"`
-	IdleSpace uint64 `json:"idle_space"`
+	Account   string        `json:"account"`
+	State     string        `json:"state"`
+	IdleSpace uint64        `json:"idle_space"`
+	Addrs     peer.AddrInfo `json:"addrs"`
 }
 
 type BlacklistInfo struct {
-	peer.AddrInfo
-	Account string `json:"account"`
-	Reason  string `json:"reason"`
+	Account string        `json:"account"`
+	Reason  string        `json:"reason"`
+	Addrs   peer.AddrInfo `json:"addrs"`
 }
 
 var _ PeerRecord = (*PeerRecordType)(nil)
@@ -144,7 +144,7 @@ func (p PeerRecordType) DeletePeerByAccount(acc string) {
 	value, ok := p.accountList[acc]
 	p.accLock.RUnlock()
 	if ok {
-		p.DeletePeer(value.ID.String())
+		p.DeletePeer(value.Addrs.ID.String())
 	}
 }
 
@@ -158,7 +158,7 @@ func (p PeerRecordType) SavePeerAccount(account string, peerid string, state str
 
 	p.accLock.Lock()
 	p.accountList[account] = AccountInfo{
-		AddrInfo:  addr,
+		Addrs:     addr,
 		Account:   account,
 		State:     state,
 		IdleSpace: idle_space,
@@ -248,9 +248,9 @@ func (p *PeerRecordType) AddToBlacklist(peerid, account, reason string) {
 
 	p.blacklistLock.Lock()
 	p.blacklist[peerid] = BlacklistInfo{
-		AddrInfo: addrs,
-		Account:  account,
-		Reason:   reason,
+		Addrs:   addrs,
+		Account: account,
+		Reason:  reason,
 	}
 	p.blacklistLock.Unlock()
 
