@@ -102,9 +102,9 @@ func (n *Node) GetFileLocation(c *gin.Context) {
 }
 
 func (n *Node) getMinerAddr(account string) (peer.AddrInfo, string, error) {
-	addr, ok := n.GetPeerByAccount(account)
+	accountInfo, ok := n.GetPeerByAccount(account)
 	if ok {
-		return addr, "", nil
+		return accountInfo.Addrs, "", nil
 	}
 	puk, err := sutils.ParsingPublickey(account)
 	if err != nil {
@@ -115,8 +115,9 @@ func (n *Node) getMinerAddr(account string) (peer.AddrInfo, string, error) {
 		return peer.AddrInfo{}, "", err
 	}
 	peerid := base58.Encode([]byte(string(minerInfo.PeerId[:])))
-	addr, ok = n.GetPeer(peerid)
+	addr, ok := n.GetPeer(peerid)
 	if ok {
+		n.SavePeerAccount(account, peerid, string(minerInfo.State), minerInfo.IdleSpace.Uint64())
 		return addr, base58.Encode([]byte(string(minerInfo.PeerId[:]))), nil
 	}
 	return peer.AddrInfo{}, "", fmt.Errorf("not fount peer: %s", peerid)

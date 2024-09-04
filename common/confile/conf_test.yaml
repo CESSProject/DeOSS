@@ -66,5 +66,5 @@ selector:
   refresh: 4
 
 shunt:
-  # give priority to storing files to miners with these peerids
-  peerid:
+  # specify the storage miner account you want to store
+  account:
