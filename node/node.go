@@ -265,8 +265,8 @@ func (n *Node) ListTrackFiles() ([]string, error) {
 
 func (n *Node) DeleteTrackFile(filehash string) {
 	n.trackLock.Lock()
-	defer n.trackLock.Unlock()
 	os.Remove(filepath.Join(n.trackDir, filehash))
+	n.trackLock.Unlock()
 }
 
 func (n *Node) RebuildDirs() {
