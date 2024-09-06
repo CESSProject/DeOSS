@@ -5,7 +5,7 @@ go 1.21
 toolchain go1.22.4
 
 require (
-	github.com/CESSProject/cess-go-sdk v0.6.2-0.20240822075251-93843c2a4017
+	github.com/CESSProject/cess-go-sdk v0.6.2
 	github.com/CESSProject/cess-go-tools v0.2.12
 	github.com/CESSProject/go-keyring v0.0.0-20220614131247-ee3a8da30fde
 	github.com/CESSProject/p2p-go v0.4.1-0.20240809013702-e989d204843e

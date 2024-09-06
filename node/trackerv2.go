@@ -150,6 +150,14 @@ func (n *Node) checkFileState(fid string) (StorageDataType, bool, error) {
 			return StorageDataType{}, false, fmt.Errorf("The fid after reprocessing is inconsistent [%s != %s] %v", recordFile.Fid, hash, err)
 		}
 		recordFile.Segment = segment
+		b, err := json.Marshal(&recordFile)
+		if err != nil {
+			return StorageDataType{}, false, errors.Wrapf(err, "[%s] [json.Marshal]", fid)
+		}
+		err = n.WriteTrackFile(fid, b)
+		if err != nil {
+			return StorageDataType{}, false, errors.Wrapf(err, "[%s] [WriteTrackFile]", fid)
+		}
 	}
 
 	var storageDataType = StorageDataType{
@@ -177,16 +185,6 @@ func (n *Node) checkFileState(fid string) (StorageDataType, bool, error) {
 			storageDataType.Data = append(storageDataType.Data, value)
 		}
 		return storageDataType, false, nil
-	}
-
-	recordFile.PutFlag = false
-	b, err := json.Marshal(&recordFile)
-	if err != nil {
-		return StorageDataType{}, false, errors.Wrapf(err, "[%s] [json.Marshal]", fid)
-	}
-	err = n.WriteTrackFile(fid, b)
-	if err != nil {
-		return StorageDataType{}, false, errors.Wrapf(err, "[%s] [WriteTrackFile]", fid)
 	}
 
 	// verify the space is authorized
@@ -222,9 +220,9 @@ func (n *Node) checkFileState(fid string) (StorageDataType, bool, error) {
 		recordFile.FileSize,
 	)
 	if err != nil {
-		return StorageDataType{}, false, err
+		return StorageDataType{}, false, fmt.Errorf(" %s [UploadDeclaration] %v", fid, err)
 	}
-	n.Logtrack("info", fmt.Sprintf("[%s] PlaceStorageOrder suc: %s", fid, txhash))
+	n.Logtrack("info", fmt.Sprintf(" %s [UploadDeclaration] suc: %s", fid, txhash))
 
 	for index := 0; index < (sconfig.DataShards + sconfig.ParShards); index++ {
 		var value = make([]string, 0)
