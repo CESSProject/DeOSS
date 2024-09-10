@@ -8,9 +8,13 @@
 package node
 
 import (
+	"errors"
 	"net/http"
+	"os"
+	"path/filepath"
 
 	"github.com/CESSProject/DeOSS/common/utils"
+	"github.com/CESSProject/cess-go-sdk/chain"
 	"github.com/gin-gonic/gin"
 )
 
@@ -46,6 +50,22 @@ func (n *Node) DeleteFile(c *gin.Context) {
 		return
 	}
 	n.RemoveCacheRecord(fid)
+
 	n.Logdel("info", clientIp+" DeleteFile suc: "+blockHash)
 	c.JSON(200, map[string]string{"block hash": blockHash})
+
+	_, err = n.QueryFile(fid, -1)
+	if err != nil {
+		if errors.Is(err, chain.ERR_RPC_EMPTY_VALUE) {
+			data, err := n.ParseTrackFile(fid)
+			if err == nil {
+				for _, segment := range data.Segment {
+					for _, fragment := range segment.FragmentHash {
+						os.Remove(fragment)
+					}
+				}
+			}
+			os.Remove(filepath.Join(n.fileDir, fid))
+		}
+	}
 }
