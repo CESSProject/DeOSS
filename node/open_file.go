@@ -39,11 +39,25 @@ func (n *Node) PreviewFile(c *gin.Context) {
 	if clientIp == "" {
 		clientIp = c.ClientIP()
 	}
-	temp := strings.Split(fid, ".")
-	fid = temp[0]
-	if format == "" && len(temp) > 1 {
-		format = temp[1]
+
+	if strings.Contains(fid, ".") {
+		temp := strings.Split(fid, ".")
+		fid = temp[0]
+		if format == "" && len(temp) > 1 {
+			format = temp[1]
+		}
+	} else {
+		if len(fid) > chain.FileHashLen {
+			tmp_fid := fid[:chain.FileHashLen]
+			format = fid[chain.FileHashLen:]
+			fid = tmp_fid
+		} else if len(fid) < chain.FileHashLen {
+			n.Logopen("err", clientIp+" invalid fid: "+fid)
+			c.JSON(404, "invalid fid")
+			return
+		}
 	}
+
 	n.Logopen("info", clientIp+" open file: "+fid+" account: "+account+" format: "+format+" Range: "+rgn)
 
 	var err error
