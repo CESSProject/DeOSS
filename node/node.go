@@ -18,14 +18,14 @@ import (
 
 	"github.com/CESSProject/DeOSS/common/confile"
 	"github.com/CESSProject/DeOSS/common/logger"
-	"github.com/CESSProject/DeOSS/common/peerrecord"
+	"github.com/CESSProject/DeOSS/common/record"
 	"github.com/CESSProject/DeOSS/common/trackfile"
+	"github.com/CESSProject/DeOSS/common/workspace"
 	"github.com/CESSProject/DeOSS/configs"
 	"github.com/CESSProject/cess-go-sdk/chain"
 	sutils "github.com/CESSProject/cess-go-sdk/utils"
 	"github.com/CESSProject/cess-go-tools/cacher"
 	"github.com/CESSProject/cess-go-tools/scheduler"
-	"github.com/CESSProject/p2p-go/core"
 	"github.com/CESSProject/p2p-go/out"
 	"github.com/centrifuge/go-substrate-rpc-client/v4/signature"
 	"github.com/gin-contrib/cors"
@@ -35,35 +35,50 @@ import (
 )
 
 type Node struct {
+	*confile.Config
+	chain.Chainer
+	workspace.Workspace
+	logger.Logger
+	record.MinerRecorder
+
 	signkey   []byte
 	trackLock *sync.RWMutex
-	basespace string
-	fileDir   string
-	tmpDir    string
-	logDir    string
-	trackDir  string
+
 	trackfile.TrackFile
-	logger.Logger
-	peerrecord.PeerRecord
-	cacher.FileCache
-	scheduler.Selector
-	*confile.Config
-	*chain.ChainClient
-	*core.PeerNode
+
+	//cacher.FileCache
+	//scheduler.Selector
+
+	//*chain.ChainClient
+	//*core.PeerNode
 	*gin.Engine
 }
 
-// New is used to build a node instance
-func New() *Node {
-	return &Node{
-		trackLock:  new(sync.RWMutex),
-		PeerRecord: peerrecord.NewPeerRecord(),
-		TrackFile:  trackfile.NewTeeRecord(),
-	}
+func NewEmptyNode() *Node {
+	return &Node{}
 }
 
-// run
-func (n *Node) Run() {
+func NewNodeWithConfig(cfg *confile.Config) *Node {
+	return &Node{Config: cfg}
+}
+
+func (n *Node) InitChainclient(cli chain.Chainer) {
+	n.Chainer = cli
+}
+
+func (n *Node) InitWorkspace(ws string) {
+	n.Workspace = workspace.NewWorkspace(ws)
+}
+
+func (n *Node) InitLogger(lg logger.Logger) {
+	n.Logger = lg
+}
+
+func (n *Node) InitMinerRecord(r record.MinerRecorder) {
+	n.MinerRecorder = r
+}
+
+func (n *Node) Start() {
 	gin.SetMode(n.Config.Application.Mode)
 	n.Engine = gin.Default()
 	config := cors.DefaultConfig()

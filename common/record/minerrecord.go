@@ -5,7 +5,7 @@
 	SPDX-License-Identifier: Apache-2.0
 */
 
-package peerrecord
+package record
 
 import (
 	"encoding/json"
@@ -18,7 +18,7 @@ import (
 	"github.com/libp2p/go-libp2p/core/peer"
 )
 
-type PeerRecord interface {
+type MinerRecorder interface {
 	// SavePeer saves or updates peer information
 	SavePeer(addr peer.AddrInfo) error
 	//
@@ -69,7 +69,7 @@ type PeerRecord interface {
 	LoadWhitelist(path string) error
 }
 
-type PeerRecordType struct {
+type MinerRecord struct {
 	lock            *sync.RWMutex
 	accLock         *sync.RWMutex
 	blacklistLock   *sync.RWMutex
@@ -95,10 +95,10 @@ type BlacklistInfo struct {
 	Addrs   peer.AddrInfo `json:"addrs"`
 }
 
-var _ PeerRecord = (*PeerRecordType)(nil)
+var _ MinerRecorder = (*MinerRecord)(nil)
 
-func NewPeerRecord() PeerRecord {
-	return &PeerRecordType{
+func NewMinerRecord() MinerRecorder {
+	return &MinerRecord{
 		lock:            new(sync.RWMutex),
 		accLock:         new(sync.RWMutex),
 		blacklistLock:   new(sync.RWMutex),
@@ -112,7 +112,7 @@ func NewPeerRecord() PeerRecord {
 	}
 }
 
-func (p *PeerRecordType) SavePeer(addr peer.AddrInfo) error {
+func (p *MinerRecord) SavePeer(addr peer.AddrInfo) error {
 	peerid := addr.ID.String()
 	if peerid == "" {
 		return errors.New("peer id is empty")
@@ -129,7 +129,7 @@ func (p *PeerRecordType) SavePeer(addr peer.AddrInfo) error {
 	return nil
 }
 
-func (p PeerRecordType) DeletePeer(peerid string) {
+func (p *MinerRecord) DeletePeer(peerid string) {
 	p.lock.Lock()
 	delete(p.peerList, peerid)
 	p.lock.Unlock()
@@ -139,7 +139,7 @@ func (p PeerRecordType) DeletePeer(peerid string) {
 	p.blacklistLock.Unlock()
 }
 
-func (p PeerRecordType) DeletePeerByAccount(acc string) {
+func (p *MinerRecord) DeletePeerByAccount(acc string) {
 	p.accLock.RLock()
 	value, ok := p.accountList[acc]
 	p.accLock.RUnlock()
@@ -148,7 +148,7 @@ func (p PeerRecordType) DeletePeerByAccount(acc string) {
 	}
 }
 
-func (p PeerRecordType) SavePeerAccount(account string, peerid string, state string, idle_space uint64) error {
+func (p *MinerRecord) SavePeerAccount(account string, peerid string, state string, idle_space uint64) error {
 	p.lock.RLock()
 	addr, ok := p.peerList[peerid]
 	p.lock.RUnlock()
@@ -179,35 +179,35 @@ func (p PeerRecordType) SavePeerAccount(account string, peerid string, state str
 	return nil
 }
 
-func (p *PeerRecordType) HasPeer(peerid string) bool {
+func (p *MinerRecord) HasPeer(peerid string) bool {
 	p.lock.RLock()
 	_, ok := p.peerList[peerid]
 	p.lock.RUnlock()
 	return ok
 }
 
-func (p *PeerRecordType) GetPeer(peerid string) (peer.AddrInfo, bool) {
+func (p *MinerRecord) GetPeer(peerid string) (peer.AddrInfo, bool) {
 	p.lock.RLock()
 	addr, ok := p.peerList[peerid]
 	p.lock.RUnlock()
 	return addr, ok
 }
 
-func (p *PeerRecordType) GetPeerByAccount(account string) (AccountInfo, bool) {
+func (p *MinerRecord) GetPeerByAccount(account string) (AccountInfo, bool) {
 	p.accLock.RLock()
 	accountInfo, ok := p.accountList[account]
 	p.accLock.RUnlock()
 	return accountInfo, ok
 }
 
-func (p *PeerRecordType) GetAccountByPeer(peerid string) (string, bool) {
+func (p *MinerRecord) GetAccountByPeer(peerid string) (string, bool) {
 	p.peerAccountLock.RLock()
 	acc, ok := p.peerAccountList[peerid]
 	p.peerAccountLock.RUnlock()
 	return acc, ok
 }
 
-func (p *PeerRecordType) GetAllPeerId() []string {
+func (p *MinerRecord) GetAllPeerId() []string {
 	var result = make([]string, len(p.peerList))
 	p.lock.RLock()
 	defer p.lock.RUnlock()
@@ -219,7 +219,7 @@ func (p *PeerRecordType) GetAllPeerId() []string {
 	return result
 }
 
-func (p *PeerRecordType) GetAllWhitelist() []string {
+func (p *MinerRecord) GetAllWhitelist() []string {
 	var i int
 	p.whitelistLock.RLock()
 	var result = make([]string, len(p.whitelist))
@@ -231,7 +231,7 @@ func (p *PeerRecordType) GetAllWhitelist() []string {
 	return result
 }
 
-func (p *PeerRecordType) AddToWhitelist(peerid, account string) {
+func (p *MinerRecord) AddToWhitelist(peerid, account string) {
 	p.whitelistLock.Lock()
 	p.whitelist[peerid] = account
 	p.whitelistLock.Unlock()
@@ -241,7 +241,7 @@ func (p *PeerRecordType) AddToWhitelist(peerid, account string) {
 	p.blacklistLock.Unlock()
 }
 
-func (p *PeerRecordType) AddToBlacklist(peerid, account, reason string) {
+func (p *MinerRecord) AddToBlacklist(peerid, account, reason string) {
 	p.lock.RLock()
 	addrs, _ := p.peerList[peerid]
 	p.lock.RUnlock()
@@ -259,20 +259,20 @@ func (p *PeerRecordType) AddToBlacklist(peerid, account, reason string) {
 	p.whitelistLock.Unlock()
 }
 
-func (p *PeerRecordType) RemoveFromBlacklist(peerid string) {
+func (p *MinerRecord) RemoveFromBlacklist(peerid string) {
 	p.blacklistLock.Lock()
 	delete(p.blacklist, peerid)
 	p.blacklistLock.Unlock()
 }
 
-func (p *PeerRecordType) IsInBlacklist(peerid string) bool {
+func (p *MinerRecord) IsInBlacklist(peerid string) bool {
 	p.blacklistLock.RLock()
 	_, ok := p.blacklist[peerid]
 	p.blacklistLock.RUnlock()
 	return ok
 }
 
-func (p *PeerRecordType) GetBlacklist() map[string]BlacklistInfo {
+func (p *MinerRecord) GetBlacklist() map[string]BlacklistInfo {
 	p.blacklistLock.Lock()
 	var result = make(map[string]BlacklistInfo, len(p.blacklist))
 	for k, v := range p.blacklist {
@@ -282,14 +282,14 @@ func (p *PeerRecordType) GetBlacklist() map[string]BlacklistInfo {
 	return result
 }
 
-func (p *PeerRecordType) GetBlacklistInfo(peerid string) (BlacklistInfo, bool) {
+func (p *MinerRecord) GetBlacklistInfo(peerid string) (BlacklistInfo, bool) {
 	p.blacklistLock.RLock()
 	result, ok := p.blacklist[peerid]
 	p.blacklistLock.RUnlock()
 	return result, ok
 }
 
-func (p *PeerRecordType) BackupPeer(path string) error {
+func (p *MinerRecord) BackupPeer(path string) error {
 	p.lock.RLock()
 	buf, err := json.Marshal(p.peerList)
 	if err != nil {
@@ -301,7 +301,7 @@ func (p *PeerRecordType) BackupPeer(path string) error {
 	return err
 }
 
-func (p *PeerRecordType) LoadPeer(path string) error {
+func (p *MinerRecord) LoadPeer(path string) error {
 	buf, err := os.ReadFile(path)
 	if err != nil {
 		return err
@@ -317,7 +317,7 @@ func (p *PeerRecordType) LoadPeer(path string) error {
 	return nil
 }
 
-func (p *PeerRecordType) BackupAccountPeer(path string) error {
+func (p *MinerRecord) BackupAccountPeer(path string) error {
 	p.accLock.RLock()
 	buf, err := json.Marshal(p.accountList)
 	if err != nil {
@@ -329,7 +329,7 @@ func (p *PeerRecordType) BackupAccountPeer(path string) error {
 	return err
 }
 
-func (p *PeerRecordType) LoadAccountPeer(path string) error {
+func (p *MinerRecord) LoadAccountPeer(path string) error {
 	buf, err := os.ReadFile(path)
 	if err != nil {
 		return err
@@ -345,7 +345,7 @@ func (p *PeerRecordType) LoadAccountPeer(path string) error {
 	return nil
 }
 
-func (p *PeerRecordType) BackupBlacklist(path string) error {
+func (p *MinerRecord) BackupBlacklist(path string) error {
 	p.blacklistLock.RLock()
 	buf, err := json.Marshal(p.blacklist)
 	if err != nil {
@@ -357,7 +357,7 @@ func (p *PeerRecordType) BackupBlacklist(path string) error {
 	return err
 }
 
-func (p *PeerRecordType) LoadBlacklist(path string) error {
+func (p *MinerRecord) LoadBlacklist(path string) error {
 	buf, err := os.ReadFile(path)
 	if err != nil {
 		return err
@@ -373,7 +373,7 @@ func (p *PeerRecordType) LoadBlacklist(path string) error {
 	return nil
 }
 
-func (p *PeerRecordType) BackupWhitelist(path string) error {
+func (p *MinerRecord) BackupWhitelist(path string) error {
 	p.whitelistLock.RLock()
 	buf, err := json.Marshal(p.whitelist)
 	if err != nil {
@@ -385,7 +385,7 @@ func (p *PeerRecordType) BackupWhitelist(path string) error {
 	return err
 }
 
-func (p *PeerRecordType) LoadWhitelist(path string) error {
+func (p *MinerRecord) LoadWhitelist(path string) error {
 	buf, err := os.ReadFile(path)
 	if err != nil {
 		return err

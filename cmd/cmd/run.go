@@ -17,7 +17,6 @@ import (
 	"time"
 
 	"github.com/CESSProject/DeOSS/common/confile"
-	"github.com/CESSProject/DeOSS/common/logger"
 	"github.com/CESSProject/DeOSS/common/utils"
 	"github.com/CESSProject/DeOSS/configs"
 	"github.com/CESSProject/DeOSS/node"
@@ -34,13 +33,20 @@ import (
 
 // cmd_run_func is an implementation of the run command,
 // which is used to start the deoss service.
+func runCmd(cmd *cobra.Command, args []string) {
+	node.NewNodeWithConfig(InitConfig(cmd)).InitNode().Start()
+
+}
+
+// cmd_run_func is an implementation of the run command,
+// which is used to start the deoss service.
 func cmd_run_func(cmd *cobra.Command, args []string) {
 	var (
 		err error
 	)
 
 	ctx := cmd.Context()
-	n := node.New()
+	n := node.NewEmptyNode()
 
 	n.Config, err = readEnv()
 	if err != nil {
@@ -175,6 +181,18 @@ func cmd_run_func(cmd *cobra.Command, args []string) {
 	n.Run()
 }
 
+func InitConfig(cmd *cobra.Command) *confile.Config {
+	cfg, err := readEnv()
+	if err != nil {
+		cfg, err = buildConfigFile(cmd)
+		if err != nil {
+			out.Err("buildConfigFile: " + err.Error())
+			os.Exit(1)
+		}
+	}
+	return cfg
+}
+
 func readEnv() (*confile.Config, error) {
 	var c = &confile.Config{}
 
@@ -185,8 +203,18 @@ func readEnv() (*confile.Config, error) {
 		return nil, errors.Errorf("create workspace: %v", err)
 	}
 
-	// url
-	c.Url = os.Getenv("url")
+	// visibility
+	c.Visibility = os.Getenv("visibility")
+	if c.Application.Visibility != configs.Access_Public && c.Application.Visibility != configs.Access_Private {
+		if c.Application.Visibility == "" {
+			c.Application.Visibility = configs.Access_Public
+		} else {
+			return nil, errors.New("invalid visibility: " + c.Application.Visibility)
+		}
+	}
+
+	// domainname
+	c.Domainname = os.Getenv("domainname")
 
 	// mode
 	c.Application.Mode = os.Getenv("mode")
@@ -207,6 +235,13 @@ func readEnv() (*confile.Config, error) {
 		return nil, errors.Errorf("the port %d is in use", port)
 	}
 	c.Application.Port = uint32(port)
+
+	// maxusespace
+	maxusespace, err := strconv.ParseUint(os.Getenv("maxusespace"), 10, 64)
+	if err != nil {
+		return nil, errors.Errorf("invalid maxusespace: %v", maxusespace)
+	}
+	c.Application.Maxusespace = maxusespace
 
 	// mnemonic
 	c.Mnemonic = os.Getenv("mnemonic")
@@ -231,24 +266,6 @@ func readEnv() (*confile.Config, error) {
 		c.Rpc = rpcs
 	}
 
-	// storage network port
-	sport, err := strconv.Atoi(os.Getenv("storage_port"))
-	if err != nil {
-		return nil, errors.Errorf("invalid storage network port: %v", err)
-	}
-	if !confile.FreeLocalPort(uint32(sport)) {
-		return nil, errors.Errorf("the port %d is in use", port)
-	}
-	c.Storage.Port = uint32(sport)
-
-	// boot
-	boots := strings.Split(os.Getenv("boot"), " ")
-	if len(boots) <= 0 {
-		c.Storage.Boot = []string{configs.DefaultRpcAddress}
-	} else {
-		c.Storage.Boot = boots
-	}
-
 	// high priority account
 	accounts := strings.Split(os.Getenv("account"), " ")
 	c.User.Account = accounts
@@ -266,35 +283,6 @@ func readEnv() (*confile.Config, error) {
 	// black/white account
 	bwaccounts := strings.Split(os.Getenv("bwaccount"), " ")
 	c.User.Account = bwaccounts
-
-	// cache size
-	size, _ := strconv.Atoi(os.Getenv("size"))
-	c.Cacher.Size = uint64(size)
-
-	// cache expiration
-	expiration, _ := strconv.Atoi(os.Getenv("expiration"))
-	c.Cacher.Expiration = uint32(expiration)
-
-	// cache directory
-	c.Cacher.Directory = os.Getenv("directory")
-
-	// selector strategy
-	c.Selector.Strategy = os.Getenv("strategy")
-
-	// selector filter
-	c.Selector.Filter = os.Getenv("filter")
-
-	// selector number
-	number, _ := strconv.Atoi(os.Getenv("number"))
-	c.Selector.Number = uint64(number)
-
-	// selector TTL
-	ttl, _ := strconv.Atoi(os.Getenv("ttl"))
-	c.Selector.Ttl = uint64(ttl)
-
-	// selector refresh
-	refresh, _ := strconv.Atoi(os.Getenv("refresh"))
-	c.Selector.Refresh = uint32(refresh)
 
 	// specify storage miner account
 	c.Shunt.Account = strings.Split(os.Getenv("specify_miner"), " ")
@@ -320,12 +308,4 @@ func buildConfigFile(cmd *cobra.Command) (*confile.Config, error) {
 	}
 
 	return confile.NewConfig(conFilePath)
-}
-
-func buildLogs(logDir string) (logger.Logger, error) {
-	var logs_info = make(map[string]string)
-	for _, v := range logger.LogFiles {
-		logs_info[v] = filepath.Join(logDir, v+".log")
-	}
-	return logger.NewLogs(logs_info)
 }

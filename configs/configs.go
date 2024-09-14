@@ -14,17 +14,12 @@ const (
 	// MinimumBalance is the minimum balance required for the program to run
 	// The unit is pico
 	MinimumBalance = 2 * CESSTokenPrecision
-
 	//
 	MaxTrackThread = 10
-
 	//
 	DefaultTxTimeOut = 30
-)
-
-const (
-	DefaultRpcAddress  = "wss://testnet-rpc.cess.network/ws/"
-	DefaultBootAddress = "_dnsaddr.boot-miner-testnet.cess.network"
+	//
+	DefaultRpcAddress = "wss://testnet-rpc.cess.network/ws/"
 )
 
 const (
@@ -35,4 +30,11 @@ const (
 const (
 	App_Mode_Release = "release"
 	App_Mode_Debug   = "debug"
+)
+
+const (
+	SIZE_1KiB = 1024
+	SIZE_1MiB = 1024 * SIZE_1KiB
+	SIZE_1GiB = 1024 * SIZE_1MiB
+	SIZE_1TiB = 1024 * SIZE_1GiB
 )

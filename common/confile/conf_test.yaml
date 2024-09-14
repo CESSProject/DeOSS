@@ -1,11 +1,17 @@
 application:
   # gateway's workspace
-  workspace: "/"
-  # gateway's url
-  url: ""
+  workspace: /
   # gateway run mode  [debug | release]
-  mode: "release"
-  # gateway API communication port
+  mode: release
+  # service visibility: [public | private]
+  # public: gateway address will be published on the chain
+  # private: gateway address will not be made public on the chain
+  visibility: public
+  # domain name, if it's empty and the visibility is public, the <ip:port> will be published on the chain
+  domainname: 
+  # maximum space occupied, gateway will automatically clean up the cached files
+  maxusespace: 1024*1024*1024*1024
+  # gateway API communication port, default is 8080
   port: 8080
 
 chain:
@@ -20,50 +26,17 @@ chain:
     # test network
     - "wss://testnet-rpc.cess.network/ws/"
 
-storage:
-  # communication ports in the storage network
-  port: 4001
-  # bootstrap nodes in the storage network
-  boot:
-    # test network
-    - "_dnsaddr.boot-miner-testnet.cess.network"
-
 user:
   # high priority accounts will not be restricted or blacklisted when accessing the gateway
   account:
 
 access:
   # access mode: [public | private]
-  # In public mode, only users in account can't access it
-  # In private mode, only users in account can access it
+  # public: only users in account can't access the gateway
+  # private: only users in account can access the gateway
   mode: public
   # account black/white list
   account:
-
-# user files cacher config
-cacher:
-  # file cache size, default 512G, (unit is byte)
-  size: 549755813888
-  # file cache expiration time, default 3 hour (unit is minutes)
-  expiration: 180
-  # directory to store file cache, default path: workspace/filecache/
-  directory:
-
-# storage mode selector config
-selector:
-  # used to find better storage node partners for gateway to upload or download files,
-  # two strategies for using your specified storage nodes, [priority | fixed]
-  strategy: priority
-  # storage miner filter file, json format, if it does not exist, it will be automatically created.
-  # you can configure which storage nodes to use or not use in this file.
-  # default path: workspace/storage_nodes.json
-  filter:
-  # maximum number of storage nodes allowed for long-term cooperation, default 120
-  number: 120
-  # maximum tolerable TTL for communication with storage nodes, default 500 ms (unit is milliseconds)
-  ttl: 500000000
-  # available storage node list refresh time, default 4 hours (unit is hours)
-  refresh: 4
 
 shunt:
   # specify the storage miner account you want to store
