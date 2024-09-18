@@ -12,5 +12,12 @@ const (
 
 	ERR_SystemErr = "system error"
 
-	ERR_InvalidFormFile = "invalid form file"
+	ERR_ServerBusy = "Server busy"
+
+	ERR_InvalidFormFile   = "invalid form file"
+	ERR_NoPermission      = "No permission"
+	ERR_InvalidFid        = "invalid fid"
+	ERR_InvalidRangeValue = "invalid range value"
+	ERR_InvalidRangeStart = "invalid range start"
+	ERR_InvalidRangeEnd   = "invalid range end"
 )

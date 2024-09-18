@@ -17,6 +17,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/CESSProject/DeOSS/common/confile"
@@ -29,6 +30,7 @@ import (
 	"github.com/CESSProject/cess-go-sdk/core/process"
 	sutils "github.com/CESSProject/cess-go-sdk/utils"
 	"github.com/gin-gonic/gin"
+	"golang.org/x/time/rate"
 )
 
 type FileHandler struct {
@@ -37,19 +39,62 @@ type FileHandler struct {
 	tracker.Tracker
 	logger.Logger
 	*confile.Config
+	*rate.Limiter
+}
+
+type fileTypeRecord struct {
+	lock   *sync.Mutex
+	record map[string]string
+}
+
+var frecord *fileTypeRecord
+
+func init() {
+	frecord = &fileTypeRecord{
+		lock:   new(sync.Mutex),
+		record: make(map[string]string, 100),
+	}
+}
+
+func (f *fileTypeRecord) AddToFileRecord(fid, format string) {
+	f.lock.Lock()
+	f.record[fid] = format
+	f.lock.Unlock()
+}
+
+func (f *fileTypeRecord) GetFileFormat(fid string) (string, bool) {
+	f.lock.Lock()
+	value, ok := f.record[fid]
+	f.lock.Unlock()
+	return value, ok
 }
 
 func NewFileHandler(cli chain.Chainer, track tracker.Tracker, ws workspace.Workspace, lg logger.Logger) *FileHandler {
-	return &FileHandler{Chainer: cli, Tracker: track, Workspace: ws, Logger: lg}
+	return &FileHandler{Chainer: cli, Tracker: track, Workspace: ws, Logger: lg, Limiter: rate.NewLimiter(rate.Every(chain.BlockInterval), 20)}
 }
 
 func (f *FileHandler) RegisterRoutes(server *gin.Engine) {
 	filegroup := server.Group("/file")
 	filegroup.Use(
 		func(ctx *gin.Context) {
+			if !f.Limiter.Allow() {
+				ctx.AbortWithStatusJSON(http.StatusOK, RespType{
+					Code: http.StatusForbidden,
+					Msg:  ERR_ServerBusy,
+				})
+				return
+			}
+			ctx.Next()
+		},
+	)
+	filegroup.PUT("",
+		func(ctx *gin.Context) {
 			acc, pk, ok := VerifySignatureMdl(ctx)
 			if !ok {
-				ctx.AbortWithStatus(http.StatusForbidden)
+				ctx.AbortWithStatusJSON(http.StatusOK, RespType{
+					Code: http.StatusForbidden,
+					Msg:  ERR_NoPermission,
+				})
 				return
 			}
 			ctx.Set("account", acc)
@@ -59,28 +104,280 @@ func (f *FileHandler) RegisterRoutes(server *gin.Engine) {
 		func(ctx *gin.Context) {
 			acc, ok := ctx.Get("account")
 			if !ok {
-				ctx.AbortWithStatus(http.StatusForbidden)
+				ctx.AbortWithStatusJSON(http.StatusOK, RespType{
+					Code: http.StatusForbidden,
+					Msg:  ERR_NoPermission,
+				})
 				return
 			}
 			if !CheckPermissionsMdl(fmt.Sprintf("%v", acc), f.Config.Access.Mode, f.Config.User.Account, f.Config.Access.Account) {
-				ctx.AbortWithStatus(http.StatusForbidden)
+				ctx.AbortWithStatusJSON(http.StatusOK, RespType{
+					Code: http.StatusForbidden,
+					Msg:  ERR_NoPermission,
+				})
 				return
 			}
 			ctx.Next()
 		},
+		f.UploadFormFileHandle,
 	)
-	filegroup.PUT("", f.PutFormFile)
-	filegroup.DELETE(fmt.Sprintf("/:%s", HTTP_ParameterName), f.DeleteAFile)
+
+	filegroup.DELETE(fmt.Sprintf("/:%s", HTTP_ParameterName_Fid),
+		func(ctx *gin.Context) {
+			acc, pk, ok := VerifySignatureMdl(ctx)
+			if !ok {
+				ctx.AbortWithStatusJSON(http.StatusOK, RespType{
+					Code: http.StatusForbidden,
+					Msg:  ERR_NoPermission,
+				})
+				return
+			}
+			ctx.Set("account", acc)
+			ctx.Set("publickey", hex.EncodeToString(pk))
+			ctx.Next()
+		},
+		func(ctx *gin.Context) {
+			acc, ok := ctx.Get("account")
+			if !ok {
+				ctx.AbortWithStatusJSON(http.StatusOK, RespType{
+					Code: http.StatusForbidden,
+					Msg:  ERR_NoPermission,
+				})
+				return
+			}
+			if !CheckPermissionsMdl(fmt.Sprintf("%v", acc), f.Config.Access.Mode, f.Config.User.Account, f.Config.Access.Account) {
+				ctx.AbortWithStatusJSON(http.StatusOK, RespType{
+					Code: http.StatusForbidden,
+					Msg:  ERR_NoPermission,
+				})
+				return
+			}
+			ctx.Next()
+		},
+		f.DeleteFileHandle,
+	)
+
+	filegroup.GET(fmt.Sprintf("/download/:%s", HTTP_ParameterName_Fid), f.DownloadFileHandle)
+	filegroup.GET(fmt.Sprintf("/open/:%s", HTTP_ParameterName_Fid), f.OpenFileHandle)
 }
 
-func (f *FileHandler) DeleteAFile(c *gin.Context) {
+func (f *FileHandler) OpenFileHandle(c *gin.Context) {
+	defer c.Request.Body.Close()
+
+	fid := c.Param(HTTP_ParameterName_Fid)
+	format := c.Request.Header.Get(HTTPHeader_Format)
+	rgn := c.Request.Header.Get(HTTPHeader_Range)
+	cipher := c.Request.Header.Get(HTTPHeader_Cipher)
+	clientIp := c.Request.Header.Get("X-Forwarded-For")
+	if clientIp == "" {
+		clientIp = c.ClientIP()
+	}
+
+	if strings.Contains(fid, ".") {
+		temp := strings.Split(fid, ".")
+		fid = temp[0]
+		if format == "" && len(temp) > 1 {
+			format = temp[1]
+		}
+	} else {
+		if len(fid) > chain.FileHashLen {
+			tmp_fid := fid[:chain.FileHashLen]
+			format = fid[chain.FileHashLen:]
+			fid = tmp_fid
+		} else if len(fid) < chain.FileHashLen {
+			f.Logopen("err", clientIp+" invalid fid: "+fid)
+			c.JSON(404, "invalid fid")
+			ReturnJSON(c, 400, ERR_InvalidFid, nil)
+			return
+		}
+	}
+
+	ok := false
+	if format == "" {
+		format, ok = frecord.GetFileFormat(fid)
+		if !ok {
+			recordInfo, err := f.ParsingTraceFile(fid)
+			if err != nil {
+				format, err = CheckFileType(f.Chainer, fid, c.Request.Header.Get(HTTPHeader_Account))
+				if err != nil {
+					f.Logopen("err", clientIp+" CheckFileType: "+err.Error())
+					ReturnJSON(c, 404, ERR_NotFound, nil)
+					return
+				}
+				frecord.AddToFileRecord(fid, format)
+			} else {
+				format = strings.ToLower(filepath.Ext(recordInfo.FileName))
+				frecord.AddToFileRecord(fid, format)
+			}
+		}
+	}
+
+	contenttype, ok := contentType.Load(format)
+	if !ok {
+		contenttype = "application/octet-stream"
+	}
+
+	f.Logopen("info", clientIp+" open file: "+fid+" format: "+format+" Range: "+rgn)
+
+	size, fpath, err := FindLocalFile(fid, f.GetFileDir(), f.GetStoringDir())
+	if err == nil {
+		if rgn != "" {
+			f.Logopen("info", fmt.Sprintf("[%s] return the file [%s] from local by range", clientIp, fid))
+			err = ReturnFileRangeStream(c, rgn, contenttype.(string), fpath)
+			if err != nil {
+				f.Logopen("err", err.Error())
+			}
+			return
+		}
+		fd, err := os.Open(fpath)
+		if err != nil {
+			f.Logopen("info", clientIp+" open the file from local, open file failed: "+err.Error())
+			ReturnJSON(c, 500, ERR_SystemErr, nil)
+			return
+		}
+		f.Logopen("info", fmt.Sprintf("[%s] return the file [%s] from local", clientIp, fid))
+		ReturnFileStream(c, fd, fid, contenttype.(string), format, int64(size))
+		return
+	}
+
+	fmeta, err := f.QueryFile(fid, -1)
+	if err != nil {
+		f.Logdown("err", clientIp+" QueryFile failed: "+err.Error())
+		ReturnJSON(c, 404, ERR_NotFound, nil)
+		return
+	}
+
+	fpath = filepath.Join(f.GetFileDir(), fid)
+	size, err = FindFileFromGW(f.Chainer, fid, fpath)
+	if err == nil {
+		if size != fmeta.FileSize.Uint64() {
+			f.Logdown("info", clientIp+" the file size from gateway not equal chain")
+			ReturnJSON(c, 404, ERR_NotFound, nil)
+			return
+		}
+		if rgn != "" {
+			f.Logopen("info", fmt.Sprintf("[%s] return the file [%s] from gw by range", clientIp, fid))
+			err = ReturnFileRangeStream(c, rgn, contenttype.(string), fpath)
+			if err != nil {
+				f.Logopen("err", err.Error())
+			}
+			return
+		}
+		fd, err := os.Open(fpath)
+		if err != nil {
+			f.Logopen("info", clientIp+" open the file from local, open file failed: "+err.Error())
+			ReturnJSON(c, 500, ERR_SystemErr, nil)
+			return
+		}
+		f.Logopen("info", fmt.Sprintf("[%s] return the file [%s] from gw", clientIp, fid))
+		ReturnFileStream(c, fd, fid, contenttype.(string), format, int64(size))
+		return
+	}
+
+	fpath, err = process.Retrievefile(f.Chainer, fmeta, fid, f.GetFileDir(), cipher)
+	if err != nil {
+		f.Logdown("info", clientIp+" process.Retrievefile: "+err.Error())
+		ReturnJSON(c, 404, ERR_NotFound, nil)
+		return
+	}
+	if rgn != "" {
+		f.Logopen("info", fmt.Sprintf("[%s] return the file [%s] from miner by range", clientIp, fid))
+		err = ReturnFileRangeStream(c, rgn, contenttype.(string), fpath)
+		if err != nil {
+			f.Logopen("err", err.Error())
+		}
+		return
+	}
+	fd, err := os.Open(fpath)
+	if err != nil {
+		f.Logopen("info", clientIp+" open the file from local, open file failed: "+err.Error())
+		ReturnJSON(c, 500, ERR_SystemErr, nil)
+		return
+	}
+	f.Logopen("info", fmt.Sprintf("[%s] return the file [%s] from gw", clientIp, fid))
+	ReturnFileStream(c, fd, fid, contenttype.(string), format, int64(size))
+	return
+}
+
+func (f *FileHandler) DownloadFileHandle(c *gin.Context) {
+	defer c.Request.Body.Close()
+
+	fid := c.Param(HTTP_ParameterName_Fid)
+	cipher := c.Request.Header.Get(HTTPHeader_Cipher)
+	clientIp := c.Request.Header.Get("X-Forwarded-For")
+	if clientIp == "" {
+		clientIp = c.ClientIP()
+	}
+
+	f.Logdown("info", clientIp+" download the file: "+fid)
+
+	size, fpath, err := FindLocalFile(fid, f.GetFileDir(), f.GetStoringDir())
+	if err == nil {
+		fd, err := os.Open(fpath)
+		if err != nil {
+			f.Logdown("info", clientIp+" download the file from local, open file failed: "+err.Error())
+			ReturnJSON(c, 500, ERR_SystemErr, nil)
+			return
+		}
+		defer fd.Close()
+		f.Logdown("info", clientIp+" download the file from local: "+fid)
+		c.DataFromReader(http.StatusOK, int64(size), "application/octet-stream", fd, nil)
+		return
+	}
+
+	fmeta, err := f.QueryFile(fid, -1)
+	if err != nil {
+		f.Logdown("err", clientIp+" QueryFile failed: "+err.Error())
+		ReturnJSON(c, 404, ERR_NotFound, nil)
+		return
+	}
+
+	fpath = filepath.Join(f.GetFileDir(), fid)
+	size, err = FindFileFromGW(f.Chainer, fid, fpath)
+	if err == nil {
+		if size != fmeta.FileSize.Uint64() {
+			f.Logdown("info", clientIp+" the file size from gateway not equal chain")
+			ReturnJSON(c, 404, ERR_NotFound, nil)
+			return
+		}
+		fd, err := os.Open(fpath)
+		if err != nil {
+			f.Logdown("info", clientIp+" "+err.Error())
+			ReturnJSON(c, 500, ERR_SystemErr, nil)
+			return
+		}
+		defer fd.Close()
+		f.Logdown("info", clientIp+" download the file from gateway: "+fid)
+		c.DataFromReader(http.StatusOK, int64(size), "application/octet-stream", fd, nil)
+		return
+	}
+
+	fpath, err = process.Retrievefile(f.Chainer, fmeta, fid, f.GetFileDir(), cipher)
+	if err != nil {
+		f.Logdown("info", clientIp+" process.Retrievefile: "+err.Error())
+		ReturnJSON(c, 404, ERR_NotFound, nil)
+		return
+	}
+
+	fd, err := os.Open(fpath)
+	if err != nil {
+		f.Logdown("info", clientIp+" "+err.Error())
+		ReturnJSON(c, 500, ERR_SystemErr, nil)
+		return
+	}
+	defer fd.Close()
+	f.Logdown("info", clientIp+" download the file from miner: "+fid)
+	c.DataFromReader(http.StatusOK, int64(size), "application/octet-stream", fd, nil)
+}
+
+func (f *FileHandler) DeleteFileHandle(c *gin.Context) {
 	defer c.Request.Body.Close()
 
 	clientIp := c.Request.Header.Get(HTTPHeader_X_Forwarded_For)
 	if clientIp == "" {
 		clientIp = c.ClientIP()
 	}
-	fid := c.Param(HTTP_ParameterName)
+	fid := c.Param(HTTP_ParameterName_Fid)
 	f.Logdel("info", utils.StringBuilder(400, clientIp, fid))
 
 	err := CheckChainSt(f.Chainer, c)
@@ -135,7 +432,7 @@ func (f *FileHandler) DeleteAFile(c *gin.Context) {
 	}
 }
 
-func (f *FileHandler) PutFormFile(c *gin.Context) {
+func (f *FileHandler) UploadFormFileHandle(c *gin.Context) {
 	defer c.Request.Body.Close()
 
 	clientIp := c.Request.Header.Get(HTTPHeader_X_Forwarded_For)
@@ -242,6 +539,8 @@ func (f *FileHandler) PutFormFile(c *gin.Context) {
 		ReturnJSON(c, 500, ERR_SystemErr, nil)
 		return
 	}
+
+	frecord.AddToFileRecord(fid, filepath.Ext(fname))
 
 	_, err = os.Stat(newPath)
 	if err != nil {

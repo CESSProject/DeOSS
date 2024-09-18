@@ -55,7 +55,6 @@ const (
 	ERR_EmptySeed                  = "InvalidProfile.EmptySeed"
 	ERR_MissingAccount             = "InvalidHead.MissingAccount"
 	ERR_InvalidAccount             = "InvalidHead.Account"
-	ERR_NoPermission               = "InvalidToken.NoPermission"
 	ERR_InvalidToken               = "InvalidHead.Token"
 	ERR_InvalidName                = "InvalidParameter.Name"
 	ERR_InvalidFilehash            = "InvalidParameter.FileHash"
@@ -82,7 +81,6 @@ const (
 
 	ERR_RPCConnection = "Failed to connect to rpc, please try again later."
 	ERR_RPCSyncing    = "Syncing the latest blocks"
-	ERR_ServerBusy    = "Service is busy, please try again later."
 	ERR_EmptyFileName = "Empty file name"
 )
 
