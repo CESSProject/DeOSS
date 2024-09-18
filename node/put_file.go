@@ -9,15 +9,10 @@ package node
 
 import (
 	"fmt"
-	"io"
 	"net/http"
-	"net/url"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
-
-	"github.com/gin-gonic/gin"
 )
 
 const max_concurrent_req = 10
@@ -228,28 +223,4 @@ func createCacheDir(n *Node, account string) (string, string, int, error) {
 		break
 	}
 	return cacheDir, fpath, http.StatusOK, nil
-}
-
-func saveFormFileToFile(c *gin.Context, file string) (string, int64, int, error) {
-	f, err := os.OpenFile(file, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, os.ModePerm)
-	if err != nil {
-		return "", 0, http.StatusInternalServerError, err
-	}
-	defer f.Close()
-	formfile, fileHeder, err := c.Request.FormFile("file")
-	if err != nil {
-		return "", 0, http.StatusBadRequest, err
-	}
-	filename := fileHeder.Filename
-	if strings.Contains(filename, "%") {
-		filename, err = url.PathUnescape(filename)
-		if err != nil {
-			filename = fileHeder.Filename
-		}
-	}
-	length, err := io.Copy(f, formfile)
-	if err != nil {
-		return filename, 0, http.StatusBadRequest, err
-	}
-	return filename, length, http.StatusOK, nil
 }

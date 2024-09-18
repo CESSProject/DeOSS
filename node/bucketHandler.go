@@ -65,8 +65,60 @@ func (b *BucketHandler) RegisterRoutes(server *gin.Engine) {
 			ctx.Next()
 		},
 	)
+
+	bucketgroup.PUT(fmt.Sprintf("/:%s", HTTP_ParameterName), b.CreateBucketHandle)
 	bucketgroup.DELETE(fmt.Sprintf("/:%s", HTTP_ParameterName), b.DeleteBucketHandle)
 	bucketgroup.GET("", b.GetBucketHandle)
+}
+
+func (b *BucketHandler) CreateBucketHandle(c *gin.Context) {
+	clientIp := c.Request.Header.Get("X-Forwarded-For")
+	if clientIp == "" {
+		clientIp = c.ClientIP()
+	}
+	account := c.Request.Header.Get(HTTPHeader_Account)
+	bucketName := c.Param(HTTP_ParameterName)
+	if bucketName == "" {
+		bucketName = c.Request.Header.Get(HTTPHeader_Bucket)
+	}
+
+	b.Logput("info", utils.StringBuilder(400, clientIp, account, bucketName))
+
+	if !chain.CheckBucketName(bucketName) {
+		b.Logput("err", clientIp+" CheckBucketName: "+bucketName)
+		ReturnJSON(c, 400, ERR_InvalidBucketName, nil)
+		return
+	}
+
+	pkeystr, ok := c.Get("publickey")
+	if !ok {
+		b.Logput("err", clientIp+" c.Get(publickey) failed")
+		ReturnJSON(c, 500, ERR_SystemErr, nil)
+		return
+	}
+	pkey, err := hex.DecodeString(fmt.Sprintf("%v", pkeystr))
+	if err != nil {
+		b.Logput("err", clientIp+" hex.DecodeString "+fmt.Sprintf("%v", pkeystr)+" "+err.Error())
+		ReturnJSON(c, 500, ERR_SystemErr, nil)
+		return
+	}
+
+	if !sutils.CompareSlice(pkey, b.GetSignatureAccPulickey()) {
+		err = CheckAuthorize(b.Chainer, c, pkey)
+		if err != nil {
+			b.Logput("err", clientIp+" CheckAuthorize: "+err.Error())
+			return
+		}
+	}
+
+	blockHash, err := b.CreateBucket(pkey, bucketName)
+	if err != nil {
+		b.Logput("err", clientIp+" CreateBucket: "+err.Error())
+		ReturnJSON(c, 400, err.Error(), nil)
+		return
+	}
+	b.Logput("info", clientIp+" create bucket ["+bucketName+"] suc, and the bloack hash is: "+blockHash)
+	ReturnJSON(c, 200, MSG_OK, nil)
 }
 
 func (b *BucketHandler) DeleteBucketHandle(c *gin.Context) {
@@ -75,7 +127,10 @@ func (b *BucketHandler) DeleteBucketHandle(c *gin.Context) {
 		clientIp = c.ClientIP()
 	}
 	account := c.Request.Header.Get(HTTPHeader_Account)
-	bucketName := c.Request.Header.Get(HTTPHeader_Bucket)
+	bucketName := c.Param(HTTP_ParameterName)
+	if bucketName == "" {
+		bucketName = c.Request.Header.Get(HTTPHeader_Bucket)
+	}
 
 	b.Logdel("info", utils.StringBuilder(400, clientIp, account, bucketName))
 

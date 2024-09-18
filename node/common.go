@@ -11,6 +11,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -18,6 +19,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/CESSProject/DeOSS/common/coordinate"
 	"github.com/CESSProject/DeOSS/common/utils"
 	"github.com/CESSProject/DeOSS/configs"
 	"github.com/CESSProject/cess-go-sdk/chain"
@@ -414,6 +416,43 @@ func CheckFileType(cli chain.Chainer, fid string, account string) (string, error
 		return strings.ToLower(format), nil
 	}
 	return "", errors.New("unknown file format")
+}
+
+func CheckMinerLocation(cli chain.Chainer, puk []byte) (float64, float64, error) {
+	minerInfo, err := cli.QueryMinerItems(puk, -1)
+	if err != nil {
+		return 0, 0, err
+	}
+	longitude, latitude, ok := ParseCity(string(minerInfo.PeerId[:]))
+	if ok {
+		return longitude, latitude, nil
+	}
+	return 0, 0, errors.New("ParseCity failed")
+}
+
+func ParseCity(addr string) (float64, float64, bool) {
+	ip, err := net.ResolveIPAddr("ip", addr)
+	if err == nil {
+		return 0, 0, false
+	}
+
+	if ip.IP.IsLoopback() || ip.IP.IsPrivate() || ip.IP.IsUnspecified() {
+		return 0, 0, false
+	}
+
+	city, err := coordinate.GetCity(ip.IP)
+	if err == nil {
+		return city.Location.Longitude, city.Location.Latitude, true
+	}
+
+	return 0, 0, false
+}
+
+func isUnixTimestamp(timestamp int64) bool {
+	return timestamp >= 1e9 && timestamp < 1e12
+}
+func isUnixMillTimestamp(timestamp int64) bool {
+	return timestamp >= 1e12 && timestamp < 1e15
 }
 
 func (n *Node) VerifyAccountSignature(account, msg, signature string) ([]byte, error) {

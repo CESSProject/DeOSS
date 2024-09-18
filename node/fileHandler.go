@@ -42,6 +42,30 @@ type FileHandler struct {
 	*rate.Limiter
 }
 
+// file meta info
+type Metadata struct {
+	Fid   string         `json:"fid"`
+	Size  uint64         `json:"size"`
+	Owner []RtnUserBrief `json:"owner"`
+}
+
+type RtnUserBrief struct {
+	User       string `json:"user"`
+	FileName   string `json:"file_name"`
+	BucketName string `json:"bucket_name"`
+}
+
+// location info
+type NodeInfo struct {
+	Account  string   `json:"account"`
+	Location Location `json:"location"`
+}
+
+type Location struct {
+	Longitude float64 `json:"longitude"`
+	Latitude  float64 `json:"latitude"`
+}
+
 type fileTypeRecord struct {
 	lock   *sync.Mutex
 	record map[string]string
@@ -159,11 +183,86 @@ func (f *FileHandler) RegisterRoutes(server *gin.Engine) {
 
 	filegroup.GET(fmt.Sprintf("/download/:%s", HTTP_ParameterName_Fid), f.DownloadFileHandle)
 	filegroup.GET(fmt.Sprintf("/open/:%s", HTTP_ParameterName_Fid), f.OpenFileHandle)
+	filegroup.GET(fmt.Sprintf("/metadata/:%s", HTTP_ParameterName_Fid), f.GetMetadataHandle)
+	filegroup.GET(fmt.Sprintf("/location/:%s", HTTP_ParameterName_Fid), f.GetLocationhandle)
+}
+
+func (f *FileHandler) GetLocationhandle(c *gin.Context) {
+	fid := c.Param(HTTP_ParameterName_Fid)
+
+	clientIp := c.Request.Header.Get("X-Forwarded-For")
+	if clientIp == "" {
+		clientIp = c.ClientIP()
+	}
+
+	f.Logopen("info", clientIp+" get location: "+fid)
+
+	metadata, err := f.QueryFile(fid, -1)
+	if err != nil {
+		ReturnJSON(c, 404, ERR_NotFound, nil)
+		return
+	}
+
+	length := chain.ParShards + chain.DataShards
+	var data = make(map[string]NodeInfo, len(metadata.SegmentList))
+	account := ""
+	key := ""
+
+	for j := 0; j < length; j++ {
+		key = fmt.Sprintf("%d batch fragments", j)
+		account, _ = sutils.EncodePublicKeyAsCessAccount(metadata.SegmentList[0].FragmentList[0].Miner[:])
+		longitude, latitude, err := CheckMinerLocation(f.Chainer, metadata.SegmentList[0].FragmentList[0].Miner[:])
+		if err != nil {
+			data[key] = NodeInfo{
+				Account: account,
+				Location: Location{
+					Longitude: 0,
+					Latitude:  0,
+				},
+			}
+			continue
+		}
+		data[key] = NodeInfo{
+			Account: account,
+			Location: Location{
+				Longitude: longitude,
+				Latitude:  latitude,
+			},
+		}
+	}
+	ReturnJSON(c, 200, MSG_OK, data)
+}
+
+func (f *FileHandler) GetMetadataHandle(c *gin.Context) {
+	clientIp := c.Request.Header.Get("X-Forwarded-For")
+	if clientIp == "" {
+		clientIp = c.ClientIP()
+	}
+
+	fid := c.Param(HTTP_ParameterName_Fid)
+	f.Logget("info", clientIp+" get metadata of the file: "+fid)
+
+	var fileMetadata Metadata
+	fileMetadata.Fid = fid
+	fmeta, err := f.QueryFile(fid, -1)
+	if err != nil {
+		f.Logget("err", clientIp+" QueryFile failed: "+err.Error())
+		ReturnJSON(c, 404, ERR_NotFound, nil)
+		return
+	}
+
+	fileMetadata.Size = fmeta.FileSize.Uint64()
+	fileMetadata.Owner = make([]RtnUserBrief, len(fmeta.Owner))
+	for i := 0; i < len(fmeta.Owner); i++ {
+		fileMetadata.Owner[i].BucketName = string(fmeta.Owner[i].BucketName)
+		fileMetadata.Owner[i].FileName = string(fmeta.Owner[i].FileName)
+		fileMetadata.Owner[i].User, _ = sutils.EncodePublicKeyAsCessAccount(fmeta.Owner[i].User[:])
+	}
+	f.Logget("info", clientIp+" get metadata from file suc of the file: "+fid)
+	ReturnJSON(c, 200, MSG_OK, fileMetadata)
 }
 
 func (f *FileHandler) OpenFileHandle(c *gin.Context) {
-	defer c.Request.Body.Close()
-
 	fid := c.Param(HTTP_ParameterName_Fid)
 	format := c.Request.Header.Get(HTTPHeader_Format)
 	rgn := c.Request.Header.Get(HTTPHeader_Range)
@@ -300,8 +399,6 @@ func (f *FileHandler) OpenFileHandle(c *gin.Context) {
 }
 
 func (f *FileHandler) DownloadFileHandle(c *gin.Context) {
-	defer c.Request.Body.Close()
-
 	fid := c.Param(HTTP_ParameterName_Fid)
 	cipher := c.Request.Header.Get(HTTPHeader_Cipher)
 	clientIp := c.Request.Header.Get("X-Forwarded-For")
