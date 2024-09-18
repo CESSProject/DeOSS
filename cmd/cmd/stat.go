@@ -23,12 +23,12 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// cmd_stat_func is an implementation of the stat command,
+// statCmd is an implementation of the stat command,
 // which is used to view the base information of deoss.
-func cmd_stat_func(cmd *cobra.Command, args []string) {
+func statCmd(cmd *cobra.Command, args []string) {
 	var (
 		err error
-		n   = node.New()
+		n   = node.NewEmptyNode()
 	)
 
 	n.Config, err = buildConfigFile(cmd)
@@ -37,7 +37,7 @@ func cmd_stat_func(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
-	n.ChainClient, err = cess.New(
+	n.Chainer, err = cess.New(
 		context.Background(),
 		cess.Name(configs.Name),
 		cess.ConnectRpcAddrs(n.Config.Chain.Rpc),
@@ -48,7 +48,7 @@ func cmd_stat_func(cmd *cobra.Command, args []string) {
 		log.Println(err)
 		os.Exit(1)
 	}
-	defer n.GetSubstrateAPI().Client.Close()
+	defer n.Chainer.Close()
 
 	ossinfo, err := n.QueryOss(n.GetSignatureAccPulickey(), -1)
 	if err != nil {

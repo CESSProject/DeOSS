@@ -19,12 +19,12 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// cmd_exit_func is an implementation of the exit command,
+// exitCmd is an implementation of the exit command,
 // which is used to unregister the deoss role.
-func cmd_exit_func(cmd *cobra.Command, args []string) {
+func exitCmd(cmd *cobra.Command, args []string) {
 	var (
 		err error
-		n   = node.New()
+		n   = node.NewEmptyNode()
 	)
 
 	n.Config, err = buildConfigFile(cmd)
@@ -33,7 +33,7 @@ func cmd_exit_func(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
-	n.ChainClient, err = cess.New(
+	n.Chainer, err = cess.New(
 		context.Background(),
 		cess.Name(configs.Name),
 		cess.ConnectRpcAddrs(n.Config.Chain.Rpc),
@@ -44,7 +44,7 @@ func cmd_exit_func(cmd *cobra.Command, args []string) {
 		log.Println(err)
 		os.Exit(1)
 	}
-	defer n.ChainClient.Close()
+	defer n.Chainer.Close()
 
 	err = n.InitExtrinsicsNameForOSS()
 	if err != nil {

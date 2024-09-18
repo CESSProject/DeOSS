@@ -18,6 +18,7 @@ import (
 	out "github.com/CESSProject/DeOSS/common/fout"
 	"github.com/CESSProject/DeOSS/common/logger"
 	"github.com/CESSProject/DeOSS/common/record"
+	"github.com/CESSProject/DeOSS/common/tracker"
 	"github.com/CESSProject/DeOSS/common/utils"
 	"github.com/CESSProject/DeOSS/configs"
 	sdkgo "github.com/CESSProject/cess-go-sdk"
@@ -30,24 +31,26 @@ func (n *Node) InitNode() *Node {
 	n.InitChainClient()
 	n.InitWebServer(
 		InitMiddlewares(),
-		NewHandler(n.Chainer, n.Workspace, n.Logger),
+		NewHandler(n.Chainer, n.Tracker, n.Workspace, n.Logger),
 	)
 	n.InitMinerRecord(record.NewMinerRecord())
+	n.InitTracker(tracker.NewTracker(n.GetTrackDir()))
 	n.InitLogs()
 	return n
 }
 
 func (n *Node) InitWebServer(mdls []gin.HandlerFunc, hdl *Handler) {
-	gin.SetMode(gin.ReleaseMode)
-	n.Engine = gin.Default()
-	n.Engine.Use(mdls...)
-	hdl.RegisterRoutes(n.Engine)
+	gin.SetMode(n.Config.Application.Mode)
+	server := gin.Default()
+	server.Use(mdls...)
+	hdl.RegisterRoutes(server)
 	go func() {
-		err := n.Engine.Run(fmt.Sprintf(":%d", n.Config.Application.Port))
+		err := server.Run(fmt.Sprintf(":%d", n.Config.Application.Port))
 		if err != nil {
 			log.Fatal(err)
 		}
 	}()
+	n.InitServer(server)
 }
 
 func InitMiddlewares() []gin.HandlerFunc {
@@ -148,10 +151,11 @@ func (n Node) checkOss(addr string) error {
 		if err != nil {
 			return err
 		}
-		n.RebuildDirs()
+		n.RemoveAndBuild()
 		return nil
 	}
 
+	n.Build()
 	if string(ossinfo.Domain[:]) != addr {
 		_, err = n.UpdateOss(string(make([]byte, 0)), addr)
 		if err != nil {

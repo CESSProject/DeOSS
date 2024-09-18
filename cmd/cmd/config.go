@@ -16,9 +16,9 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// cmd_config_func is an implementation of the config command,
+// configCmd is an implementation of the config command,
 // which is used to generate configuration file.
-func cmd_config_func(cmd *cobra.Command, args []string) {
+func configCmd(cmd *cobra.Command, args []string) {
 	f, err := os.Create(confile.DefaultConfig)
 	if err != nil {
 		log.Printf("[err] %v\n", err)

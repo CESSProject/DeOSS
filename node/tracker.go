@@ -26,7 +26,7 @@ import (
 )
 
 // tracker
-func (n *Node) Tracker(ch chan<- bool) {
+func (n *Node) TrackerV1(ch chan<- bool) {
 	defer func() {
 		ch <- true
 		if err := recover(); err != nil {
@@ -41,7 +41,7 @@ func (n *Node) Tracker(ch chan<- bool) {
 	var trackFiles []string
 
 	for {
-		trackFiles, err = n.ListTrackFiles()
+		trackFiles, err = n.ListTraceFiles()
 		if err != nil {
 			n.Logtrack("err", err.Error())
 			time.Sleep(chain.BlockInterval)

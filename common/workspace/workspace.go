@@ -29,6 +29,7 @@ type Workspace interface {
 	GetStoringDir() string
 	GetTmpDir() string
 	GetLogDir() string
+	GetTrackDir() string
 }
 
 type workspace struct {
@@ -132,4 +133,7 @@ func (w *workspace) GetTmpDir() string {
 }
 func (w *workspace) GetLogDir() string {
 	return w.logDir
+}
+func (w *workspace) GetTrackDir() string {
+	return w.trackDir
 }

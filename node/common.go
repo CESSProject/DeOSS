@@ -10,18 +10,198 @@ package node
 import (
 	"encoding/hex"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
+	"github.com/CESSProject/DeOSS/common/utils"
 	"github.com/CESSProject/DeOSS/configs"
+	"github.com/CESSProject/cess-go-sdk/chain"
 	sutils "github.com/CESSProject/cess-go-sdk/utils"
 	"github.com/CESSProject/go-keyring"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/mr-tron/base58"
 	"github.com/pkg/errors"
 	"github.com/vedhavyas/go-subkey/v2/sr25519"
 )
+
+func CheckPermissionsMdl(account string, accessmode string, blacklist, accounts []string) bool {
+	for _, v := range blacklist {
+		if v == account {
+			return true
+		}
+	}
+	switch accessmode {
+	case configs.Access_Public:
+		for _, v := range accounts {
+			if v == account {
+				return false
+			}
+		}
+		return true
+	case configs.Access_Private:
+		for _, v := range accounts {
+			if v == account {
+				return true
+			}
+		}
+		return false
+	}
+	return false
+}
+
+func VerifySignatureMdl(c *gin.Context) (string, []byte, bool) {
+	account := c.Request.Header.Get(HTTPHeader_Account)
+	message := c.Request.Header.Get(HTTPHeader_Message)
+	signature := c.Request.Header.Get(HTTPHeader_Signature)
+	ethAccount := c.Request.Header.Get(HTTPHeader_EthAccount)
+
+	timestamp, err := strconv.ParseInt(message, 10, 64)
+	if err != nil {
+		t, err := time.Parse(time.DateTime, message)
+		if err == nil {
+			if time.Now().After(t) {
+				return account, nil, false
+			}
+		}
+	} else {
+		if isUnixTimestamp(timestamp) {
+			if time.Now().Unix() >= timestamp {
+				return account, nil, false
+			}
+		} else if isUnixMillTimestamp(timestamp) {
+			if time.Now().UnixMilli() >= timestamp {
+				return account, nil, false
+			}
+		}
+	}
+
+	if ethAccount != "" {
+		ethAccInSian, err := VerifyEthSign(message, signature)
+		if err != nil {
+			return account, nil, false
+		}
+		if ethAccInSian != ethAccount {
+			return account, nil, false
+		}
+		pkey, err := sutils.ParsingPublickey(account)
+		if err != nil {
+			return account, nil, false
+		}
+		return account, pkey, true
+	}
+	pkey, ok, err := utils.VerifySR25519WithPubkey(account, message, signature)
+	if err != nil || !ok {
+		pkey, ok, err = utils.VerifyPolkadotjsHexSign(account, message, signature)
+		return account, pkey, ok
+	}
+	return account, pkey, ok
+}
+
+func CheckChainSt(cli chain.Chainer, c *gin.Context) error {
+	syncSt, err := cli.SystemSyncState()
+	if err != nil {
+		ReturnJSON(c, 403, ERR_RPCConnection, nil)
+		return err
+	}
+
+	if syncSt.CurrentBlock+5 < syncSt.HighestBlock {
+		ReturnJSON(c, 403, ERR_RPCSyncing, nil)
+		return err
+	}
+	return nil
+}
+
+func CheckAuthorize(cli chain.Chainer, c *gin.Context, pkey []byte) error {
+	authAccs, err := cli.QueryAuthorityList(pkey, -1)
+	if err != nil {
+		if err.Error() == chain.ERR_Empty {
+			ReturnJSON(c, 403, ERR_SpaceNotAuth, nil)
+			return err
+		}
+		ReturnJSON(c, 403, ERR_RPCConnection, nil)
+		return err
+	}
+	flag := false
+	for _, v := range authAccs {
+		if sutils.CompareSlice(cli.GetSignatureAccPulickey(), v[:]) {
+			flag = true
+			break
+		}
+	}
+	if !flag {
+		ReturnJSON(c, 403, fmt.Sprintf("please authorize the gateway account: %s", cli.GetSignatureAcc()), nil)
+		return fmt.Errorf("please authorize the gateway account: %s", cli.GetSignatureAcc())
+	}
+	return nil
+}
+
+func CheckTerritory(cli chain.Chainer, c *gin.Context, pkey []byte, territoryName string) (uint64, error) {
+	territoryInfo, err := cli.QueryTerritory(pkey, territoryName, -1)
+	if err != nil {
+		if err.Error() == chain.ERR_Empty {
+			ReturnJSON(c, 400, ERR_NoTerritory, nil)
+			return 0, err
+		}
+		ReturnJSON(c, 403, ERR_RPCConnection, nil)
+		return 0, err
+	}
+
+	blockheight, err := cli.QueryBlockNumber("")
+	if err != nil {
+		ReturnJSON(c, 403, ERR_RPCConnection, nil)
+		return 0, err
+	}
+
+	if uint32(territoryInfo.Deadline) < blockheight {
+		ReturnJSON(c, 400, ERR_TerritoryExpiresSoon, nil)
+		return 0, fmt.Errorf("territory expired: %d < %d", territoryInfo.Deadline, blockheight)
+	}
+
+	remainingSpace, err := strconv.ParseUint(territoryInfo.RemainingSpace.String(), 10, 64)
+	if err != nil {
+		ReturnJSON(c, 500, ERR_SystemErr, nil)
+		return 0, err
+	}
+
+	return remainingSpace, nil
+}
+
+// string: tmp dir
+// string: tmp file path
+// error: error
+func CreateTmpPath(c *gin.Context, dir, account string) (string, string, error) {
+	var (
+		err      error
+		cacheDir string
+		uid      uuid.UUID
+	)
+	for {
+		uid, err = uuid.NewUUID()
+		if err != nil {
+			time.Sleep(time.Millisecond * 10)
+			continue
+		}
+
+		cacheDir = filepath.Join(dir, account, uid.String())
+		_, err = os.Stat(cacheDir)
+		if err != nil {
+			err = os.MkdirAll(cacheDir, 0755)
+			if err != nil {
+				ReturnJSON(c, 403, ERR_SystemErr, nil)
+				return "", "", err
+			}
+			return cacheDir, filepath.Join(cacheDir, fmt.Sprintf("%v", time.Now().Unix())), nil
+		}
+		time.Sleep(time.Second)
+		continue
+	}
+}
 
 func (n *Node) VerifyAccountSignature(account, msg, signature string) ([]byte, error) {
 	var err error

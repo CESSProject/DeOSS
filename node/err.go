@@ -1,5 +1,3 @@
-//go:build wireinject
-
 /*
 	Copyright (C) CESS. All rights reserved.
 	Copyright (C) Cumulus Encrypted Storage System. All rights reserved.
@@ -9,9 +7,10 @@
 
 package node
 
-import "github.com/google/wire"
+const (
+	MSG_OK = "ok"
 
-func InitNode() *Node {
-	wire.Build()
-	return &Node{}
-}
+	ERR_SystemErr = "system error"
+
+	ERR_InvalidFormFile = "invalid form file"
+)

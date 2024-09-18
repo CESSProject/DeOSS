@@ -9,24 +9,25 @@ package node
 
 import (
 	"github.com/CESSProject/DeOSS/common/logger"
+	"github.com/CESSProject/DeOSS/common/tracker"
 	"github.com/CESSProject/DeOSS/common/workspace"
 	"github.com/CESSProject/cess-go-sdk/chain"
 	"github.com/gin-gonic/gin"
 )
 
 type Handler struct {
-	//*FragmentHandler
+	*FileHandler
 	//*StatusHandler
 }
 
-func NewHandler(cli chain.Chainer, ws workspace.Workspace, lg logger.Logger) *Handler {
+func NewHandler(cli chain.Chainer, track tracker.Tracker, ws workspace.Workspace, lg logger.Logger) *Handler {
 	return &Handler{
-		//FragmentHandler: NewFragmentHandler(cli, ws, lg),
+		FileHandler: NewFileHandler(cli, track, ws, lg),
 		//StatusHandler:   NewStatusHandler(rs),
 	}
 }
 
 func (h *Handler) RegisterRoutes(server *gin.Engine) {
-	//h.FragmentHandler.RegisterRoutes(server)
+	h.FileHandler.RegisterRoutes(server)
 	//h.StatusHandler.RegisterRoutes(server)
 }

@@ -7,48 +7,6 @@
 
 package node
 
-import (
-	"github.com/CESSProject/DeOSS/common/coordinate"
-	"github.com/CESSProject/cess-go-sdk/chain"
-)
-
-type TrackerInfo struct {
-	Segment       []chain.SegmentDataInfo `json:"segment"`
-	Owner         []byte                  `json:"owner"`
-	ShuntMiner    ShuntMiner              `json:"shunt_miner"`
-	Points        coordinate.Range        `json:"range"`
-	Fid           string                  `json:"fid"`
-	FileName      string                  `json:"file_name"`
-	BucketName    string                  `json:"bucket_name"`
-	TerritoryName string                  `json:"territory_name"`
-	CacheDir      string                  `json:"cache_dir"`
-	Cipher        string                  `json:"cipher"`
-	FileSize      uint64                  `json:"file_size"`
-	PutFlag       bool                    `json:"put_flag"`
-}
-
-// old version
-type RecordInfo struct {
-	Segment       []chain.SegmentDataInfo `json:"segment"`
-	Owner         []byte                  `json:"owner"`
-	Fid           string                  `json:"fid"`
-	FileName      string                  `json:"file_name"`
-	BucketName    string                  `json:"bucket_name"`
-	TerritoryName string                  `json:"territory_name"`
-	CacheDir      string                  `json:"cache_dir"`
-	Cipher        string                  `json:"cipher"`
-	FileSize      uint64                  `json:"file_size"`
-	PutFlag       bool                    `json:"put_flag"`
-}
-
-type ShuntMiner struct {
-	Miners   []string `json:"miners"`
-	Complete []bool   `json:"complete"`
-}
-
-// MinTrackerInfoLength = len(json.Marshal(TrackerInfo{}))
-const MinTrackerInfoLength = 223
-
 // HTTP HEADER
 const (
 	HTTPHeader_Bucket          = "Bucket"
@@ -123,6 +81,7 @@ const (
 	ERR_FailedToRecvData    = "Failed to receive data"
 
 	ERR_RPCConnection = "Failed to connect to rpc, please try again later."
+	ERR_RPCSyncing    = "Syncing the latest blocks"
 	ERR_ServerBusy    = "Service is busy, please try again later."
 	ERR_EmptyFileName = "Empty file name"
 )
@@ -174,9 +133,3 @@ const (
 	// in file.owners
 	Duplicate2 DuplicateType = 2
 )
-
-type RespType struct {
-	Code int    `json:"code"`
-	Msg  string `json:"msg"`
-	Data any    `json:"data"`
-}
