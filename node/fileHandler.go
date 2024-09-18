@@ -70,6 +70,69 @@ func (f *FileHandler) RegisterRoutes(server *gin.Engine) {
 		},
 	)
 	filegroup.PUT("", f.PutFormFile)
+	filegroup.DELETE(fmt.Sprintf("/:%s", HTTP_ParameterName), f.DeleteAFile)
+}
+
+func (f *FileHandler) DeleteAFile(c *gin.Context) {
+	defer c.Request.Body.Close()
+
+	clientIp := c.Request.Header.Get(HTTPHeader_X_Forwarded_For)
+	if clientIp == "" {
+		clientIp = c.ClientIP()
+	}
+	fid := c.Param(HTTP_ParameterName)
+	f.Logdel("info", utils.StringBuilder(400, clientIp, fid))
+
+	err := CheckChainSt(f.Chainer, c)
+	if err != nil {
+		f.Logput("err", clientIp+" CheckChainSt: "+err.Error())
+		return
+	}
+
+	pkeystr, ok := c.Get("publickey")
+	if !ok {
+		f.Logput("err", clientIp+" c.Get(publickey) failed")
+		ReturnJSON(c, 500, ERR_SystemErr, nil)
+		return
+	}
+	pkey, err := hex.DecodeString(fmt.Sprintf("%v", pkeystr))
+	if err != nil {
+		f.Logput("err", clientIp+" hex.DecodeString "+fmt.Sprintf("%v", pkeystr)+" "+err.Error())
+		ReturnJSON(c, 500, ERR_SystemErr, nil)
+		return
+	}
+
+	if !sutils.CompareSlice(pkey, f.GetSignatureAccPulickey()) {
+		err = CheckAuthorize(f.Chainer, c, pkey)
+		if err != nil {
+			f.Logput("err", clientIp+" CheckAuthorize: "+err.Error())
+			return
+		}
+	}
+
+	blockHash, err := f.DeleteFile(pkey, fid)
+	if err != nil {
+		f.Logdel("err", clientIp+" DeleteFile failed: "+err.Error())
+		c.JSON(http.StatusBadRequest, err.Error())
+		ReturnJSON(c, 400, ERR_SystemErr, nil)
+		return
+	}
+	f.Logdel("info", clientIp+" DeleteFile suc: "+blockHash)
+	ReturnJSON(c, 200, MSG_OK, map[string]string{"block hash": blockHash})
+	_, err = f.QueryFile(fid, -1)
+	if err != nil {
+		if errors.Is(err, chain.ERR_RPC_EMPTY_VALUE) {
+			data, err := f.ParsingTraceFile(fid)
+			if err == nil {
+				for _, segment := range data.Segment {
+					for _, fragment := range segment.FragmentHash {
+						os.Remove(fragment)
+					}
+				}
+			}
+			os.Remove(filepath.Join(f.GetFileDir(), fid))
+		}
+	}
 }
 
 func (f *FileHandler) PutFormFile(c *gin.Context) {
@@ -123,10 +186,12 @@ func (f *FileHandler) PutFormFile(c *gin.Context) {
 		return
 	}
 
-	err = CheckAuthorize(f.Chainer, c, pkey)
-	if err != nil {
-		f.Logput("err", clientIp+" CheckAuthorize: "+err.Error())
-		return
+	if !sutils.CompareSlice(pkey, f.GetSignatureAccPulickey()) {
+		err = CheckAuthorize(f.Chainer, c, pkey)
+		if err != nil {
+			f.Logput("err", clientIp+" CheckAuthorize: "+err.Error())
+			return
+		}
 	}
 
 	territorySpace, err := CheckTerritory(f.Chainer, c, pkey, territoryName)
