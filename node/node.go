@@ -74,12 +74,12 @@ func (n *Node) Start() {
 	n.Engine.MaxMultipartMemory = MaxMemUsed
 	n.Engine.Use(cors.New(config))
 
-	n.Engine.GET("/version", n.Get_version)
-	n.Engine.GET("/bucket", n.Get_bucket)
+	//n.Engine.GET("/version", n.Get_version)
+	//n.Engine.GET("/bucket", n.Get_bucket)
 	n.Engine.GET(fmt.Sprintf("/metadata/:%s", HTTP_ParameterName_Fid), n.GetFileMetadata)
 	//n.Engine.GET(fmt.Sprintf("/download/:%s", HTTP_ParameterName_Fid), n.DownloadFile)
 	n.Engine.GET(fmt.Sprintf("/canfiles/:%s", HTTP_ParameterName_Fid), n.GetCanFileHandle)
-	n.Engine.GET(fmt.Sprintf("/open/:%s", HTTP_ParameterName_Fid), n.PreviewFile)
+	//n.Engine.GET(fmt.Sprintf("/open/:%s", HTTP_ParameterName_Fid), n.PreviewFile)
 	n.Engine.GET(fmt.Sprintf("/location/:%s", HTTP_ParameterName_Fid), n.GetFileLocation)
 
 	n.Engine.PUT("/bucket", n.PutBucket)
@@ -89,12 +89,12 @@ func (n *Node) Start() {
 	n.Engine.PUT("/chunks", n.PutChunksHandle)
 
 	//n.Engine.DELETE(fmt.Sprintf("/file/:%s", HTTP_ParameterName), n.DeleteFile)
-	n.Engine.DELETE(fmt.Sprintf("/bucket/:%s", HTTP_ParameterName), n.DeleteBucket)
+	//n.Engine.DELETE(fmt.Sprintf("/bucket/:%s", HTTP_ParameterName), n.DeleteBucket)
 
-	n.Engine.GET("/favicon.ico", func(c *gin.Context) {
-		c.Header("Cache-Control", "public, max-age=31536000")
-		c.File("./static/favicon.ico")
-	})
+	// n.Engine.GET("/favicon.ico", func(c *gin.Context) {
+	// 	c.Header("Cache-Control", "public, max-age=31536000")
+	// 	c.File("./static/favicon.ico")
+	// })
 
 	// tasks
 	go n.TaskMgt()

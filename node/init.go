@@ -11,6 +11,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"path/filepath"
 	"time"
@@ -43,6 +44,13 @@ func (n *Node) InitWebServer(mdls []gin.HandlerFunc, hdl *Handler) {
 	gin.SetMode(n.Config.Application.Mode)
 	server := gin.Default()
 	server.Use(mdls...)
+	server.GET("/favicon.ico", func(c *gin.Context) {
+		c.Header("Cache-Control", "public, max-age=31536000")
+		c.File("./static/favicon.ico")
+	})
+	server.GET("/version", func(ctx *gin.Context) {
+		ctx.JSON(http.StatusOK, configs.Version)
+	})
 	hdl.RegisterRoutes(server)
 	go func() {
 		err := server.Run(fmt.Sprintf(":%d", n.Config.Application.Port))

@@ -17,17 +17,17 @@ import (
 
 type Handler struct {
 	*FileHandler
-	//*StatusHandler
+	*BucketHandler
 }
 
 func NewHandler(cli chain.Chainer, track tracker.Tracker, ws workspace.Workspace, lg logger.Logger) *Handler {
 	return &Handler{
-		FileHandler: NewFileHandler(cli, track, ws, lg),
-		//StatusHandler:   NewStatusHandler(rs),
+		FileHandler:   NewFileHandler(cli, track, ws, lg),
+		BucketHandler: NewBucketHandler(cli, lg),
 	}
 }
 
 func (h *Handler) RegisterRoutes(server *gin.Engine) {
 	h.FileHandler.RegisterRoutes(server)
-	//h.StatusHandler.RegisterRoutes(server)
+	h.BucketHandler.RegisterRoutes(server)
 }
