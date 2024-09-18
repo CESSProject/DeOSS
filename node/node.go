@@ -80,12 +80,12 @@ func (n *Node) Start() {
 	//n.Engine.GET(fmt.Sprintf("/download/:%s", HTTP_ParameterName_Fid), n.DownloadFile)
 	n.Engine.GET(fmt.Sprintf("/canfiles/:%s", HTTP_ParameterName_Fid), n.GetCanFileHandle)
 	//n.Engine.GET(fmt.Sprintf("/open/:%s", HTTP_ParameterName_Fid), n.PreviewFile)
-	n.Engine.GET(fmt.Sprintf("/location/:%s", HTTP_ParameterName_Fid), n.GetFileLocation)
+	//n.Engine.GET(fmt.Sprintf("/location/:%s", HTTP_ParameterName_Fid), n.GetFileLocation)
 
 	//n.Engine.PUT("/bucket", n.PutBucket)
 	//n.Engine.PUT("/file", n.PutFile)
 	n.Engine.PUT("/object", n.PutObject)
-	n.Engine.PUT(fmt.Sprintf("/resume/:%s", HTTP_ParameterName), n.ResumeUpload)
+	//n.Engine.PUT(fmt.Sprintf("/resume/:%s", HTTP_ParameterName), n.ResumeUpload)
 	n.Engine.PUT("/chunks", n.PutChunksHandle)
 
 	//n.Engine.DELETE(fmt.Sprintf("/file/:%s", HTTP_ParameterName), n.DeleteFile)

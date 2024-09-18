@@ -8,7 +8,6 @@ SPDX-License-Identifier: Apache-2.0
 package node
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -17,174 +16,173 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/CESSProject/cess-go-sdk/chain"
 	sutils "github.com/CESSProject/cess-go-sdk/utils"
 	"github.com/gin-gonic/gin"
 )
 
-func (n *Node) PreviewFile(c *gin.Context) {
-	if _, ok := <-max_concurrent_get_ch; !ok {
-		c.JSON(http.StatusTooManyRequests, "server is busy, please try again later.")
-		return
-	}
-	defer func() { max_concurrent_get_ch <- true }()
+// func (n *Node) PreviewFile(c *gin.Context) {
+// 	if _, ok := <-max_concurrent_get_ch; !ok {
+// 		c.JSON(http.StatusTooManyRequests, "server is busy, please try again later.")
+// 		return
+// 	}
+// 	defer func() { max_concurrent_get_ch <- true }()
 
-	fid := c.Param(HTTP_ParameterName_Fid)
-	account := c.Request.Header.Get(HTTPHeader_Account)
-	format := c.Request.Header.Get(HTTPHeader_Format)
-	rgn := c.Request.Header.Get(HTTPHeader_Range)
-	clientIp := c.Request.Header.Get("X-Forwarded-For")
-	if clientIp == "" {
-		clientIp = c.ClientIP()
-	}
+// 	fid := c.Param(HTTP_ParameterName_Fid)
+// 	account := c.Request.Header.Get(HTTPHeader_Account)
+// 	format := c.Request.Header.Get(HTTPHeader_Format)
+// 	rgn := c.Request.Header.Get(HTTPHeader_Range)
+// 	clientIp := c.Request.Header.Get("X-Forwarded-For")
+// 	if clientIp == "" {
+// 		clientIp = c.ClientIP()
+// 	}
 
-	if strings.Contains(fid, ".") {
-		temp := strings.Split(fid, ".")
-		fid = temp[0]
-		if format == "" && len(temp) > 1 {
-			format = temp[1]
-		}
-	} else {
-		if len(fid) > chain.FileHashLen {
-			tmp_fid := fid[:chain.FileHashLen]
-			format = fid[chain.FileHashLen:]
-			fid = tmp_fid
-		} else if len(fid) < chain.FileHashLen {
-			n.Logopen("err", clientIp+" invalid fid: "+fid)
-			c.JSON(404, "invalid fid")
-			return
-		}
-	}
+// 	if strings.Contains(fid, ".") {
+// 		temp := strings.Split(fid, ".")
+// 		fid = temp[0]
+// 		if format == "" && len(temp) > 1 {
+// 			format = temp[1]
+// 		}
+// 	} else {
+// 		if len(fid) > chain.FileHashLen {
+// 			tmp_fid := fid[:chain.FileHashLen]
+// 			format = fid[chain.FileHashLen:]
+// 			fid = tmp_fid
+// 		} else if len(fid) < chain.FileHashLen {
+// 			n.Logopen("err", clientIp+" invalid fid: "+fid)
+// 			c.JSON(404, "invalid fid")
+// 			return
+// 		}
+// 	}
 
-	n.Logopen("info", clientIp+" open file: "+fid+" account: "+account+" format: "+format+" Range: "+rgn)
+// 	n.Logopen("info", clientIp+" open file: "+fid+" account: "+account+" format: "+format+" Range: "+rgn)
 
-	var err error
-	var contenttype any
-	if format == "" {
-		code := 0
-		content_type := ""
-		recordInfo, err := n.ParseTrackFile(fid)
-		if err != nil {
-			format, content_type, code, err = n.QueryFileType(fid, account)
-			if err != nil {
-				n.Logopen("err", clientIp+" QueryFileType: "+err.Error())
-				c.JSON(code, "Please wait for the file to be on chain before operating")
-				return
-			}
-			contenttype = content_type
-		} else {
-			ok := false
-			format = filepath.Ext(recordInfo.FileName)
-			contenttype, ok = contentType.Load(strings.ToLower(format))
-			if !ok {
-				contenttype = "application/octet-stream"
-			}
-		}
+// 	var err error
+// 	var contenttype any
+// 	if format == "" {
+// 		code := 0
+// 		content_type := ""
+// 		recordInfo, err := n.ParseTrackFile(fid)
+// 		if err != nil {
+// 			format, content_type, code, err = n.QueryFileType(fid, account)
+// 			if err != nil {
+// 				n.Logopen("err", clientIp+" QueryFileType: "+err.Error())
+// 				c.JSON(code, "Please wait for the file to be on chain before operating")
+// 				return
+// 			}
+// 			contenttype = content_type
+// 		} else {
+// 			ok := false
+// 			format = filepath.Ext(recordInfo.FileName)
+// 			contenttype, ok = contentType.Load(strings.ToLower(format))
+// 			if !ok {
+// 				contenttype = "application/octet-stream"
+// 			}
+// 		}
 
-	} else {
-		if !strings.HasPrefix(format, ".") {
-			format = "." + format
-		}
-		ok := false
-		contenttype, ok = contentType.Load(strings.ToLower(format))
-		if !ok {
-			n.Logopen("err", clientIp+" contentType.Load failed: unknown file format")
-			c.JSON(http.StatusBadRequest, "unknown file format")
-			return
-		}
-	}
+// 	} else {
+// 		if !strings.HasPrefix(format, ".") {
+// 			format = "." + format
+// 		}
+// 		ok := false
+// 		contenttype, ok = contentType.Load(strings.ToLower(format))
+// 		if !ok {
+// 			n.Logopen("err", clientIp+" contentType.Load failed: unknown file format")
+// 			c.JSON(http.StatusBadRequest, "unknown file format")
+// 			return
+// 		}
+// 	}
 
-	n.Logopen("info", clientIp+" file format: "+format+" content type: "+contenttype.(string))
+// 	n.Logopen("info", clientIp+" file format: "+format+" content type: "+contenttype.(string))
 
-	size, fpath, err := n.CheckLocalFile(fid)
-	if err == nil && size > 0 {
-		f, err := os.Open(fpath)
-		if err != nil {
-			n.Logopen("info", clientIp+" open the file from local, open file failed: "+err.Error())
-			c.JSON(http.StatusInternalServerError, err.Error())
-			return
-		}
-		n.Logopen("info", fmt.Sprintf("[%s] return the file [%s] from local", clientIp, fid))
-		if rgn != "" {
-			err = rangeRequest(c, rgn, contenttype.(string), fpath)
-			n.Logopen("info", fmt.Sprintf("[%s] return the file [%s] from local by range, err: %v", clientIp, fid, err))
-			return
-		}
-		n.ReturnFile(c, f, fid, contenttype.(string), format, size)
-		return
-	}
+// 	size, fpath, err := n.CheckLocalFile(fid)
+// 	if err == nil && size > 0 {
+// 		f, err := os.Open(fpath)
+// 		if err != nil {
+// 			n.Logopen("info", clientIp+" open the file from local, open file failed: "+err.Error())
+// 			c.JSON(http.StatusInternalServerError, err.Error())
+// 			return
+// 		}
+// 		n.Logopen("info", fmt.Sprintf("[%s] return the file [%s] from local", clientIp, fid))
+// 		if rgn != "" {
+// 			err = rangeRequest(c, rgn, contenttype.(string), fpath)
+// 			n.Logopen("info", fmt.Sprintf("[%s] return the file [%s] from local by range, err: %v", clientIp, fid, err))
+// 			return
+// 		}
+// 		n.ReturnFile(c, f, fid, contenttype.(string), format, size)
+// 		return
+// 	}
 
-	fpath = filepath.Join(n.fileDir, fid)
-	peerList, _ := n.QueryAllOssPeerId(-1)
-	for _, v := range peerList {
-		n.Logopen("info", fmt.Sprintf("[%s] will req to gateway: %s", clientIp, v))
-		addr, ok := n.GetPeer(v)
-		if !ok {
-			continue
-		}
-		if n.ID().String() == v {
-			continue
-		}
-		n.Peerstore().AddAddrs(addr.ID, addr.Addrs, time.Minute)
-		ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
-		defer cancel()
-		_, err = n.ReadDataAction(ctx, addr.ID, fid, fpath)
-		if err != nil {
-			n.Logopen("info", clientIp+" open the file from gateway, ReadDataAction failed: "+err.Error())
-			n.Peerstore().ClearAddrs(addr.ID)
-			continue
-		}
-		n.Peerstore().ClearAddrs(addr.ID)
-		f, err := os.Open(fpath)
-		if err != nil {
-			n.Logopen("info", clientIp+" open the file from gateway, os.Open failed: "+err.Error())
-			c.JSON(http.StatusInternalServerError, err.Error())
-			return
-		}
-		n.Logopen("info", fmt.Sprintf("[%s] return the file [%s] from gateway", clientIp, fid))
-		if rgn != "" {
-			err = rangeRequest(c, rgn, contenttype.(string), fpath)
-			n.Logopen("info", fmt.Sprintf("[%s] return the file [%s] from local by range, err: %v", clientIp, fid, err))
-			return
-		}
-		n.ReturnFile(c, f, fid, contenttype.(string), format, size)
-		return
-	}
+// 	fpath = filepath.Join(n.fileDir, fid)
+// 	peerList, _ := n.QueryAllOssPeerId(-1)
+// 	for _, v := range peerList {
+// 		n.Logopen("info", fmt.Sprintf("[%s] will req to gateway: %s", clientIp, v))
+// 		addr, ok := n.GetPeer(v)
+// 		if !ok {
+// 			continue
+// 		}
+// 		if n.ID().String() == v {
+// 			continue
+// 		}
+// 		n.Peerstore().AddAddrs(addr.ID, addr.Addrs, time.Minute)
+// 		ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+// 		defer cancel()
+// 		_, err = n.ReadDataAction(ctx, addr.ID, fid, fpath)
+// 		if err != nil {
+// 			n.Logopen("info", clientIp+" open the file from gateway, ReadDataAction failed: "+err.Error())
+// 			n.Peerstore().ClearAddrs(addr.ID)
+// 			continue
+// 		}
+// 		n.Peerstore().ClearAddrs(addr.ID)
+// 		f, err := os.Open(fpath)
+// 		if err != nil {
+// 			n.Logopen("info", clientIp+" open the file from gateway, os.Open failed: "+err.Error())
+// 			c.JSON(http.StatusInternalServerError, err.Error())
+// 			return
+// 		}
+// 		n.Logopen("info", fmt.Sprintf("[%s] return the file [%s] from gateway", clientIp, fid))
+// 		if rgn != "" {
+// 			err = rangeRequest(c, rgn, contenttype.(string), fpath)
+// 			n.Logopen("info", fmt.Sprintf("[%s] return the file [%s] from local by range, err: %v", clientIp, fid, err))
+// 			return
+// 		}
+// 		n.ReturnFile(c, f, fid, contenttype.(string), format, size)
+// 		return
+// 	}
 
-	// if !completion {
-	// 	n.Logopen("err", fmt.Sprintf("[%s] download file [%s] : %v", clientIp, fid, "The file is being stored, please download it from the gateway where you uploaded it."))
-	// 	c.JSON(http.StatusNotFound, "The file is being stored, please download it from the gateway where you uploaded it.")
-	// 	return
-	// }
+// 	// if !completion {
+// 	// 	n.Logopen("err", fmt.Sprintf("[%s] download file [%s] : %v", clientIp, fid, "The file is being stored, please download it from the gateway where you uploaded it."))
+// 	// 	c.JSON(http.StatusNotFound, "The file is being stored, please download it from the gateway where you uploaded it.")
+// 	// 	return
+// 	// }
 
-	// download from miner
-	fpath, err = n.retrieve_file(fid, n.fileDir, "")
-	if err != nil {
-		n.Logopen("err", fmt.Sprintf("[%s] Download file [%s] : %v", clientIp, fid, err))
-		if strings.Contains(err.Error(), "being retrieved") {
-			c.JSON(http.StatusForbidden, err.Error())
-			return
-		}
-		c.JSON(http.StatusInternalServerError, "File download failed, it is recommended to use another gateway.")
-		return
-	}
-	n.Logopen("info", fmt.Sprintf("[%s] Download file [%s] suc", clientIp, fid))
-	f, err := os.Open(fpath)
-	if err != nil {
-		n.Logopen("info", clientIp+" open the file from miner, open file failed: "+err.Error())
-		c.JSON(http.StatusInternalServerError, err.Error())
-		return
-	}
-	n.Logopen("info", fmt.Sprintf("[%s] return the file [%s] from miner", clientIp, fid))
-	if rgn != "" {
-		err = rangeRequest(c, rgn, contenttype.(string), fpath)
-		n.Logopen("info", fmt.Sprintf("[%s] return the file [%s] from local by range, err: %v", clientIp, fid, err))
-		return
-	}
-	n.ReturnFile(c, f, fid, contenttype.(string), format, size)
-}
+// 	// download from miner
+// 	fpath, err = n.retrieve_file(fid, n.fileDir, "")
+// 	if err != nil {
+// 		n.Logopen("err", fmt.Sprintf("[%s] Download file [%s] : %v", clientIp, fid, err))
+// 		if strings.Contains(err.Error(), "being retrieved") {
+// 			c.JSON(http.StatusForbidden, err.Error())
+// 			return
+// 		}
+// 		c.JSON(http.StatusInternalServerError, "File download failed, it is recommended to use another gateway.")
+// 		return
+// 	}
+// 	n.Logopen("info", fmt.Sprintf("[%s] Download file [%s] suc", clientIp, fid))
+// 	f, err := os.Open(fpath)
+// 	if err != nil {
+// 		n.Logopen("info", clientIp+" open the file from miner, open file failed: "+err.Error())
+// 		c.JSON(http.StatusInternalServerError, err.Error())
+// 		return
+// 	}
+// 	n.Logopen("info", fmt.Sprintf("[%s] return the file [%s] from miner", clientIp, fid))
+// 	if rgn != "" {
+// 		err = rangeRequest(c, rgn, contenttype.(string), fpath)
+// 		n.Logopen("info", fmt.Sprintf("[%s] return the file [%s] from local by range, err: %v", clientIp, fid, err))
+// 		return
+// 	}
+// 	n.ReturnFile(c, f, fid, contenttype.(string), format, size)
+// }
 
 func (n *Node) QueryFileType(fid string, account string) (string, string, int, error) {
 	format := ""
