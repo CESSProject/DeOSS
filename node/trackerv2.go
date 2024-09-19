@@ -9,7 +9,6 @@ package node
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -18,7 +17,6 @@ import (
 	"github.com/CESSProject/DeOSS/common/utils"
 	"github.com/CESSProject/cess-go-sdk/chain"
 	schain "github.com/CESSProject/cess-go-sdk/chain"
-	sconfig "github.com/CESSProject/cess-go-sdk/config"
 	sutils "github.com/CESSProject/cess-go-sdk/utils"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/pkg/errors"
@@ -53,7 +51,7 @@ func (n *Node) processTrackFiles() {
 	var err error
 	var count uint8
 	var trackFiles []string
-	trackFiles, err = n.ListTrackFiles()
+	trackFiles, err = n.ListTraceFiles()
 	if err != nil {
 		n.Logtrack("err", err.Error())
 		return
@@ -103,7 +101,7 @@ func (n *Node) processTrackFiles() {
 }
 
 func (n *Node) checkFileState(fid string) (StorageDataType, bool, error) {
-	recordFile, err := n.ParseTrackFile(fid)
+	recordFile, err := n.ParsingTraceFile(fid)
 	if err != nil {
 		return StorageDataType{}, false, fmt.Errorf("[ParseTrackFromFile(%s)] %v", fid, err)
 	}
@@ -119,7 +117,7 @@ func (n *Node) checkFileState(fid string) (StorageDataType, bool, error) {
 				os.Remove(filepath.Join(recordFile.CacheDir, recordFile.Segment[i].FragmentHash[j]))
 			}
 		}
-		n.DeleteTrackFile(fid)
+		n.DeleteTraceFile(fid)
 		return StorageDataType{}, true, nil
 	}
 
@@ -150,11 +148,7 @@ func (n *Node) checkFileState(fid string) (StorageDataType, bool, error) {
 			return StorageDataType{}, false, fmt.Errorf("The fid after reprocessing is inconsistent [%s != %s] %v", recordFile.Fid, hash, err)
 		}
 		recordFile.Segment = segment
-		b, err := json.Marshal(&recordFile)
-		if err != nil {
-			return StorageDataType{}, false, errors.Wrapf(err, "[%s] [json.Marshal]", fid)
-		}
-		err = n.WriteTrackFile(fid, b)
+		err = n.AddToTraceFile(fid, recordFile)
 		if err != nil {
 			return StorageDataType{}, false, errors.Wrapf(err, "[%s] [WriteTrackFile]", fid)
 		}
@@ -172,7 +166,7 @@ func (n *Node) checkFileState(fid string) (StorageDataType, bool, error) {
 			return StorageDataType{}, false, err
 		}
 	} else {
-		for index := 0; index < (sconfig.DataShards + sconfig.ParShards); index++ {
+		for index := 0; index < (chain.DataShards + chain.ParShards); index++ {
 			acc, ok := IsComplete(index+1, dealmap.CompleteList)
 			if ok {
 				storageDataType.Complete = append(storageDataType.Complete, acc)
@@ -224,7 +218,7 @@ func (n *Node) checkFileState(fid string) (StorageDataType, bool, error) {
 	}
 	n.Logtrack("info", fmt.Sprintf(" %s [UploadDeclaration] suc: %s", fid, txhash))
 
-	for index := 0; index < (sconfig.DataShards + sconfig.ParShards); index++ {
+	for index := 0; index < (chain.DataShards + chain.ParShards); index++ {
 		var value = make([]string, 0)
 		for i := 0; i < len(recordFile.Segment); i++ {
 			value = append(value, string(recordFile.Segment[i].FragmentHash[index]))
@@ -259,9 +253,9 @@ func (n *Node) storageToPeer(peerid string, tracks []StorageDataType) error {
 		return fmt.Errorf("%s not found addr", peerid)
 	}
 
-	n.Peerstore().AddAddrs(addr.ID, addr.Addrs, time.Hour)
+	//n.Peerstore().AddAddrs(addr.ID, addr.Addrs, time.Hour)
 	err := n.storagedata(addr.ID, tracks)
-	n.Peerstore().ClearAddrs(addr.ID)
+	//n.Peerstore().ClearAddrs(addr.ID)
 	if err != nil {
 		return err
 	}
@@ -280,7 +274,7 @@ func (n *Node) storagedata(peerid peer.ID, tracks []StorageDataType) error {
 		n.Logtrack("err", fmt.Sprintf(" peer status is not %s", schain.MINER_STATE_POSITIVE))
 		return fmt.Errorf(" %s status is not %s", account, schain.MINER_STATE_POSITIVE)
 	}
-	if accountInfo.IdleSpace < sconfig.FragmentSize*(sconfig.ParShards+sconfig.DataShards) {
+	if accountInfo.IdleSpace < chain.FragmentSize*(chain.ParShards+chain.DataShards) {
 		n.Logtrack("err", " peer space < 96M")
 		return fmt.Errorf(" %s space < 96M", account)
 	}
@@ -300,8 +294,8 @@ func (n *Node) storagedata(peerid peer.ID, tracks []StorageDataType) error {
 		} else {
 			tracks[i].Data = make([][]string, 0)
 		}
-		accountInfo.IdleSpace -= sconfig.FragmentSize * (sconfig.ParShards + sconfig.DataShards)
-		if accountInfo.IdleSpace < sconfig.FragmentSize*(sconfig.ParShards+sconfig.DataShards) {
+		accountInfo.IdleSpace -= chain.FragmentSize * (chain.ParShards + chain.DataShards)
+		if accountInfo.IdleSpace < chain.FragmentSize*(chain.ParShards+chain.DataShards) {
 			n.Logtrack("info", " peer space < 96M, stop storage")
 			return nil
 		}

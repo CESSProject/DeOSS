@@ -119,13 +119,13 @@ func (n *Node) TaskMgt() {
 
 func (n *Node) RefreshBlacklist(ch chan<- bool) {
 	defer func() { ch <- true }()
-	allpeers := n.GetBlacklist()
-	for _, v := range allpeers {
-		if n.ConnectPeer(v.Addrs) {
-			n.RemoveFromBlacklist(v.Addrs.ID.String())
-			n.AddToWhitelist(v.Addrs.ID.String(), "")
-		}
-	}
+	// allpeers := n.GetBlacklist()
+	// for _, v := range allpeers {
+	// 	if n.ConnectPeer(v.Addrs) {
+	// 		n.RemoveFromBlacklist(v.Addrs.ID.String())
+	// 		n.AddToWhitelist(v.Addrs.ID.String(), "")
+	// 	}
+	// }
 }
 
 func (n *Node) RefreshMiner(ch chan<- bool) {

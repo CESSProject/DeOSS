@@ -321,6 +321,28 @@ func ReturnFileStream(c *gin.Context, reader io.Reader, fid, contenttype, format
 	c.DataFromReader(http.StatusOK, size, contenttype, reader, nil)
 }
 
+func VideoAndAudioHeader(c *gin.Context, fname string) {
+	c.Header("Accept-ranges", "bytes")
+	c.Writer.Header().Add("Access-control-allow-headers", "Content-Type")
+	c.Writer.Header().Add("Access-control-allow-headers", "Range")
+	c.Writer.Header().Add("Access-control-allow-headers", "User-Agent")
+	c.Writer.Header().Add("Access-control-allow-headers", "X-Request-With")
+	c.Header("Accept-control-allow-methods", "GET")
+	c.Header("Accept-control-allow-origin", "*")
+	c.Writer.Header().Add("Accept-control-expose-headers", "Content-Range")
+	c.Writer.Header().Add("Accept-control-expose-headers", "X-Chunked-Output")
+	c.Writer.Header().Add("Accept-control-expose-headers", "X-Stream-Output")
+	c.Header("Cache-control", "public, max-age=29030400, immutable")
+	c.Header("Content-disposition", fmt.Sprintf("inline; filename=%v", fname))
+}
+
+func OtherHeader(c *gin.Context, fname string) {
+	c.Header("Accept-ranges", "bytes")
+	c.Header("Accept-control-allow-origin", "*")
+	c.Header("Cache-control", "public, max-age=2592000, no-transform, immutable")
+	c.Header("Content-disposition", fmt.Sprintf("inline; filename=%v", fname))
+}
+
 func ReturnFileRangeStream(c *gin.Context, rng string, content_type string, file string) error {
 	f, err := os.Open(file)
 	if err != nil {
