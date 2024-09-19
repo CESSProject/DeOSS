@@ -29,7 +29,6 @@ type Logger interface {
 	Logopen(string, string)
 	Logdel(string, string)
 	Logtrack(string, string)
-	Logchunk(string, string)
 }
 
 type logs struct {
@@ -42,7 +41,6 @@ type logs struct {
 	log_open  *zap.Logger
 	log_del   *zap.Logger
 	log_track *zap.Logger
-	log_chunk *zap.Logger
 }
 
 // log file
@@ -56,7 +54,6 @@ var (
 		"open",     // open log
 		"delete",   // delete log
 		"track",    // track log
-		"chunk",
 	}
 )
 
@@ -104,9 +101,6 @@ func NewLogs(logfiles map[string]string) (Logger, error) {
 		case "track":
 			l.log_track = zap.New(newCore, zap.AddCaller())
 			l.log_track.Sugar().Infof("%v", fpath)
-		case "chunk":
-			l.log_chunk = zap.New(newCore, zap.AddCaller())
-			l.log_chunk.Sugar().Infof("%v", fpath)
 		}
 	}
 	l.logpath = logpath
@@ -186,16 +180,6 @@ func (l *logs) Logtrack(level string, msg string) {
 		l.log_track.Sugar().Infof("[%v:%d] %v", filepath.Base(file), line, msg)
 	case "err", "error", "ERR", "Err":
 		l.log_track.Sugar().Errorf("[%v:%d] %v", filepath.Base(file), line, msg)
-	}
-}
-
-func (l *logs) Logchunk(level string, msg string) {
-	_, file, line, _ := runtime.Caller(1)
-	switch level {
-	case "info", "INFO", "Info":
-		l.log_chunk.Sugar().Infof("[%v:%d] %v", filepath.Base(file), line, msg)
-	case "err", "error", "ERR", "Err":
-		l.log_chunk.Sugar().Errorf("[%v:%d] %v", filepath.Base(file), line, msg)
 	}
 }
 
