@@ -12,7 +12,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -43,22 +42,22 @@ type ResumeHandler struct {
 }
 
 func NewResumeHandler(cli chain.Chainer, track tracker.Tracker, ws workspace.Workspace, lg logger.Logger) *ResumeHandler {
-	return &ResumeHandler{Chainer: cli, Tracker: track, Workspace: ws, Logger: lg, Limiter: rate.NewLimiter(rate.Every(chain.BlockInterval), 20)}
+	return &ResumeHandler{Chainer: cli, Tracker: track, Workspace: ws, Logger: lg, Limiter: rate.NewLimiter(rate.Every(time.Millisecond*10), 20)}
 }
 
 func (r *ResumeHandler) RegisterRoutes(server *gin.Engine) {
 	resumegroup := server.Group("/resume")
 	resumegroup.Use(
-		func(ctx *gin.Context) {
-			if !r.Limiter.Allow() {
-				ctx.AbortWithStatusJSON(http.StatusOK, RespType{
-					Code: http.StatusForbidden,
-					Msg:  ERR_ServerBusy,
-				})
-				return
-			}
-			ctx.Next()
-		},
+		// func(ctx *gin.Context) {
+		// 	if !r.Limiter.Allow() {
+		// 		ctx.AbortWithStatusJSON(http.StatusOK, RespType{
+		// 			Code: http.StatusForbidden,
+		// 			Msg:  ERR_ServerBusy,
+		// 		})
+		// 		return
+		// 	}
+		// 	ctx.Next()
+		// },
 		func(ctx *gin.Context) {
 			acc, pk, ok := VerifySignatureMdl(ctx)
 			if !ok {
@@ -91,53 +90,20 @@ func (r *ResumeHandler) RegisterRoutes(server *gin.Engine) {
 			ctx.Next()
 		},
 	)
-	resumegroup.PUT(fmt.Sprintf("/resume/:%s", HTTP_ParameterName), r.ResumeHandle)
+	resumegroup.PUT(fmt.Sprintf("/:%s", HTTP_ParameterName), r.ResumeHandle)
 }
 
 func (r *ResumeHandler) ResumeHandle(c *gin.Context) {
 	defer c.Request.Body.Close()
 
 	account := c.Request.Header.Get(HTTPHeader_Account)
-	clientIp := c.Request.Header.Get("X-Forwarded-For")
+	clientIp := c.Request.Header.Get(HTTPHeader_X_Forwarded_For)
 	if clientIp == "" {
 		clientIp = c.ClientIP()
 	}
-	err := CheckChainSt(r.Chainer, c)
-	if err != nil {
-		r.Logput("err", clientIp+" CheckChainSt: "+err.Error())
-		return
-	}
-
-	filename := c.Param(HTTP_ParameterName)
-	if filename == "" {
-		r.Logput("err", clientIp+" "+ERR_EmptyFileName)
-		ReturnJSON(c, 400, ERR_EmptyFileName, nil)
-		return
-	}
-
-	if strings.Contains(filename, "%") {
-		name, err := url.PathUnescape(filename)
-		if err == nil {
-			filename = name
-		}
-	}
-
-	if len(filename) > int(chain.MaxBucketNameLength) {
-		r.Logput("err", clientIp+" "+ERR_FileNameTooLang+": "+filename)
-		ReturnJSON(c, 400, ERR_FileNameTooLang, nil)
-		return
-	}
-
-	if len(filename) < int(chain.MinBucketNameLength) {
-		r.Logput("err", clientIp+" "+ERR_FileNameTooShort+": "+filename)
-		ReturnJSON(c, 400, ERR_FileNameTooShort, nil)
-		return
-	}
-
-	r.Logput("info", utils.StringBuilder(400, clientIp, account, filename))
 
 	dir := filepath.Join(r.GetTmpDir(), account)
-	err = os.MkdirAll(dir, 0755)
+	err := os.MkdirAll(dir, 0755)
 	if err != nil {
 		r.Logput("err", clientIp+" MkdirAll: "+err.Error())
 		ReturnJSON(c, 500, ERR_SystemErr, nil)
@@ -186,7 +152,31 @@ func (r *ResumeHandler) ResumeHandle(c *gin.Context) {
 		return
 	}
 
+	filename := c.Param(HTTP_ParameterName)
+
 	if start == 0 {
+		r.Logput("info", utils.StringBuilder(400, clientIp, account, filename, rangeHeader))
+
+		if !r.Limiter.Allow() {
+			c.AbortWithStatusJSON(http.StatusOK, RespType{
+				Code: http.StatusForbidden,
+				Msg:  ERR_ServerBusy,
+			})
+			return
+		}
+
+		err := CheckChainSt(r.Chainer, c)
+		if err != nil {
+			r.Logput("err", clientIp+" CheckChainSt: "+err.Error())
+			return
+		}
+
+		err = CheckFilename(c, filename)
+		if err != nil {
+			r.Logput("err", clientIp+" CheckFilename: "+err.Error())
+			return
+		}
+
 		bucketName := c.Request.Header.Get(HTTPHeader_Bucket)
 		if !chain.CheckBucketName(bucketName) {
 			r.Logput("err", clientIp+" CheckBucketName failed: "+bucketName)

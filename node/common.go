@@ -13,6 +13,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -438,6 +439,28 @@ func CheckFileType(cli chain.Chainer, fid string, account string) (string, error
 		return strings.ToLower(format), nil
 	}
 	return "", errors.New("unknown file format")
+}
+
+func CheckFilename(c *gin.Context, filename string) error {
+	if filename == "" {
+		ReturnJSON(c, 400, ERR_EmptyFileName, nil)
+		return errors.New(ERR_EmptyFileName)
+	}
+	if strings.Contains(filename, "%") {
+		name, err := url.PathUnescape(filename)
+		if err == nil {
+			filename = name
+		}
+	}
+	if len(filename) > int(chain.MaxBucketNameLength) {
+		ReturnJSON(c, 400, ERR_FileNameTooLang, nil)
+		return errors.New(ERR_FileNameTooLang)
+	}
+	if len(filename) < int(chain.MinBucketNameLength) {
+		ReturnJSON(c, 400, ERR_FileNameTooShort, nil)
+		return errors.New(ERR_FileNameTooShort)
+	}
+	return nil
 }
 
 func CheckMinerLocation(cli chain.Chainer, puk []byte) (float64, float64, error) {

@@ -32,10 +32,16 @@ type MinerRecorder interface {
 	GetAllMinerAccount() []string
 
 	//
+	GetAllMinerinfos() []Minerinfo
+
+	//
 	GetAllWhitelist() []string
 
 	//
-	AddToWhitelist(account, addr string)
+	GetAllWhitelistInfos() []Minerinfo
+
+	//
+	AddToWhitelist(account string, info Minerinfo)
 
 	//
 	AddToBlacklist(account, addr, reason string)
@@ -78,10 +84,11 @@ type MinerRecord struct {
 
 	minerlist map[string]Minerinfo
 	blacklist map[string]Reason
-	whitelist map[string]string
+	whitelist map[string]Minerinfo
 }
 
 type Minerinfo struct {
+	Account   string `json:"account"`
 	State     string `json:"state"`
 	Addr      string `json:"addr"`
 	Idlespace uint64 `json:"idlespace"`
@@ -102,18 +109,31 @@ func NewMinerRecord() MinerRecorder {
 
 		minerlist: make(map[string]Minerinfo, 100),
 		blacklist: make(map[string]Reason, 100),
-		whitelist: make(map[string]string, 100),
+		whitelist: make(map[string]Minerinfo, 100),
 	}
 }
 
 func (m *MinerRecord) SaveMinerinfo(account string, addr string, state string, idlespace uint64) {
 	m.minerlistLock.Lock()
 	m.minerlist[account] = Minerinfo{
+		Account:   account,
 		State:     state,
 		Addr:      addr,
 		Idlespace: idlespace,
 	}
 	m.minerlistLock.Unlock()
+
+	m.whitelistLock.Lock()
+	_, ok := m.whitelist[account]
+	if ok {
+		m.whitelist[account] = Minerinfo{
+			Account:   account,
+			State:     state,
+			Addr:      addr,
+			Idlespace: idlespace,
+		}
+	}
+	m.whitelistLock.Unlock()
 }
 
 func (m *MinerRecord) DeleteMinerinfo(account string) {
@@ -152,6 +172,18 @@ func (m *MinerRecord) GetAllMinerAccount() []string {
 	return result
 }
 
+func (m *MinerRecord) GetAllMinerinfos() []Minerinfo {
+	m.minerlistLock.RLock()
+	var result = make([]Minerinfo, len(m.minerlist))
+	i := 0
+	for _, v := range m.minerlist {
+		result[i] = v
+		i++
+	}
+	m.minerlistLock.RUnlock()
+	return result
+}
+
 func (m *MinerRecord) GetAllWhitelist() []string {
 	var i int
 	m.whitelistLock.RLock()
@@ -164,9 +196,21 @@ func (m *MinerRecord) GetAllWhitelist() []string {
 	return result
 }
 
-func (m *MinerRecord) AddToWhitelist(account, addr string) {
+func (m *MinerRecord) GetAllWhitelistInfos() []Minerinfo {
+	var i int
+	m.whitelistLock.RLock()
+	var result = make([]Minerinfo, len(m.whitelist))
+	for _, v := range m.whitelist {
+		result[i] = v
+		i++
+	}
+	m.whitelistLock.RUnlock()
+	return result
+}
+
+func (m *MinerRecord) AddToWhitelist(account string, info Minerinfo) {
 	m.whitelistLock.Lock()
-	m.whitelist[account] = addr
+	m.whitelist[account] = info
 	m.whitelistLock.Unlock()
 
 	m.blacklistLock.Lock()
@@ -290,7 +334,7 @@ func (m *MinerRecord) LoadWhitelist(path string) error {
 	if err != nil {
 		return err
 	}
-	var data = make(map[string]string)
+	var data = make(map[string]Minerinfo)
 	err = json.Unmarshal(buf, &data)
 	if err != nil {
 		return err
