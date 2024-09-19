@@ -9,6 +9,7 @@ package node
 
 import (
 	"context"
+	_ "embed"
 	"fmt"
 	"log"
 	"net/http"
@@ -28,6 +29,9 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+//go:embed favicon.ico
+var favicon string
+
 func (n *Node) InitNode() *Node {
 	n.InitChainClient()
 	n.InitWebServer(
@@ -44,9 +48,9 @@ func (n *Node) InitWebServer(mdls []gin.HandlerFunc, hdl *Handler) {
 	gin.SetMode(n.Config.Application.Mode)
 	server := gin.Default()
 	server.Use(mdls...)
-	server.GET("/favicon.ico", func(c *gin.Context) {
-		c.Header("Cache-Control", "public, max-age=31536000")
-		c.File("./static/favicon.ico")
+	server.GET("/favicon.ico", func(ctx *gin.Context) {
+		ctx.Header("Cache-Control", "public, max-age=31536000")
+		ctx.Data(200, "image/x-icon", []byte(favicon))
 	})
 	server.GET("/version", func(ctx *gin.Context) {
 		ctx.JSON(http.StatusOK, configs.Version)
