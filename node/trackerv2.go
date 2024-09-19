@@ -112,7 +112,7 @@ func (n *Node) processTrackFiles() {
 		case Storage_PartAssignment, Storage_FullAssignment:
 			if len(concurrentStoragesCh) > 0 {
 				<-concurrentStoragesCh
-				go n.StoragePartAssignment(concurrentStoragesCh, storageDataType)
+				go n.StoragePartAssignment(concurrentStoragesCh, storageDataType, storageDataType.Assignments)
 			}
 		// case Storage_FullAssignment:
 		// 	if len(concurrentStoragesCh) > 0 {
@@ -147,7 +147,7 @@ func (n *Node) processTrackFiles() {
 	}
 }
 
-func (n *Node) StoragePartAssignment(ch chan<- bool, data StorageDataType) {
+func (n *Node) StoragePartAssignment(ch chan<- bool, data StorageDataType, assignments []string) {
 	defer func() {
 		ch <- true
 		if err := recover(); err != nil {
@@ -160,13 +160,13 @@ func (n *Node) StoragePartAssignment(ch chan<- bool, data StorageDataType) {
 	n.Logpart("info", fmt.Sprintf(" file have %d batch fragments", len(data.Data)))
 	for i := 0; i < len(data.Data); {
 		n.Logpart("info", fmt.Sprintf(" will storage %d batch fragments", i))
-		for j := 0; j < len(data.Assignments); j++ {
-			n.Logpart("info", " will storage to "+data.Assignments[j])
-			if IsStoraged(data.Assignments[j], data.Complete) {
+		for j := 0; j < len(assignments); j++ {
+			n.Logpart("info", " will storage to "+assignments[j])
+			if IsStoraged(assignments[j], data.Complete) {
 				n.Logpart("info", " the miner already storaged")
 				continue
 			}
-			accountInfo, ok = n.GetMinerinfo(data.Assignments[j])
+			accountInfo, ok = n.GetMinerinfo(assignments[j])
 			if !ok {
 				n.Logpart("err", " not a miner")
 				continue
@@ -421,6 +421,23 @@ func (n *Node) checkFileState(fid string) (StorageDataType, bool, error) {
 }
 
 func (n *Node) storageFiles(tracks []StorageDataType) error {
+	if len(n.Config.Shunt.Account) >= (chain.DataShards + chain.ParShards) {
+		for i := 0; i < len(tracks); i++ {
+			n.StoragePartAssignment(make(chan<- bool, 1), tracks[i], n.Config.Shunt.Account)
+		}
+		return nil
+	}
+	var continueStorage = make([]StorageDataType, 0)
+	if len(n.Config.Shunt.Account) > 0 {
+		for i := 0; i < len(tracks); i++ {
+			value, err := n.StoragePartFixed(tracks[i], n.Config.Shunt.Account)
+			if err == nil {
+				continueStorage = append(continueStorage, value)
+			}
+		}
+		tracks = continueStorage
+	}
+
 	minerinfolist := n.GetAllWhitelistInfos()
 	minerinfolist = append(minerinfolist, n.GetAllMinerinfos()...)
 	length := len(minerinfolist)
@@ -436,6 +453,55 @@ func (n *Node) storageFiles(tracks []StorageDataType) error {
 		}
 	}
 	return nil
+}
+
+func (n *Node) StoragePartFixed(data StorageDataType, assignments []string) (StorageDataType, error) {
+	var ok bool
+	var accountInfo record.Minerinfo
+	n.Logpart("info", " will storage file: "+data.Fid)
+	n.Logpart("info", fmt.Sprintf(" file have %d batch fragments", len(data.Data)))
+	var allsuc int
+	for i := 0; i < len(data.Data); {
+		n.Logpart("info", fmt.Sprintf(" will storage %d batch fragments", i))
+		for j := 0; j < len(assignments); j++ {
+			n.Logpart("info", " will storage to "+assignments[j])
+			if IsStoraged(assignments[j], data.Complete) {
+				n.Logpart("info", " the miner already storaged")
+				continue
+			}
+			accountInfo, ok = n.GetMinerinfo(assignments[j])
+			if !ok {
+				n.Logpart("err", " not a miner")
+				continue
+			}
+			if accountInfo.State != schain.MINER_STATE_POSITIVE {
+				n.Logpart("err", " miner status is not "+schain.MINER_STATE_POSITIVE)
+				continue
+			}
+			if accountInfo.Idlespace < chain.FragmentSize*(chain.ParShards+chain.DataShards) {
+				n.Logpart("err", " miner space < 96M ")
+				continue
+			}
+			err := n.storageBatchFragment(accountInfo, data)
+			if err != nil {
+				n.Logpart("err", " storage failed: "+err.Error())
+				continue
+			}
+			allsuc++
+			data.Complete = append(data.Complete, assignments[j])
+			n.Logpart("err", " transfer suc")
+			if len(data.Data) == 1 {
+				if allsuc == len(assignments) {
+					return data, nil
+				}
+				return StorageDataType{}, errors.New("StoragePartFixed failed")
+			}
+			if len(data.Data) > 1 {
+				data.Data = data.Data[1:]
+			}
+		}
+	}
+	return StorageDataType{}, errors.New("StoragePartFixed failed")
 }
 
 func (n *Node) storageToMiner(account string, tracks []StorageDataType) error {
