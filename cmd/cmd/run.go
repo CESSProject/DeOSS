@@ -13,9 +13,9 @@ import (
 	"strings"
 
 	"github.com/CESSProject/DeOSS/common/confile"
+	out "github.com/CESSProject/DeOSS/common/fout"
 	"github.com/CESSProject/DeOSS/configs"
 	"github.com/CESSProject/DeOSS/node"
-	"github.com/CESSProject/p2p-go/out"
 	"github.com/centrifuge/go-substrate-rpc-client/v4/signature"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"

@@ -311,6 +311,27 @@ func DownloadFileFromGW(url, fpath, account, message, signature string) (uint64,
 	return uint64(length), nil
 }
 
+func GetGWVersion(url string) error {
+	req, err := http.NewRequest(http.MethodGet, url, nil)
+	if err != nil {
+		return err
+	}
+
+	client := &http.Client{}
+	client.Transport = globalTransport
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("failed code: %d", resp.StatusCode)
+	}
+
+	return nil
+}
+
 func ReturnFileStream(c *gin.Context, reader io.Reader, fid, contenttype, format string, size int64) {
 	switch strings.ToLower(format) {
 	case ".mp4", ".mov", ".avi", ".asf", ".asx", ".rm", ".rmvb", ".3gp", ".m4v", ".wmv", ".mkv", ".flv", ".f4v", ".vob", ".mpeg",

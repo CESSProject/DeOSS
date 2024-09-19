@@ -18,8 +18,3 @@ const (
 	// description
 	Description = "Object storage service based on CESS network"
 )
-
-const (
-	//
-	FILE_CACHE = "filecache"
-)

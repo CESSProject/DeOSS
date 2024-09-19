@@ -10,8 +10,10 @@ package node
 import (
 	"errors"
 	"math"
+	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/CESSProject/DeOSS/common/confile"
@@ -76,16 +78,19 @@ func (n *Node) Start() {
 		ch_refreshBlacklist = make(chan bool, 1)
 	)
 
-	err = n.LoadMinerlist(filepath.Join(n.GetRootDir(), "peer_record"))
+	err = n.LoadMinerlist(filepath.Join(n.GetRootDir(), "miner_record"))
 	if err != nil {
-		n.Log("err", "LoadPeer"+err.Error())
+		os.Remove(filepath.Join(n.GetRootDir(), "miner_record"))
+		n.Log("err", "LoadMinerlist"+err.Error())
 	}
 	err = n.LoadBlacklist(filepath.Join(n.GetRootDir(), "blacklist_record"))
 	if err != nil {
+		os.Remove(filepath.Join(n.GetRootDir(), "blacklist_record"))
 		n.Log("err", "LoadBlacklist"+err.Error())
 	}
 	err = n.LoadWhitelist(filepath.Join(n.GetRootDir(), "whitelist_record"))
 	if err != nil {
+		os.Remove(filepath.Join(n.GetRootDir(), "whitelist_record"))
 		n.Log("err", "LoadWhitelist"+err.Error())
 	}
 
@@ -107,7 +112,6 @@ func (n *Node) Start() {
 	go n.RefreshBlacklist(ch_refreshBlacklist)
 	go n.TrackerV2()
 
-	//count := 0
 	chainState := true
 	for {
 		select {
@@ -123,18 +127,7 @@ func (n *Node) Start() {
 				}
 			}
 
-			// count++
-			// if count >= 4320 { //blacklist released every 12 hours
-			// 	count = 0
-			// 	n.ClearBlackList()
-			// }
-
 		case <-task_Minute.C:
-			// if len(ch_trackFile) > 0 {
-			// 	<-ch_trackFile
-			// 	go n.Tracker(ch_trackFile)
-			// }
-
 			err := n.RefreshSelf()
 			if err != nil {
 				n.Log("err", err.Error())
@@ -150,7 +143,6 @@ func (n *Node) Start() {
 				n.RefreshBlacklist(ch_refreshBlacklist)
 			}
 
-			n.Log("info", "backup peer")
 		case <-task_Hour.C:
 			if len(ch_refreshMiner) > 0 {
 				<-ch_refreshMiner
@@ -162,13 +154,21 @@ func (n *Node) Start() {
 
 func (n *Node) RefreshBlacklist(ch chan<- bool) {
 	defer func() { ch <- true }()
-	// allpeers := n.GetBlacklist()
-	// for _, v := range allpeers {
-	// 	if n.ConnectPeer(v.Addrs) {
-	// 		n.RemoveFromBlacklist(v.Addrs.ID.String())
-	// 		n.AddToWhitelist(v.Addrs.ID.String(), "")
-	// 	}
-	// }
+	var err error
+	var url string
+	blacklist := n.GetAllBlacklist()
+	for _, v := range blacklist {
+		url = v.Addr
+		if strings.HasSuffix(url, "/") {
+			url = url + "version"
+		} else {
+			url = url + "/version"
+		}
+		err = GetGWVersion(url)
+		if err == nil {
+			n.RemoveFromBlacklist(v.Account)
+		}
+	}
 }
 
 func (n *Node) RefreshMiner(ch chan<- bool) {

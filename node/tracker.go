@@ -8,547 +8,671 @@
 package node
 
 import (
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"io"
+	"mime/multipart"
+	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
+	"time"
 
-	"github.com/CESSProject/DeOSS/configs"
+	"github.com/CESSProject/DeOSS/common/coordinate"
+	"github.com/CESSProject/DeOSS/common/record"
+	"github.com/CESSProject/DeOSS/common/utils"
 	"github.com/CESSProject/cess-go-sdk/chain"
+	schain "github.com/CESSProject/cess-go-sdk/chain"
 	"github.com/CESSProject/cess-go-sdk/core/process"
+	sutils "github.com/CESSProject/cess-go-sdk/utils"
+	"github.com/pkg/errors"
 )
 
+type StorageType uint8
+
+type StorageDataType struct {
+	Fid         string
+	Complete    []string
+	Data        [][]string
+	StorageType StorageType
+	Assignments []string
+	Range       coordinate.Range
+}
+
+const (
+	Storage_NoAssignment StorageType = iota
+	Storage_PartAssignment
+	Storage_FullAssignment
+	Storage_RangeAssignment
+)
+
+const maxConcurrentStorages = 20
+
+var concurrentStoragesCh chan bool
+
+func init() {
+	concurrentStoragesCh = make(chan bool, maxConcurrentStorages)
+	for i := 0; i < maxConcurrentStorages; i++ {
+		concurrentStoragesCh <- true
+	}
+}
+
 // tracker
-// func (n *Node) TrackerV1(ch chan<- bool) {
-// 	defer func() {
-// 		ch <- true
-// 		if err := recover(); err != nil {
-// 			n.Pnc(utils.RecoverError(err))
-// 		}
-// 	}()
+func (n *Node) TrackerV2() {
+	n.Logtrack("info", ">>>>> start trackerv2 <<<<<")
+	var tNow time.Time
+	for {
+		tNow = time.Now()
+		n.processTrackFiles()
+		if time.Since(tNow).Minutes() < 3.0 {
+			time.Sleep(time.Minute * 3)
+		}
+	}
+}
 
-// 	n.Logtrack("info", ">>>>> start tracker <<<<<")
+func (n *Node) processTrackFiles() {
+	defer func() {
+		if err := recover(); err != nil {
+			n.Pnc(utils.RecoverError(err))
+		}
+	}()
 
-// 	var err error
-// 	var processNum int
-// 	var trackFiles []string
+	var err error
+	var trackFiles []string
+	trackFiles, err = n.ListTraceFiles()
+	if err != nil {
+		n.Logtrack("err", err.Error())
+		return
+	}
+	if len(trackFiles) <= 0 {
+		n.Logtrack("info", "no track files")
+		return
+	}
 
-// 	for {
-// 		trackFiles, err = n.ListTraceFiles()
-// 		if err != nil {
-// 			n.Logtrack("err", err.Error())
-// 			time.Sleep(chain.BlockInterval)
-// 			continue
-// 		}
-// 		if len(trackFiles) == 0 {
-// 			time.Sleep(time.Minute)
-// 			continue
-// 		}
-// 		processNum = n.GetTrackFileNum()
+	n.Logtrack("info", fmt.Sprintf("number of track files: %d", len(trackFiles)))
 
-// 		if processNum < configs.MaxTrackThread {
-// 			for _, v := range trackFiles {
-// 				if _, err = os.Stat(v); err != nil {
-// 					continue
-// 				}
-// 				err = n.AddTrackFile(filepath.Base(v))
-// 				if err != nil {
-// 					continue
-// 				}
-// 				n.Logtrack("info", fmt.Sprintf("start track file: %s", filepath.Base(v)))
-// 				go func(file string) { n.trackFileThread(file) }(v)
-// 				time.Sleep(chain.BlockInterval)
-// 			}
-// 		}
-// 		time.Sleep(time.Minute)
-// 	}
-// }
+	//count := 0
+	fid := ""
+	var dealFiles = make([]StorageDataType, 0)
+	for i := 0; i < len(trackFiles); i++ {
+		fid = filepath.Base(trackFiles[i])
+		storageDataType, ok, err := n.checkFileState(fid)
+		if err != nil {
+			n.Logtrack("err", fmt.Sprintf("checkFileState: %v", err))
+			continue
+		}
+		if ok {
+			n.Logtrack("info", fmt.Sprintf(" %s storage suc", fid))
+			continue
+		}
 
-// func (n *Node) trackFileThread(trackFile string) {
-// 	defer func() {
-// 		n.DelTrackFile(filepath.Base(trackFile))
-// 	}()
-// 	err := n.trackFile(trackFile)
-// 	if err != nil {
-// 		n.Logtrack("err", err.Error())
-// 	}
-// 	n.Logtrack("info", fmt.Sprintf("end track file: %s", filepath.Base(trackFile)))
-// }
+		switch storageDataType.StorageType {
+		case Storage_NoAssignment:
+			dealFiles = append(dealFiles, storageDataType)
+		case Storage_PartAssignment, Storage_FullAssignment:
+			if len(concurrentStoragesCh) > 0 {
+				<-concurrentStoragesCh
+				go n.StoragePartAssignment(concurrentStoragesCh, storageDataType, storageDataType.Assignments)
+			}
+		// case Storage_FullAssignment:
+		// 	if len(concurrentStoragesCh) > 0 {
+		// 		<-concurrentStoragesCh
+		// 		go n.StorageFullAssignment(concurrentStoragesCh, storageDataType)
+		// 	}
+		case Storage_RangeAssignment:
+			if len(concurrentStoragesCh) > 0 {
+				<-concurrentStoragesCh
+				go n.StorageRangeAssignment(concurrentStoragesCh, storageDataType)
+			}
+		}
 
-// func (n *Node) trackFile(trackfile string) error {
-// 	var (
-// 		err          error
-// 		roothash     string
-// 		recordFile   TrackerInfo
-// 		storageOrder chain.StorageOrder
-// 	)
-// 	roothash = filepath.Base(trackfile)
-// 	recordFile, err = n.ParseTrackFile(roothash)
-// 	if err != nil {
-// 		return errors.Wrapf(err, "[ParseTrackFromFile]")
-// 	}
+		// count++
+		// if count >= 10 {
+		// 	n.Logtrack("info", fmt.Sprintf(" will storage %d files: %v", len(dealFiles), dealFiles))
+		// 	err = n.storageFiles(dealFiles)
+		// 	if err != nil {
+		// 		n.Logtrack("err", err.Error())
+		// 		return
+		// 	}
+		// 	count = 0
+		// 	dealFiles = make([]StorageDataType, 0)
+		// }
+	}
+	if len(dealFiles) > 0 {
+		n.Logtrack("info", fmt.Sprintf(" will storage %d files: %v", len(dealFiles), dealFiles))
+		err = n.storageFiles(dealFiles)
+		if err != nil {
+			n.Logtrack("err", err.Error())
+		}
+	}
+}
 
-// 	for {
-// 		_, err = n.QueryFile(roothash, -1)
-// 		if err != nil {
-// 			if err.Error() != chain.ERR_Empty {
-// 				time.Sleep(time.Second * chain.BlockInterval)
-// 				return errors.Wrapf(err, "[%s] [QueryFile]", roothash)
-// 			}
-// 		} else {
-// 			n.Logtrack("info", fmt.Sprintf("[%s] storage successful", roothash))
-// 			os.RemoveAll(recordFile.CacheDir)
-// 			n.DeleteTrackFile(roothash) // if storage successfully ,remove track file
-// 			return nil
-// 		}
+func (n *Node) StoragePartAssignment(ch chan<- bool, data StorageDataType, assignments []string) {
+	defer func() {
+		ch <- true
+		if err := recover(); err != nil {
+			n.Pnc(utils.RecoverError(err))
+		}
+	}()
+	var ok bool
+	var accountInfo record.Minerinfo
+	n.Logpart("info", " will storage file: "+data.Fid)
+	n.Logpart("info", fmt.Sprintf(" file have %d batch fragments", len(data.Data)))
+	for i := 0; i < len(data.Data); {
+		n.Logpart("info", fmt.Sprintf(" will storage %d batch fragments", i))
+		for j := 0; j < len(assignments); j++ {
+			n.Logpart("info", " will storage to "+assignments[j])
+			if IsStoraged(assignments[j], data.Complete) {
+				n.Logpart("info", " the miner already storaged")
+				continue
+			}
+			accountInfo, ok = n.GetMinerinfo(assignments[j])
+			if !ok {
+				n.Logpart("err", " not a miner")
+				continue
+			}
+			if accountInfo.State != schain.MINER_STATE_POSITIVE {
+				n.Logpart("err", " miner status is not "+schain.MINER_STATE_POSITIVE)
+				continue
+			}
+			if accountInfo.Idlespace < chain.FragmentSize*(chain.ParShards+chain.DataShards) {
+				n.Logpart("err", " miner space < 96M ")
+				continue
+			}
+			err := n.storageBatchFragment(accountInfo, data)
+			if err != nil {
+				n.Logpart("err", " storage failed: "+err.Error())
+				continue
+			}
+			n.Logpart("err", " transfer suc")
+			if len(data.Data) == 1 {
+				return
+			}
+			if len(data.Data) > 1 {
+				data.Data = data.Data[1:]
+			}
+		}
+	}
+}
 
-// 		storageOrder, err = n.QueryDealMap(roothash, -1)
-// 		if err != nil {
-// 			if err.Error() != chain.ERR_Empty {
-// 				return errors.Wrapf(err, "[%s] [QueryStorageOrder]", roothash)
-// 			}
-// 			recordFile.PutFlag = false
-// 			b, err := json.Marshal(&recordFile)
-// 			if err != nil {
-// 				return errors.Wrapf(err, "[%s] [json.Marshal]", roothash)
-// 			}
-// 			err = n.WriteTrackFile(roothash, b)
-// 			if err != nil {
-// 				return errors.Wrapf(err, "[%s] [WriteTrackFile]", roothash)
-// 			}
+func (n *Node) StorageRangeAssignment(ch chan<- bool, data StorageDataType) {
+	defer func() {
+		ch <- true
+		if err := recover(); err != nil {
+			n.Pnc(utils.RecoverError(err))
+		}
+	}()
+	minerinfolist := n.GetAllWhitelistInfos()
+	minerinfolist = append(minerinfolist, n.GetAllMinerinfos()...)
+	length := len(minerinfolist)
+	var ok bool
+	var accountInfo record.Minerinfo
+	for i := 0; i < length; i++ {
+		if IsStoraged(minerinfolist[i].Account, data.Complete) {
+			n.Logrange("info", " the miner already storaged "+minerinfolist[i].Account)
+			continue
+		}
+		if n.IsInBlacklist(minerinfolist[i].Account) {
+			continue
+		}
+		coordinateInfo, err := GetCoordinate(minerinfolist[i].Addr)
+		if err != nil {
+			n.Logrange("err", fmt.Sprintf("[%s] getAddrCoordinate: %v", minerinfolist[i].Account, err))
+			continue
+		}
+		if !coordinate.PointInRange(coordinateInfo, data.Range) {
+			n.Logrange("err", fmt.Sprintf("[%s] %v not in range: %v", minerinfolist[i].Account, coordinateInfo, data.Range))
+			continue
+		}
+		accountInfo, ok = n.GetMinerinfo(minerinfolist[i].Account)
+		if !ok {
+			n.Logrange("err", " not a miner")
+			continue
+		}
+		if accountInfo.State != schain.MINER_STATE_POSITIVE {
+			n.Logrange("err", " miner status is not "+schain.MINER_STATE_POSITIVE)
+			continue
+		}
+		if accountInfo.Idlespace < chain.FragmentSize*(chain.ParShards+chain.DataShards) {
+			n.Logrange("err", " miner space < 96M ")
+			continue
+		}
 
-// 			// verify the space is authorized
-// 			authAccs, err := n.QueryAuthorityList(recordFile.Owner, -1)
-// 			if err != nil {
-// 				if err.Error() != chain.ERR_Empty {
-// 					return errors.Wrapf(err, "[%s] [QuaryAuthorizedAccount]", roothash)
-// 				}
-// 			}
-// 			var flag bool
-// 			for _, v := range authAccs {
-// 				if sutils.CompareSlice(n.GetSignatureAccPulickey(), v[:]) {
-// 					flag = true
-// 					break
-// 				}
-// 			}
-// 			if !flag {
-// 				os.RemoveAll(recordFile.CacheDir)
-// 				n.DeleteTrackFile(roothash)
-// 				user, _ := sutils.EncodePublicKeyAsCessAccount(recordFile.Owner)
-// 				return errors.Errorf("[%s] user [%s] deauthorization", roothash, user)
-// 			}
+		n.Logrange("info", " will storage file: "+data.Fid)
+		n.Logrange("info", fmt.Sprintf(" file have %d batch fragments", len(data.Data)))
+		for i := 0; i < len(data.Data); {
+			n.Logrange("info", " will storage to "+minerinfolist[i].Account)
+			err := n.storageBatchFragment(accountInfo, data)
+			if err != nil {
+				n.Logrange("err", " storage failed: "+err.Error())
+				continue
+			}
+			n.Logrange("err", " transfer suc")
+			if len(data.Data) == 1 {
+				return
+			}
+			if len(data.Data) > 1 {
+				data.Data = data.Data[1:]
+			}
+		}
+	}
+}
 
-// 			txhash, err := n.PlaceStorageOrder(
-// 				roothash,
-// 				recordFile.FileName,
-// 				recordFile.BucketName,
-// 				recordFile.TerritoryName,
-// 				recordFile.Segment,
-// 				recordFile.Owner,
-// 				recordFile.FileSize,
-// 			)
-// 			if err != nil {
-// 				return errors.Wrapf(err, "[%s] [%s] [GenerateStorageOrder]", txhash, roothash)
-// 			}
-// 			n.Logtrack("info", fmt.Sprintf("[%s] GenerateStorageOrder: %s", roothash, txhash))
-// 			time.Sleep(chain.BlockInterval * 3)
-// 			storageOrder, err = n.QueryDealMap(roothash, -1)
-// 			if err != nil {
-// 				return errors.Wrapf(err, "[%s] [QueryStorageOrder]", roothash)
-// 			}
-// 		}
+func (n *Node) checkFileState(fid string) (StorageDataType, bool, error) {
+	recordFile, err := n.ParsingTraceFile(fid)
+	if err != nil {
+		return StorageDataType{}, false, fmt.Errorf("[ParseTrackFromFile(%s)] %v", fid, err)
+	}
 
-// 		if roothash != recordFile.Fid {
-// 			n.Logtrack("info", fmt.Sprintf("[%s] invalid track file: %s", roothash, recordFile.Fid))
-// 			return errors.Errorf("[%s] Recorded filehash [%s] error", roothash, recordFile.Fid)
-// 		}
+	_, err = n.QueryFile(fid, -1)
+	if err != nil {
+		if err.Error() != chain.ERR_Empty {
+			return StorageDataType{}, false, err
+		}
+	} else {
+		for i := 0; i < len(recordFile.Segment); i++ {
+			for j := 0; j < len(recordFile.Segment[i].FragmentHash); j++ {
+				os.Remove(filepath.Join(recordFile.CacheDir, recordFile.Segment[i].FragmentHash[j]))
+			}
+		}
+		n.DeleteTraceFile(fid)
+		return StorageDataType{}, true, nil
+	}
 
-// 		flag := false
-// 		if recordFile.Segment == nil {
-// 			flag = true
-// 		}
+	flag := false
+	if recordFile.Segment == nil {
+		flag = true
+	}
 
-// 		for i := 0; i < len(recordFile.Segment); i++ {
-// 			for j := 0; j < len(recordFile.Segment[i].FragmentHash); j++ {
-// 				_, err = os.Stat(recordFile.Segment[i].FragmentHash[j])
-// 				if err != nil {
-// 					flag = true
-// 					break
-// 				}
-// 			}
-// 			if flag {
-// 				break
-// 			}
-// 		}
+	for i := 0; i < len(recordFile.Segment); i++ {
+		for j := 0; j < len(recordFile.Segment[i].FragmentHash); j++ {
+			_, err = os.Stat(recordFile.Segment[i].FragmentHash[j])
+			if err != nil {
+				flag = true
+				break
+			}
+		}
+		if flag {
+			break
+		}
+	}
 
-// 		if flag {
-// 			segment, hash, err := n.reFullProcessing(roothash, recordFile.Cipher, recordFile.CacheDir)
-// 			if err != nil {
-// 				return errors.Wrapf(err, "reFullProcessing")
-// 			}
-// 			if recordFile.Fid != hash {
-// 				return errors.Wrapf(err, "The re-stored file hash is not consistent, please store it separately and specify the original encryption key.")
-// 			}
-// 			recordFile.Segment = segment
-// 		}
+	if flag {
+		segment, hash, err := n.reFullProcessing(fid, recordFile.Cipher, recordFile.CacheDir)
+		if err != nil {
+			return StorageDataType{}, false, errors.Wrapf(err, "reFullProcessing")
+		}
+		if recordFile.Fid != hash {
+			return StorageDataType{}, false, fmt.Errorf("The fid after reprocessing is inconsistent [%s != %s] %v", recordFile.Fid, hash, err)
+		}
+		recordFile.Segment = segment
+		err = n.AddToTraceFile(fid, recordFile)
+		if err != nil {
+			return StorageDataType{}, false, errors.Wrapf(err, "[%s] [WriteTrackFile]", fid)
+		}
+	}
 
-// 		err = n.storageData(recordFile, storageOrder.CompleteList)
-// 		//n.FlushlistedPeerNodes(5*time.Second, n.GetDHTable()) //refresh the user-configured storage node list
-// 		if err != nil {
-// 			n.Logtrack("err", err.Error())
-// 			return err
-// 		}
-// 		n.Logtrack("info", fmt.Sprintf("[%s] file transfer completed", roothash))
-// 		time.Sleep(time.Minute * 3)
-// 	}
-// }
+	var storageDataType = StorageDataType{
+		Fid:      fid,
+		Complete: make([]string, 0),
+		Data:     make([][]string, 0),
+	}
 
-// type datagroup struct {
-// 	File     []string
-// 	Miner    string
-// 	Peerid   string
-// 	Index    uint8
-// 	Complete bool
-// }
+	dealmap, err := n.QueryDealMap(fid, -1)
+	if err != nil {
+		if err.Error() != chain.ERR_Empty {
+			return StorageDataType{}, false, err
+		}
+	} else {
+		for index := 0; index < (chain.DataShards + chain.ParShards); index++ {
+			acc, ok := IsComplete(index+1, dealmap.CompleteList)
+			if ok {
+				storageDataType.Complete = append(storageDataType.Complete, acc)
+				continue
+			}
+			var value = make([]string, 0)
+			for i := 0; i < len(recordFile.Segment); i++ {
+				value = append(value, string(recordFile.Segment[i].FragmentHash[index]))
+			}
+			storageDataType.Data = append(storageDataType.Data, value)
+		}
+		if len(recordFile.ShuntMiner) >= (chain.DataShards + chain.ParShards) {
+			storageDataType.StorageType = Storage_FullAssignment
+			storageDataType.Assignments = recordFile.ShuntMiner
+		} else if len(recordFile.ShuntMiner) > 0 {
+			suc := 0
+			for i := 0; i < len(recordFile.ShuntMiner); i++ {
+				for j := 0; j < len(storageDataType.Complete); j++ {
+					if recordFile.ShuntMiner[i] == storageDataType.Complete[j] {
+						suc++
+						break
+					}
+				}
+			}
+			if suc == len(recordFile.ShuntMiner) {
+				storageDataType.StorageType = Storage_NoAssignment
+			} else {
+				storageDataType.StorageType = Storage_PartAssignment
+				storageDataType.Assignments = recordFile.ShuntMiner
+			}
+		} else if len(recordFile.Points.Coordinate) > 3 {
+			storageDataType.StorageType = Storage_RangeAssignment
+			storageDataType.Range = recordFile.Points
+		} else {
+			storageDataType.StorageType = Storage_NoAssignment
+		}
+		return storageDataType, false, nil
+	}
 
-// func (n *Node) storageData(record TrackerInfo, completeList []chain.CompleteInfo) error {
-// 	var err error
-// 	var dataGroup = make(map[uint8]datagroup, (sconfig.DataShards + sconfig.ParShards))
-// 	for index := 0; index < len(record.Segment[0].FragmentHash); index++ {
-// 		var data = datagroup{
-// 			Index: uint8(index),
-// 		}
-// 		data.File = make([]string, len(record.Segment))
-// 		for i := 0; i < len(record.Segment); i++ {
-// 			data.File[i] = string(record.Segment[i].FragmentHash[index])
-// 		}
-// 		dataGroup[uint8(index+1)] = data
-// 	}
+	// verify the space is authorized
+	authAccs, err := n.QueryAuthorityList(recordFile.Owner, -1)
+	if err != nil {
+		if err.Error() != chain.ERR_Empty {
+			return StorageDataType{}, false, err
+		}
+	}
 
-// 	for _, v := range completeList {
-// 		var value datagroup
-// 		value = dataGroup[uint8(v.Index)]
-// 		value.Complete = true
-// 		value.Miner, _ = sutils.EncodePublicKeyAsCessAccount(v.Miner[:])
-// 		if p, ok := n.GetPeerByAccount(value.Miner); ok {
-// 			value.Peerid = p.Addrs.ID.String()
-// 		}
-// 		dataGroup[uint8(v.Index)] = value
-// 	}
+	flag = false
+	for _, v := range authAccs {
+		if sutils.CompareSlice(n.GetSignatureAccPulickey(), v[:]) {
+			flag = true
+			break
+		}
+	}
 
-// 	if len(record.ShuntMiner.Miners) >= (sconfig.DataShards + sconfig.ParShards) {
-// 		return n.shuntAllStorage(record, dataGroup)
-// 	}
+	if !flag {
+		// os.RemoveAll(recordFile.CacheDir)
+		// n.DeleteTrackFile(roothash)
+		user, _ := sutils.EncodePublicKeyAsCessAccount(recordFile.Owner)
+		return StorageDataType{}, true, errors.Errorf("[%s] user [%s] has revoked authorization", fid, user)
+	}
 
-// 	if len(record.ShuntMiner.Miners) > 0 {
-// 		err = n.shuntPartStorage(record, dataGroup)
-// 		if err != nil {
-// 			return err
-// 		}
-// 	}
+	txhash, err := n.PlaceStorageOrder(
+		fid,
+		recordFile.FileName,
+		recordFile.BucketName,
+		recordFile.TerritoryName,
+		recordFile.Segment,
+		recordFile.Owner,
+		recordFile.FileSize,
+	)
+	if err != nil {
+		return StorageDataType{}, false, fmt.Errorf(" %s [UploadDeclaration] %v", fid, err)
+	}
+	n.Logtrack("info", fmt.Sprintf(" %s [UploadDeclaration] suc: %s", fid, txhash))
 
-// 	if len(record.Points.Coordinate) > 3 {
-// 		return n.rangeStorage(record, dataGroup)
-// 	}
+	for index := 0; index < (chain.DataShards + chain.ParShards); index++ {
+		var value = make([]string, 0)
+		for i := 0; i < len(recordFile.Segment); i++ {
+			value = append(value, string(recordFile.Segment[i].FragmentHash[index]))
+		}
+		storageDataType.Data = append(storageDataType.Data, value)
+	}
+	if len(recordFile.ShuntMiner) >= (chain.DataShards + chain.ParShards) {
+		storageDataType.StorageType = Storage_FullAssignment
+	} else if len(recordFile.ShuntMiner) > 0 {
+		storageDataType.StorageType = Storage_PartAssignment
+	} else if len(recordFile.Points.Coordinate) > 3 {
+		storageDataType.StorageType = Storage_RangeAssignment
+	} else {
+		storageDataType.StorageType = Storage_NoAssignment
+	}
+	return storageDataType, false, nil
+}
 
-// 	priorityMiners := n.Config.Shunt.Account
-// 	if len(priorityMiners) > 0 {
-// 		n.highPriorityStorage(record, dataGroup)
-// 	}
+func (n *Node) storageFiles(tracks []StorageDataType) error {
+	if len(n.Config.Shunt.Account) >= (chain.DataShards + chain.ParShards) {
+		for i := 0; i < len(tracks); i++ {
+			n.StoragePartAssignment(make(chan<- bool, 1), tracks[i], n.Config.Shunt.Account)
+		}
+		return nil
+	}
+	var continueStorage = make([]StorageDataType, 0)
+	if len(n.Config.Shunt.Account) > 0 {
+		for i := 0; i < len(tracks); i++ {
+			value, err := n.StoragePartFixed(tracks[i], n.Config.Shunt.Account)
+			if err == nil {
+				continueStorage = append(continueStorage, value)
+			}
+		}
+		tracks = continueStorage
+	}
 
-// 	sucCount := 0
-// 	for _, v := range dataGroup {
-// 		if v.Complete {
-// 			sucCount++
-// 		}
-// 	}
-// 	if sucCount >= (sconfig.DataShards + sconfig.ParShards) {
-// 		return nil
-// 	}
+	minerinfolist := n.GetAllWhitelistInfos()
+	minerinfolist = append(minerinfolist, n.GetAllMinerinfos()...)
+	length := len(minerinfolist)
+	for i := 0; i < length; i++ {
+		n.Logtrack("info", fmt.Sprintf(" use miner: %s", minerinfolist[i].Account))
+		if n.IsInBlacklist(minerinfolist[i].Account) {
+			n.Logtrack("info", " miner in blacklist")
+			continue
+		}
+		err := n.storageToMiner(minerinfolist[i].Account, tracks)
+		if err != nil {
+			n.Logtrack("err", err.Error())
+		}
+	}
+	return nil
+}
 
-// 	return n.lastStorage(record, dataGroup)
-// }
+func (n *Node) StoragePartFixed(data StorageDataType, assignments []string) (StorageDataType, error) {
+	var ok bool
+	var accountInfo record.Minerinfo
+	n.Logpart("info", " will storage file: "+data.Fid)
+	n.Logpart("info", fmt.Sprintf(" file have %d batch fragments", len(data.Data)))
+	var allsuc int
+	for i := 0; i < len(data.Data); {
+		n.Logpart("info", fmt.Sprintf(" will storage %d batch fragments", i))
+		for j := 0; j < len(assignments); j++ {
+			n.Logpart("info", " will storage to "+assignments[j])
+			if IsStoraged(assignments[j], data.Complete) {
+				n.Logpart("info", " the miner already storaged")
+				continue
+			}
+			accountInfo, ok = n.GetMinerinfo(assignments[j])
+			if !ok {
+				n.Logpart("err", " not a miner")
+				continue
+			}
+			if accountInfo.State != schain.MINER_STATE_POSITIVE {
+				n.Logpart("err", " miner status is not "+schain.MINER_STATE_POSITIVE)
+				continue
+			}
+			if accountInfo.Idlespace < chain.FragmentSize*(chain.ParShards+chain.DataShards) {
+				n.Logpart("err", " miner space < 96M ")
+				continue
+			}
+			err := n.storageBatchFragment(accountInfo, data)
+			if err != nil {
+				n.Logpart("err", " storage failed: "+err.Error())
+				continue
+			}
+			allsuc++
+			data.Complete = append(data.Complete, assignments[j])
+			n.Logpart("err", " transfer suc")
+			if len(data.Data) == 1 {
+				if allsuc == len(assignments) {
+					return data, nil
+				}
+				return StorageDataType{}, errors.New("StoragePartFixed failed")
+			}
+			if len(data.Data) > 1 {
+				data.Data = data.Data[1:]
+			}
+		}
+	}
+	return StorageDataType{}, errors.New("StoragePartFixed failed")
+}
 
-// func (n *Node) shuntAllStorage(record TrackerInfo, dataGroup map[uint8]datagroup) error {
-// 	var err error
-// 	n.Logtrack("info", fmt.Sprintf("[%s] start shunt storage", record.Fid))
-// 	allcompleted := true
-// 	failed := true
-// 	for index, v := range dataGroup {
-// 		if v.Complete {
-// 			continue
-// 		}
-// 		failed = true
-// 		n.Logtrack("info", fmt.Sprintf("[%s] will transfer the %dth(%d) batch of fragments to priority miners", record.Fid, index, len(v.File)))
-// 		for _, acconut := range record.ShuntMiner.Miners {
-// 			addr, ok := n.GetPeerByAccount(acconut)
-// 			if !ok {
-// 				n.Logtrack("err", fmt.Sprintf("[%s] [%s] the miner was not found or the idle space is not sufficient or the miner information is not synchronized", record.Fid, acconut))
-// 				continue
-// 			}
+func (n *Node) storageToMiner(account string, tracks []StorageDataType) error {
+	accountInfo, ok := n.GetMinerinfo(account)
+	if !ok {
+		n.Logtrack("err", " not a miner")
+		return nil
+	}
+	if accountInfo.State != schain.MINER_STATE_POSITIVE {
+		n.Logtrack("err", fmt.Sprintf(" miner status is not %s", schain.MINER_STATE_POSITIVE))
+		return fmt.Errorf(" %s status is not %s", account, schain.MINER_STATE_POSITIVE)
+	}
+	if accountInfo.Idlespace < chain.FragmentSize*(chain.ParShards+chain.DataShards) {
+		n.Logtrack("err", " miner space < 96M")
+		return fmt.Errorf(" %s space < 96M", account)
+	}
+	length := len(tracks)
+	for i := 0; i < length; i++ {
+		n.Logtrack("info", fmt.Sprintf(" miner will storage file %s", tracks[i].Fid))
+		if IsStoraged(account, tracks[i].Complete) {
+			n.Logtrack("info", " miner already storaged this file")
+			continue
+		}
+		err := n.storageBatchFragment(accountInfo, tracks[i])
+		if err != nil {
+			return err
+		}
+		if len(tracks[i].Data) > 1 {
+			tracks[i].Data = tracks[i].Data[1:]
+		} else {
+			tracks[i].Data = make([][]string, 0)
+		}
+		accountInfo.Idlespace -= chain.FragmentSize * (chain.ParShards + chain.DataShards)
+		if accountInfo.Idlespace < chain.FragmentSize*(chain.ParShards+chain.DataShards) {
+			n.Logtrack("info", " miner space < 96M, stop storage")
+			return nil
+		}
+	}
+	n.Logtrack("info", " all files transferred")
+	return nil
+}
 
-// 			n.Peerstore().AddAddrs(addr.Addrs.ID, addr.Addrs.Addrs, time.Minute)
-// 			n.Logtrack("info", fmt.Sprintf("[%s] will transfer to the miner: %s", record.Fid, addr.Addrs.ID.String()))
-// 			for j := 0; j < len(v.File); j++ {
-// 				ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
-// 				defer cancel()
-// 				err = n.WriteDataAction(ctx, addr.Addrs.ID, v.File[j], record.Fid, filepath.Base(v.File[j]))
-// 				if err != nil {
-// 					failed = true
-// 					n.Logtrack("err", fmt.Sprintf("[%s] transfer to %s failed: %v", record.Fid, addr.Addrs.ID.String(), err))
-// 					n.Feedback(addr.Addrs.ID.String(), false)
-// 					break
-// 				}
-// 				n.Logtrack("info", fmt.Sprintf("[%s] The %dth fragment of the %dth batch is transferred to %s", record.Fid, j, index, addr.Addrs.ID.String()))
-// 				failed = false
-// 			}
-// 			n.Peerstore().ClearAddrs(addr.Addrs.ID)
-// 			if !failed {
-// 				var value datagroup
-// 				value = dataGroup[index]
-// 				value.Complete = true
-// 				value.Miner = acconut
-// 				value.Peerid = addr.Addrs.ID.String()
-// 				dataGroup[index] = value
-// 				//n.Feedback(addr.ID.String(), true)
-// 				n.Logtrack("info", fmt.Sprintf("[%s] %dth batch of all fragments is transferred to %s", record.Fid, index, addr.Addrs.ID.String()))
-// 				break
-// 			}
-// 			allcompleted = false
-// 		}
-// 	}
-// 	if !allcompleted {
-// 		return fmt.Errorf("shunt storage failed")
-// 	}
-// 	return nil
-// }
+func (n *Node) storageBatchFragment(minerinfo record.Minerinfo, tracks StorageDataType) error {
+	var err error
+	if len(tracks.Data) <= 0 {
+		n.Logtrack("info", " miner transferred this batch of fragments")
+		return nil
+	}
+	if len(tracks.Data[0]) <= 0 {
+		n.Logtrack("info", " miner transferred all fragments of the file")
+		return nil
+	}
+	for j := 0; j < len(tracks.Data[0]); j++ {
+		err = n.UploadFragmentToMiner(minerinfo.Addr, tracks.Fid, filepath.Base(tracks.Data[0][j]), tracks.Data[0][j])
+		if err != nil {
+			n.Logtrack("info", fmt.Sprintf(" miner transfer %d fragment failed: %v", j, err))
+			//if strings.Contains(err.Error(), "refused") || strings.Contains(err.Error(), "timeout") {
+			n.AddToBlacklist(minerinfo.Account, minerinfo.Addr, err.Error())
+			//}
+			return err
+		}
+		n.Logtrack("info", fmt.Sprintf(" miner transfer %d fragment suc", j))
+	}
+	n.Logtrack("info", " miner transfer all fragment suc")
+	minerinfo.Idlespace -= chain.FragmentSize * (chain.ParShards + chain.DataShards)
+	n.AddToWhitelist(minerinfo.Account, minerinfo)
+	return nil
+}
 
-// func (n *Node) shuntPartStorage(record TrackerInfo, dataGroup map[uint8]datagroup) error {
-// 	var err error
-// 	n.Logtrack("info", fmt.Sprintf("[%s] start shunt part storage...", record.Fid))
-// 	allcompleted := true
-// 	failed := true
+func (n *Node) UploadFragmentToMiner(addr, fid, fragmentHash, fragmentPath string) error {
+	message := sutils.GetRandomcode(16)
+	sig, err := sutils.SignedSR25519WithMnemonic(n.GetURI(), message)
+	if err != nil {
+		return fmt.Errorf("[SignedSR25519WithMnemonic] %v", err)
+	}
 
-// 	for _, acconut := range record.ShuntMiner.Miners {
-// 		n.Logtrack("info", fmt.Sprintf("[%s] shunt part: use the miner: %s", record.Fid, acconut))
-// 		addr, ok := n.GetPeerByAccount(acconut)
-// 		if !ok {
-// 			n.Logtrack("err", fmt.Sprintf("[%s] shunt part: the miner was not found or the idle space is not sufficient or not synchronized", record.Fid))
-// 			continue
-// 		}
+	body := new(bytes.Buffer)
+	writer := multipart.NewWriter(body)
+	formFile, err := writer.CreateFormFile("file", filepath.Base(fragmentPath))
+	if err != nil {
+		return err
+	}
 
-// 		failed = true
-// 		for index, v := range dataGroup {
-// 			if v.Complete {
-// 				continue
-// 			}
-// 			n.Peerstore().AddAddrs(addr.Addrs.ID, addr.Addrs.Addrs, time.Minute)
-// 			for j := 0; j < len(v.File); j++ {
-// 				n.Logtrack("info", fmt.Sprintf("[%s] shunt part: will transfer the %dth(%d-%d) batch of fragments to the miner: %s", record.Fid, index, len(v.File), j, addr.Addrs.ID.String()))
-// 				ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
-// 				defer cancel()
-// 				err = n.WriteDataAction(ctx, addr.Addrs.ID, v.File[j], record.Fid, filepath.Base(v.File[j]))
-// 				if err != nil {
-// 					failed = true
-// 					n.Logtrack("err", fmt.Sprintf("[%s] shunt part: transfer failed: %v", record.Fid, err))
-// 					n.Feedback(addr.Addrs.ID.String(), false)
-// 					break
-// 				}
-// 				n.Logtrack("info", fmt.Sprintf("[%s] shunt part: transfer successful", record.Fid))
-// 				failed = false
-// 			}
-// 			n.Peerstore().ClearAddrs(addr.Addrs.ID)
-// 			if !failed {
-// 				var value datagroup
-// 				value = dataGroup[index]
-// 				value.Complete = true
-// 				value.Miner = acconut
-// 				value.Peerid = addr.Addrs.ID.String()
-// 				dataGroup[index] = value
-// 				//n.Feedback(addr.ID.String(), true)
-// 				n.Logtrack("info", fmt.Sprintf("[%s] shunt part: %dth batch fragments all transferred to: %s %s", record.Fid, index, acconut, addr.Addrs.ID.String()))
-// 				break
-// 			}
-// 			allcompleted = false
-// 		}
-// 		if !allcompleted {
-// 			return fmt.Errorf("shunt part storage failed")
-// 		}
-// 	}
-// 	return nil
-// }
+	fd, err := os.Open(fragmentPath)
+	if err != nil {
+		return err
+	}
+	defer fd.Close()
 
-// func (n *Node) rangeStorage(record TrackerInfo, dataGroup map[uint8]datagroup) error {
-// 	var err error
+	_, err = io.Copy(formFile, fd)
+	if err != nil {
+		return err
+	}
+	err = writer.Close()
+	if err != nil {
+		return err
+	}
+	url := addr
+	if strings.HasSuffix(url, "/") {
+		url = url + "fragment"
+	} else {
+		url = url + "/fragment"
+	}
 
-// 	n.Logtrack("info", fmt.Sprintf("[%s] start range storage", record.Fid))
+	req, err := http.NewRequest(http.MethodPut, url, body)
+	if err != nil {
+		return err
+	}
 
-// 	itor, err := n.NewPeersIterator(sconfig.DataShards + sconfig.ParShards)
-// 	if err != nil {
-// 		return err
-// 	}
-// 	allcompleted := true
-// 	failed := true
-// 	for index, v := range dataGroup {
-// 		if v.Complete {
-// 			continue
-// 		}
-// 		n.Logtrack("info", fmt.Sprintf("[%s] will transfer the %dth(%d) batch of fragments", record.Fid, index, len(v.File)))
-// 		failed = true
-// 		for peer, ok := itor.GetPeer(); ok; peer, ok = itor.GetPeer() {
-// 			n.Logtrack("info", fmt.Sprintf("[%s] will transfer to the range miner: %s", record.Fid, peer.ID.String()))
-// 			coordinateInfo, err := n.getAddrsCoordinate(peer.Addrs)
-// 			if err != nil {
-// 				n.Logtrack("err", fmt.Sprintf("[%s] getAddrsCoordinate: %v", record.Fid, err))
-// 				continue
-// 			}
-// 			if !coordinate.PointInRange(coordinateInfo, record.Points) {
-// 				n.Logtrack("err", fmt.Sprintf("[%s] %v not in range: %v", record.Fid, coordinateInfo, record.Points))
-// 				continue
-// 			}
+	req.Header.Set("Fid", fid)
+	req.Header.Set("Account", n.GetSignatureAcc())
+	req.Header.Set("Message", message)
+	req.Header.Set("Signature", string(sig))
+	req.Header.Set("Content-Type", writer.FormDataContentType())
 
-// 			n.Peerstore().AddAddrs(peer.ID, peer.Addrs, time.Minute)
-// 			for j := 0; j < len(v.File); j++ {
-// 				ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
-// 				defer cancel()
-// 				err = n.WriteDataAction(ctx, peer.ID, v.File[j], record.Fid, filepath.Base(v.File[j]))
-// 				if err != nil {
-// 					failed = true
-// 					n.Logtrack("err", fmt.Sprintf("[%s] transfer to %s failed: %v", record.Fid, peer.ID.String(), err))
-// 					n.Feedback(peer.ID.String(), false)
-// 					break
-// 				}
-// 				n.Logtrack("info", fmt.Sprintf("[%s] The %dth fragment of the %dth batch is transferred to %s", record.Fid, j, index, peer.ID.String()))
-// 				failed = false
-// 			}
-// 			n.Peerstore().ClearAddrs(peer.ID)
-// 			if !failed {
-// 				var value datagroup
-// 				value = dataGroup[index]
-// 				value.Complete = true
-// 				value.Peerid = peer.ID.String()
-// 				dataGroup[index] = value
-// 				//n.Feedback(peer.ID.String(), true)
-// 				n.Logtrack("info", fmt.Sprintf("[%s] %dth batch of all fragments is transferred to %s", record.Fid, index, peer.ID.String()))
-// 				break
-// 			}
-// 			allcompleted = false
-// 		}
-// 	}
-// 	if !allcompleted {
-// 		return fmt.Errorf("range storage failed")
-// 	}
-// 	return nil
-// }
+	client := &http.Client{}
+	client.Transport = globalTransport
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
 
-// func (n *Node) highPriorityStorage(record TrackerInfo, dataGroup map[uint8]datagroup) error {
-// 	var err error
-// 	priorityPeers := n.Config.Shunt.Account
-// 	if len(priorityPeers) <= 0 {
-// 		return nil
-// 	}
+	respbody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
 
-// 	var sucPeer = make(map[string]struct{}, 0)
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("failed code: %d", resp.StatusCode)
+	}
+	var respinfo RespType
+	err = json.Unmarshal(respbody, &respinfo)
+	if err != nil {
+		return errors.New("server returns invalid data")
+	}
+	if respinfo.Code != 200 {
+		return fmt.Errorf("server returns code: %d", respinfo.Code)
+	}
+	return nil
+}
 
-// 	for index, v := range dataGroup {
-// 		if v.Complete {
-// 			sucPeer[v.Peerid] = struct{}{}
-// 			continue
-// 		}
-// 		failed := true
-// 		n.Logtrack("info", fmt.Sprintf("[%s] will transfer the %dth(%d) batch of fragments to high priority miners", record.Fid, index, len(v.File)))
-// 		for _, acc := range priorityPeers {
-// 			addrs, ok := n.GetPeerByAccount(acc)
-// 			if !ok {
-// 				n.Logtrack("info", fmt.Sprintf("[%s] not found this peer: %s", record.Fid, acc))
-// 				continue
-// 			}
-// 			if _, ok := sucPeer[addrs.Addrs.ID.String()]; ok {
-// 				continue
-// 			}
+func IsStoraged(account string, complete []string) bool {
+	length := len(complete)
+	for i := 0; i < length; i++ {
+		if account == complete[i] {
+			return true
+		}
+	}
+	return false
+}
 
-// 			n.Peerstore().AddAddrs(addrs.Addrs.ID, addrs.Addrs.Addrs, time.Minute)
-// 			n.Logtrack("info", fmt.Sprintf("[%s] will transfer to the miner: %s", record.Fid, addrs.Addrs.ID.String()))
-// 			for j := 0; j < len(v.File); j++ {
-// 				n.Logtrack("info", fmt.Sprintf("[%s] will transfer fragment: %s", record.Fid, v.File[j]))
-// 				ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
-// 				defer cancel()
-// 				err = n.WriteDataAction(ctx, addrs.Addrs.ID, v.File[j], record.Fid, filepath.Base(v.File[j]))
-// 				if err != nil {
-// 					failed = true
-// 					n.Logtrack("err", fmt.Sprintf("[%s] transfer to %s failed: %v", record.Fid, addrs.Addrs.ID.String(), err))
-// 					n.Feedback(addrs.Addrs.ID.String(), false)
-// 					break
-// 				}
-// 				n.Logtrack("info", fmt.Sprintf("[%s] The %dth fragment of the %dth batch is transferred to %s", record.Fid, j, index, addrs.Addrs.ID.String()))
-// 				failed = false
-// 			}
-// 			n.Peerstore().ClearAddrs(addrs.Addrs.ID)
-// 			if !failed {
-// 				var value datagroup
-// 				value = dataGroup[index]
-// 				value.Complete = true
-// 				value.Peerid = addrs.Addrs.ID.String()
-// 				dataGroup[index] = value
-// 				//n.Feedback(peerid, true)
-// 				n.Logtrack("info", fmt.Sprintf("[%s] %dth batch of all fragments is transferred to %s", record.Fid, index, addrs.Addrs.ID.String()))
-// 				break
-// 			}
-// 		}
-// 	}
+func IsComplete(index int, completeInfo []schain.CompleteInfo) (string, bool) {
+	length := len(completeInfo)
+	for i := 0; i < length; i++ {
+		if int(completeInfo[i].Index) == index {
+			acc, _ := sutils.EncodePublicKeyAsCessAccount(completeInfo[i].Miner[:])
+			return acc, true
+		}
+	}
+	return "", false
+}
 
-// 	return err
-// }
-
-// func (n *Node) lastStorage(record TrackerInfo, dataGroup map[uint8]datagroup) error {
-// 	var err error
-// 	failed := true
-// 	allpeers := n.GetAllPeerId()
-// 	var sucPeer = make(map[string]struct{}, 0)
-// 	for index, v := range dataGroup {
-// 		if v.Complete {
-// 			sucPeer[v.Peerid] = struct{}{}
-// 			continue
-// 		}
-// 		failed = true
-// 		for _, peerid := range allpeers {
-// 			if _, ok := sucPeer[peerid]; ok {
-// 				continue
-// 			}
-// 			peer, ok := n.GetPeer(peerid)
-// 			if !ok {
-// 				continue
-// 			}
-// 			n.Logtrack("info", fmt.Sprintf("[%s] last storage: use peer: %s", record.Fid, peer.ID.String()))
-// 			n.Peerstore().AddAddrs(peer.ID, peer.Addrs, time.Minute)
-// 			for j := 0; j < len(v.File); j++ {
-// 				n.Logtrack("info", fmt.Sprintf("[%s] last storage: will transfer the %dth(%d-%d) batch of fragments", record.Fid, index, len(v.File), j))
-// 				n.Logtrack("info", fmt.Sprintf("[%s] last storage: will transfer fragment: %s", record.Fid, v.File[j]))
-// 				ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
-// 				defer cancel()
-// 				err = n.WriteDataAction(ctx, peer.ID, v.File[j], record.Fid, filepath.Base(v.File[j]))
-// 				if err != nil {
-// 					failed = true
-// 					n.Logtrack("info", fmt.Sprintf("[%s] last storage: transfer failed: %v", record.Fid, err))
-// 					break
-// 				}
-// 				failed = false
-// 				n.Logtrack("info", fmt.Sprintf("[%s] last storage: transfer successful", record.Fid))
-// 			}
-// 			n.Peerstore().ClearAddrs(peer.ID)
-// 			if !failed {
-// 				sucPeer[peer.ID.String()] = struct{}{}
-// 				var value datagroup
-// 				value = dataGroup[index]
-// 				value.Complete = true
-// 				value.Peerid = peer.ID.String()
-// 				dataGroup[index] = value
-// 				//n.Feedback(peer.ID.String(), true)
-// 				n.Logtrack("info", fmt.Sprintf("[%s] last storage: the %dth batch of fragments all transferred to: %s", record.Fid, index, peer.ID.String()))
-// 				break
-// 			}
-// 		}
-// 	}
-// 	return err
-// }
+func GetCoordinate(addr string) (coordinate.Coordinate, error) {
+	longitude, latitude, ok := ParseCity(addr)
+	if !ok {
+		return coordinate.Coordinate{}, errors.New("parsing addr failed")
+	}
+	return coordinate.Coordinate{Longitude: longitude, Latitude: latitude}, nil
+}
 
 func (n *Node) reFullProcessing(fid, cipher, cacheDir string) ([]chain.SegmentDataInfo, string, error) {
 	err := os.MkdirAll(cacheDir, 0755)
@@ -557,7 +681,7 @@ func (n *Node) reFullProcessing(fid, cipher, cacheDir string) ([]chain.SegmentDa
 	}
 	segmentDataInfo, hash, err := process.FullProcessing(filepath.Join(n.GetFileDir(), fid), cipher, cacheDir)
 	if err != nil {
-		return process.FullProcessing(filepath.Join(n.GetRootDir(), configs.FILE_CACHE, fid), cipher, cacheDir)
+		return process.FullProcessing(filepath.Join(n.GetStoringDir(), fid), cipher, cacheDir)
 	}
 	return segmentDataInfo, hash, err
 }

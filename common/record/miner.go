@@ -95,8 +95,9 @@ type Minerinfo struct {
 }
 
 type Reason struct {
-	Reason string `json:"reason"`
-	Addr   string `json:"addr"`
+	Account string `json:"account"`
+	Reason  string `json:"reason"`
+	Addr    string `json:"addr"`
 }
 
 var _ MinerRecorder = (*MinerRecord)(nil)
@@ -221,8 +222,9 @@ func (m *MinerRecord) AddToWhitelist(account string, info Minerinfo) {
 func (m *MinerRecord) AddToBlacklist(account, addr, reason string) {
 	m.blacklistLock.Lock()
 	m.blacklist[account] = Reason{
-		Reason: reason,
-		Addr:   addr,
+		Account: account,
+		Reason:  reason,
+		Addr:    addr,
 	}
 	m.blacklistLock.Unlock()
 
