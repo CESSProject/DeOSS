@@ -19,6 +19,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/CESSProject/DeOSS/common/coordinate"
 	"github.com/CESSProject/DeOSS/common/record"
 	"github.com/CESSProject/DeOSS/common/utils"
 	"github.com/CESSProject/cess-go-sdk/chain"
@@ -34,6 +35,8 @@ type StorageDataType struct {
 	Complete    []string
 	Data        [][]string
 	StorageType StorageType
+	Assignments []string
+	Range       coordinate.Range
 }
 
 const (
@@ -106,16 +109,16 @@ func (n *Node) processTrackFiles() {
 		switch storageDataType.StorageType {
 		case Storage_NoAssignment:
 			dealFiles = append(dealFiles, storageDataType)
-		case Storage_PartAssignment:
+		case Storage_PartAssignment, Storage_FullAssignment:
 			if len(concurrentStoragesCh) > 0 {
 				<-concurrentStoragesCh
 				go n.StoragePartAssignment(concurrentStoragesCh, storageDataType)
 			}
-		case Storage_FullAssignment:
-			if len(concurrentStoragesCh) > 0 {
-				<-concurrentStoragesCh
-				go n.StorageFullAssignment(concurrentStoragesCh, storageDataType)
-			}
+		// case Storage_FullAssignment:
+		// 	if len(concurrentStoragesCh) > 0 {
+		// 		<-concurrentStoragesCh
+		// 		go n.StorageFullAssignment(concurrentStoragesCh, storageDataType)
+		// 	}
 		case Storage_RangeAssignment:
 			if len(concurrentStoragesCh) > 0 {
 				<-concurrentStoragesCh
@@ -144,37 +147,115 @@ func (n *Node) processTrackFiles() {
 	}
 }
 
-func (n *Node) StoragePartAssignment(ch chan<- bool, data StorageDataType) error {
+func (n *Node) StoragePartAssignment(ch chan<- bool, data StorageDataType) {
 	defer func() {
 		ch <- true
 		if err := recover(); err != nil {
 			n.Pnc(utils.RecoverError(err))
 		}
 	}()
-
-	return nil
+	var ok bool
+	var accountInfo record.Minerinfo
+	n.Logpart("info", " will storage file: "+data.Fid)
+	n.Logpart("info", fmt.Sprintf(" file have %d batch fragments", len(data.Data)))
+	for i := 0; i < len(data.Data); {
+		n.Logpart("info", fmt.Sprintf(" will storage %d batch fragments", i))
+		for j := 0; j < len(data.Assignments); j++ {
+			n.Logpart("info", " will storage to "+data.Assignments[j])
+			if IsStoraged(data.Assignments[j], data.Complete) {
+				n.Logpart("info", " the miner already storaged")
+				continue
+			}
+			accountInfo, ok = n.GetMinerinfo(data.Assignments[j])
+			if !ok {
+				n.Logpart("err", " not a miner")
+				continue
+			}
+			if accountInfo.State != schain.MINER_STATE_POSITIVE {
+				n.Logpart("err", " miner status is not "+schain.MINER_STATE_POSITIVE)
+				continue
+			}
+			if accountInfo.Idlespace < chain.FragmentSize*(chain.ParShards+chain.DataShards) {
+				n.Logpart("err", " miner space < 96M ")
+				continue
+			}
+			err := n.storageBatchFragment(accountInfo, data)
+			if err != nil {
+				n.Logpart("err", " storage failed: "+err.Error())
+				continue
+			}
+			n.Logpart("err", " transfer suc")
+			if len(data.Data) == 1 {
+				return
+			}
+			if len(data.Data) > 1 {
+				data.Data = data.Data[1:]
+			}
+		}
+	}
 }
 
-func (n *Node) StorageFullAssignment(ch chan<- bool, data StorageDataType) error {
+func (n *Node) StorageRangeAssignment(ch chan<- bool, data StorageDataType) {
 	defer func() {
 		ch <- true
 		if err := recover(); err != nil {
 			n.Pnc(utils.RecoverError(err))
 		}
 	}()
-
-	return nil
-}
-
-func (n *Node) StorageRangeAssignment(ch chan<- bool, data StorageDataType) error {
-	defer func() {
-		ch <- true
-		if err := recover(); err != nil {
-			n.Pnc(utils.RecoverError(err))
+	minerinfolist := n.GetAllWhitelistInfos()
+	minerinfolist = append(minerinfolist, n.GetAllMinerinfos()...)
+	length := len(minerinfolist)
+	var ok bool
+	var accountInfo record.Minerinfo
+	for i := 0; i < length; i++ {
+		if IsStoraged(minerinfolist[i].Account, data.Complete) {
+			n.Logrange("info", " the miner already storaged "+minerinfolist[i].Account)
+			continue
 		}
-	}()
+		if n.IsInBlacklist(minerinfolist[i].Account) {
+			continue
+		}
+		coordinateInfo, err := GetCoordinate(minerinfolist[i].Addr)
+		if err != nil {
+			n.Logrange("err", fmt.Sprintf("[%s] getAddrCoordinate: %v", minerinfolist[i].Account, err))
+			continue
+		}
+		if !coordinate.PointInRange(coordinateInfo, data.Range) {
+			n.Logrange("err", fmt.Sprintf("[%s] %v not in range: %v", minerinfolist[i].Account, coordinateInfo, data.Range))
+			continue
+		}
+		accountInfo, ok = n.GetMinerinfo(minerinfolist[i].Account)
+		if !ok {
+			n.Logrange("err", " not a miner")
+			continue
+		}
+		if accountInfo.State != schain.MINER_STATE_POSITIVE {
+			n.Logrange("err", " miner status is not "+schain.MINER_STATE_POSITIVE)
+			continue
+		}
+		if accountInfo.Idlespace < chain.FragmentSize*(chain.ParShards+chain.DataShards) {
+			n.Logrange("err", " miner space < 96M ")
+			continue
+		}
 
-	return nil
+		n.Logrange("info", " will storage file: "+data.Fid)
+		n.Logrange("info", fmt.Sprintf(" file have %d batch fragments", len(data.Data)))
+		for i := 0; i < len(data.Data); {
+			n.Logrange("info", " will storage to "+minerinfolist[i].Account)
+			err := n.storageBatchFragment(accountInfo, data)
+			if err != nil {
+				n.Logrange("err", " storage failed: "+err.Error())
+				continue
+			}
+			n.Logrange("err", " transfer suc")
+			if len(data.Data) == 1 {
+				return
+			}
+			if len(data.Data) > 1 {
+				data.Data = data.Data[1:]
+			}
+		}
+	}
 }
 
 func (n *Node) checkFileState(fid string) (StorageDataType, bool, error) {
@@ -257,6 +338,7 @@ func (n *Node) checkFileState(fid string) (StorageDataType, bool, error) {
 		}
 		if len(recordFile.ShuntMiner) >= (chain.DataShards + chain.ParShards) {
 			storageDataType.StorageType = Storage_FullAssignment
+			storageDataType.Assignments = recordFile.ShuntMiner
 		} else if len(recordFile.ShuntMiner) > 0 {
 			suc := 0
 			for i := 0; i < len(recordFile.ShuntMiner); i++ {
@@ -271,9 +353,11 @@ func (n *Node) checkFileState(fid string) (StorageDataType, bool, error) {
 				storageDataType.StorageType = Storage_NoAssignment
 			} else {
 				storageDataType.StorageType = Storage_PartAssignment
+				storageDataType.Assignments = recordFile.ShuntMiner
 			}
 		} else if len(recordFile.Points.Coordinate) > 3 {
 			storageDataType.StorageType = Storage_RangeAssignment
+			storageDataType.Range = recordFile.Points
 		} else {
 			storageDataType.StorageType = Storage_NoAssignment
 		}
@@ -513,4 +597,12 @@ func IsComplete(index int, completeInfo []schain.CompleteInfo) (string, bool) {
 		}
 	}
 	return "", false
+}
+
+func GetCoordinate(addr string) (coordinate.Coordinate, error) {
+	longitude, latitude, ok := ParseCity(addr)
+	if !ok {
+		return coordinate.Coordinate{}, errors.New("parsing addr failed")
+	}
+	return coordinate.Coordinate{Longitude: longitude, Latitude: latitude}, nil
 }
