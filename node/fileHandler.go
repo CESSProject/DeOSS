@@ -300,7 +300,7 @@ func (f *FileHandler) OpenFileHandle(c *gin.Context) {
 				format, err = CheckFileType(f.Chainer, fid, c.Request.Header.Get(HTTPHeader_Account))
 				if err != nil {
 					f.Logopen("err", clientIp+" CheckFileType: "+err.Error())
-					ReturnJSON(c, 404, ERR_NotFound, nil)
+					ReturnJSON(c, 400, ERR_UnknownFileFormat, nil)
 					return
 				}
 				frecord.AddToFileRecord(fid, format)

@@ -222,9 +222,9 @@ func (b *BucketHandler) GetBucketHandle(c *gin.Context) {
 		}
 
 		data := struct {
-			Num    int      `json:num`
-			Owners []string `json:owners`
-			Files  []string `json:files`
+			Num    int      `json:"num"`
+			Owners []string `json:"owners"`
+			Files  []string `json:"files"`
 		}{
 			Num:    len(bucketInfo.FileList),
 			Owners: owners,

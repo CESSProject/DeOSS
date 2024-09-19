@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/CESSProject/DeOSS/configs"
+	sutils "github.com/CESSProject/cess-go-sdk/utils"
 	"github.com/centrifuge/go-substrate-rpc-client/v4/signature"
 	"github.com/pkg/errors"
 	"github.com/spf13/viper"
@@ -158,6 +159,13 @@ func NewConfig(config_file string) (*Config, error) {
 
 	if c.Access.Mode != configs.Access_Public && c.Access.Mode != configs.Access_Private {
 		return nil, errors.New("invalid access mode")
+	}
+
+	for i := 0; i < len(c.Shunt.Account); i++ {
+		_, err = sutils.ParsingPublickey(c.Shunt.Account[i])
+		if err != nil {
+			return nil, errors.New("invalid shunt account")
+		}
 	}
 
 	err = os.MkdirAll(c.Workspace, 0755)

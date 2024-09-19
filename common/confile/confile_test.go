@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestParse(t *testing.T) {
+func TestConfig_NewConfig(t *testing.T) {
 	confile := "./conf_test.yaml"
 	_, err := NewConfig(confile)
 	assert.NoError(t, err)

@@ -32,8 +32,12 @@ func NewHandler(cli chain.Chainer, track tracker.Tracker, ws workspace.Workspace
 }
 
 func (h *Handler) RegisterRoutes(server *gin.Engine) {
+
 	h.FileHandler.RegisterRoutes(server)
+
 	h.BucketHandler.RegisterRoutes(server)
+
 	h.ResumeHandler.RegisterRoutes(server)
+
 	h.ObjectHandler.RegisterRoutes(server)
 }
