@@ -756,7 +756,7 @@ func saveFormFile(c *gin.Context, file string) (string, int64, error) {
 	}
 	length, err := io.Copy(f, formfile)
 	if err != nil {
-		ReturnJSON(c, 500, ERR_SystemErr, nil)
+		ReturnJSON(c, 400, ERR_ReceiveData, nil)
 		return filename, 0, err
 	}
 	return filename, length, nil

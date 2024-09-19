@@ -20,4 +20,5 @@ const (
 	ERR_InvalidRangeValue = "invalid range value"
 	ERR_InvalidRangeStart = "invalid range start"
 	ERR_InvalidRangeEnd   = "invalid range end"
+	ERR_ReceiveData       = "network error"
 )

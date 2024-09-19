@@ -8,7 +8,6 @@
 package node
 
 import (
-	"context"
 	"errors"
 	"math"
 	"path/filepath"
@@ -18,7 +17,6 @@ import (
 	schain "github.com/CESSProject/cess-go-sdk/chain"
 	sutils "github.com/CESSProject/cess-go-sdk/utils"
 	"github.com/CESSProject/p2p-go/out"
-	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/mr-tron/base58"
 )
 
@@ -30,19 +28,19 @@ func (n *Node) TaskMgt() {
 		ch_refreshBlacklist = make(chan bool, 1)
 	)
 
-	err = n.LoadPeer(filepath.Join(n.Workspace(), "peer_record"))
+	err = n.LoadPeer(filepath.Join(n.GetRootDir(), "peer_record"))
 	if err != nil {
 		n.Log("err", "LoadPeer"+err.Error())
 	}
-	err = n.LoadAccountPeer(filepath.Join(n.Workspace(), "account_record"))
+	err = n.LoadAccountPeer(filepath.Join(n.GetRootDir(), "account_record"))
 	if err != nil {
 		n.Log("err", "LoadAccountPeer"+err.Error())
 	}
-	err = n.LoadBlacklist(filepath.Join(n.Workspace(), "blacklist_record"))
+	err = n.LoadBlacklist(filepath.Join(n.GetRootDir(), "blacklist_record"))
 	if err != nil {
 		n.Log("err", "LoadBlacklist"+err.Error())
 	}
-	err = n.LoadWhitelist(filepath.Join(n.Workspace(), "whitelist_record"))
+	err = n.LoadWhitelist(filepath.Join(n.GetRootDir(), "whitelist_record"))
 	if err != nil {
 		n.Log("err", "LoadWhitelist"+err.Error())
 	}
@@ -99,10 +97,10 @@ func (n *Node) TaskMgt() {
 			}
 
 		case <-task_10Minute.C:
-			go n.BackupPeer(filepath.Join(n.Workspace(), "peer_record"))
-			go n.BackupAccountPeer(filepath.Join(n.Workspace(), "account_record"))
-			go n.BackupBlacklist(filepath.Join(n.Workspace(), "blacklist_record"))
-			go n.BackupWhitelist(filepath.Join(n.Workspace(), "whitelist_record"))
+			go n.BackupPeer(filepath.Join(n.GetRootDir(), "peer_record"))
+			go n.BackupAccountPeer(filepath.Join(n.GetRootDir(), "account_record"))
+			go n.BackupBlacklist(filepath.Join(n.GetRootDir(), "blacklist_record"))
+			go n.BackupWhitelist(filepath.Join(n.GetRootDir(), "whitelist_record"))
 
 			if len(ch_refreshBlacklist) > 0 {
 				<-ch_refreshBlacklist
@@ -128,13 +126,6 @@ func (n *Node) RefreshBlacklist(ch chan<- bool) {
 			n.AddToWhitelist(v.Addrs.ID.String(), "")
 		}
 	}
-}
-
-func (n *Node) ConnectPeer(addr peer.AddrInfo) bool {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
-	err := n.Connect(ctx, addr)
-	cancel()
-	return err == nil
 }
 
 func (n *Node) RefreshMiner(ch chan<- bool) {

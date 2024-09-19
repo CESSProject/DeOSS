@@ -20,9 +20,9 @@ import (
 
 type MinerRecorder interface {
 	// SavePeer saves or updates peer information
-	SavePeer(addr peer.AddrInfo) error
+	SavePeer(addr string) error
 	//
-	DeletePeer(peerid string)
+	DeletePeer(addr string)
 	//
 	DeletePeerByAccount(acc string)
 	//
