@@ -9,6 +9,7 @@ package node
 
 import (
 	"bytes"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -65,8 +66,8 @@ func (n *Node) TrackerV2() {
 	for {
 		tNow = time.Now()
 		n.processTrackFiles()
-		if time.Since(tNow).Minutes() < 3.0 {
-			time.Sleep(time.Minute * 3)
+		if time.Since(tNow).Minutes() < 2.0 {
+			time.Sleep(time.Minute * 2)
 		}
 	}
 }
@@ -86,7 +87,6 @@ func (n *Node) processTrackFiles() {
 		return
 	}
 	if len(trackFiles) <= 0 {
-		n.Logtrack("info", "no track files")
 		return
 	}
 
@@ -140,7 +140,7 @@ func (n *Node) processTrackFiles() {
 		// }
 	}
 	if len(dealFiles) > 0 {
-		n.Logtrack("info", fmt.Sprintf(" will storage %d files: %v", len(dealFiles), dealFiles))
+		n.Logtrack("info", fmt.Sprintf(" will storage no assignment %d files", len(dealFiles)))
 		err = n.storageFiles(dealFiles)
 		if err != nil {
 			n.Logtrack("err", err.Error())
@@ -442,12 +442,13 @@ func (n *Node) storageFiles(tracks []StorageDataType) error {
 	minerinfolist := n.GetAllWhitelistInfos()
 	minerinfolist = append(minerinfolist, n.GetAllMinerinfos()...)
 	length := len(minerinfolist)
+	n.Logtrack("info", fmt.Sprintf("miner length: %d", length))
 	for i := 0; i < length; i++ {
 		n.Logtrack("info", fmt.Sprintf(" use miner: %s", minerinfolist[i].Account))
-		if n.IsInBlacklist(minerinfolist[i].Account) {
-			n.Logtrack("info", " miner in blacklist")
-			continue
-		}
+		// if n.IsInBlacklist(minerinfolist[i].Account) {
+		// 	n.Logtrack("info", " miner in blacklist")
+		// 	continue
+		// }
 		err := n.storageToMiner(minerinfolist[i].Account, tracks)
 		if err != nil {
 			n.Logtrack("err", err.Error())
@@ -600,22 +601,30 @@ func (n *Node) UploadFragmentToMiner(addr, fid, fragmentHash, fragmentPath strin
 	if err != nil {
 		return err
 	}
-	url := addr
+
+	tmp := strings.Split(addr, "\x00")
+	if len(tmp) < 1 {
+		return errors.New("invalid addr")
+	}
+	url := tmp[0]
 	if strings.HasSuffix(url, "/") {
 		url = url + "fragment"
 	} else {
 		url = url + "/fragment"
 	}
-
+	if !strings.HasPrefix(url, "http://") {
+		url = "http://" + url
+	}
 	req, err := http.NewRequest(http.MethodPut, url, body)
 	if err != nil {
 		return err
 	}
 
 	req.Header.Set("Fid", fid)
+	req.Header.Set("Fragment", fragmentHash)
 	req.Header.Set("Account", n.GetSignatureAcc())
 	req.Header.Set("Message", message)
-	req.Header.Set("Signature", string(sig))
+	req.Header.Set("Signature", hex.EncodeToString(sig))
 	req.Header.Set("Content-Type", writer.FormDataContentType())
 
 	client := &http.Client{}

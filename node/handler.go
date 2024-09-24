@@ -8,6 +8,7 @@
 package node
 
 import (
+	"github.com/CESSProject/DeOSS/common/confile"
 	"github.com/CESSProject/DeOSS/common/logger"
 	"github.com/CESSProject/DeOSS/common/tracker"
 	"github.com/CESSProject/DeOSS/common/workspace"
@@ -22,9 +23,9 @@ type Handler struct {
 	*ObjectHandler
 }
 
-func NewHandler(cli chain.Chainer, track tracker.Tracker, ws workspace.Workspace, lg logger.Logger) *Handler {
+func NewHandler(cli chain.Chainer, track tracker.Tracker, ws workspace.Workspace, lg logger.Logger, cfg *confile.Config) *Handler {
 	return &Handler{
-		FileHandler:   NewFileHandler(cli, track, ws, lg),
+		FileHandler:   NewFileHandler(cli, track, ws, lg, cfg),
 		BucketHandler: NewBucketHandler(cli, lg),
 		ResumeHandler: NewResumeHandler(cli, track, ws, lg),
 		ObjectHandler: NewObjectHandler(cli, track, ws, lg),

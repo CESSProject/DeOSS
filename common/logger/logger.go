@@ -128,9 +128,9 @@ func NewLogs(logfiles map[string]string) (Logger, error) {
 func (l *logs) Log(level string, msg string) {
 	_, file, line, _ := runtime.Caller(1)
 	switch level {
-	case "info", "INFO", "Info":
+	case "info":
 		l.log_log.Sugar().Infof("[%v:%d] %v", filepath.Base(file), line, msg)
-	case "err", "error", "ERR", "Err":
+	case "err":
 		l.log_log.Sugar().Errorf("[%v:%d] %v", filepath.Base(file), line, msg)
 	}
 
@@ -144,9 +144,9 @@ func (l *logs) Pnc(msg string) {
 func (l *logs) Logput(level string, msg string) {
 	_, file, line, _ := runtime.Caller(1)
 	switch level {
-	case "info", "INFO", "Info":
+	case "info":
 		l.log_put.Sugar().Infof("[%v:%d] %s", filepath.Base(file), line, msg)
-	case "err", "error", "ERR", "Err":
+	case "err":
 		l.log_put.Sugar().Errorf("[%v:%d] %s", filepath.Base(file), line, msg)
 	}
 }
@@ -154,9 +154,9 @@ func (l *logs) Logput(level string, msg string) {
 func (l *logs) Logget(level string, msg string) {
 	_, file, line, _ := runtime.Caller(1)
 	switch level {
-	case "info", "INFO", "Info":
+	case "info":
 		l.log_get.Sugar().Infof("[%v:%d] %v", filepath.Base(file), line, msg)
-	case "err", "error", "ERR", "Err":
+	case "err":
 		l.log_get.Sugar().Errorf("[%v:%d] %v", filepath.Base(file), line, msg)
 	}
 }
@@ -164,9 +164,9 @@ func (l *logs) Logget(level string, msg string) {
 func (l *logs) Logdown(level string, msg string) {
 	_, file, line, _ := runtime.Caller(1)
 	switch level {
-	case "info", "INFO", "Info":
+	case "info":
 		l.log_down.Sugar().Infof("[%v:%d] %v", filepath.Base(file), line, msg)
-	case "err", "error", "ERR", "Err":
+	case "err":
 		l.log_down.Sugar().Errorf("[%v:%d] %v", filepath.Base(file), line, msg)
 	}
 }
@@ -174,9 +174,9 @@ func (l *logs) Logdown(level string, msg string) {
 func (l *logs) Logopen(level string, msg string) {
 	_, file, line, _ := runtime.Caller(1)
 	switch level {
-	case "info", "INFO", "Info":
+	case "info":
 		l.log_open.Sugar().Infof("[%v:%d] %v", filepath.Base(file), line, msg)
-	case "err", "error", "ERR", "Err":
+	case "err":
 		l.log_open.Sugar().Errorf("[%v:%d] %v", filepath.Base(file), line, msg)
 	}
 }
@@ -184,9 +184,9 @@ func (l *logs) Logopen(level string, msg string) {
 func (l *logs) Logdel(level string, msg string) {
 	_, file, line, _ := runtime.Caller(1)
 	switch level {
-	case "info", "INFO", "Info":
+	case "info":
 		l.log_del.Sugar().Infof("[%v:%d] %v", filepath.Base(file), line, msg)
-	case "err", "error", "ERR", "Err":
+	case "err":
 		l.log_del.Sugar().Errorf("[%v:%d] %v", filepath.Base(file), line, msg)
 	}
 }
@@ -194,9 +194,9 @@ func (l *logs) Logdel(level string, msg string) {
 func (l *logs) Logtrack(level string, msg string) {
 	_, file, line, _ := runtime.Caller(1)
 	switch level {
-	case "info", "INFO", "Info":
+	case "info":
 		l.log_track.Sugar().Infof("[%v:%d] %v", filepath.Base(file), line, msg)
-	case "err", "error", "ERR", "Err":
+	case "err":
 		l.log_track.Sugar().Errorf("[%v:%d] %v", filepath.Base(file), line, msg)
 	}
 }

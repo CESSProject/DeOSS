@@ -56,6 +56,7 @@ func (w *workspace) RemoveAndBuild() error {
 	w.storingDir = filepath.Join(w.rootDir, storingDir)
 	w.tmpDir = filepath.Join(w.rootDir, tmpDir)
 	w.logDir = filepath.Join(w.rootDir, logDir)
+	w.trackDir = filepath.Join(w.rootDir, trackDir)
 
 	err := os.RemoveAll(w.fileDir)
 	if err != nil {
@@ -73,6 +74,10 @@ func (w *workspace) RemoveAndBuild() error {
 	if err != nil {
 		return err
 	}
+	err = os.RemoveAll(w.trackDir)
+	if err != nil {
+		return err
+	}
 
 	err = os.MkdirAll(w.fileDir, 0755)
 	if err != nil {
@@ -85,6 +90,11 @@ func (w *workspace) RemoveAndBuild() error {
 	}
 
 	err = os.MkdirAll(w.tmpDir, 0755)
+	if err != nil {
+		return err
+	}
+
+	err = os.MkdirAll(w.trackDir, 0755)
 	if err != nil {
 		return err
 	}
@@ -114,6 +124,11 @@ func (w *workspace) Build() error {
 
 	w.tmpDir = filepath.Join(w.rootDir, tmpDir)
 	if err := os.MkdirAll(w.tmpDir, 0755); err != nil {
+		return err
+	}
+
+	w.trackDir = filepath.Join(w.rootDir, trackDir)
+	if err := os.MkdirAll(w.trackDir, 0755); err != nil {
 		return err
 	}
 	return nil

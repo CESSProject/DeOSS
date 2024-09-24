@@ -35,7 +35,7 @@ const (
   # domain name, if it's empty and the visibility is public, the <ip:port> will be published on the chain
   domainname: 
   # maximum space occupied, gateway will automatically clean up the cached files
-  maxusespace: 1024*1024*1024*1024
+  maxusespace: 1099511627776
   # gateway API communication port, default is 8080
   port: 8080
 

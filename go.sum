@@ -1,7 +1,7 @@
 github.com/BurntSushi/toml v0.3.1 h1:WXkYYl6Yr3qBf1K79EBnL4mak0OimBfB0XUf9Vl28OQ=
 github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03qcyfWMU=
-github.com/CESSProject/cess-go-sdk v0.6.4-0.20240913095605-9753395b7aa2 h1:Mf3FT9GhkGYC4Bjda+xlEz9jtIAGp26zAWvkTTPWpNw=
-github.com/CESSProject/cess-go-sdk v0.6.4-0.20240913095605-9753395b7aa2/go.mod h1:Cn3X7O+hlt+OYFaEdD+JoPf5PqUyLCFhnvNFeBTT42M=
+github.com/CESSProject/cess-go-sdk v0.6.4-0.20240923092802-151c1b99b78b h1:9A+HATBMsd5/PujVhNIbRmyuq5v3Mw2sUuCeQFnZ/PM=
+github.com/CESSProject/cess-go-sdk v0.6.4-0.20240923092802-151c1b99b78b/go.mod h1:Cn3X7O+hlt+OYFaEdD+JoPf5PqUyLCFhnvNFeBTT42M=
 github.com/CESSProject/go-keyring v0.0.0-20220614131247-ee3a8da30fde h1:5MDRjjtg6PEhqyVjupwaapN96cOZiddOGAYwKQeaTu0=
 github.com/CESSProject/go-keyring v0.0.0-20220614131247-ee3a8da30fde/go.mod h1:RUXBd3ROP98MYepEEa0Y0l/T0vQlIKqFJxI/ocdnRLM=
 github.com/ChainSafe/go-schnorrkel v1.0.0 h1:3aDA67lAykLaG1y3AOjs88dMxC88PgUuHRrLeDnvGIM=

@@ -34,13 +34,13 @@ var favicon string
 
 func (n *Node) InitNode() *Node {
 	n.InitChainClient()
-	n.InitWebServer(
-		InitMiddlewares(),
-		NewHandler(n.Chainer, n.Tracker, n.Workspace, n.Logger),
-	)
 	n.InitMinerRecord(record.NewMinerRecord())
 	n.InitTracker(tracker.NewTracker(n.GetTrackDir()))
 	n.InitLogs()
+	n.InitWebServer(
+		InitMiddlewares(),
+		NewHandler(n.Chainer, n.Tracker, n.Workspace, n.Logger, n.Config),
+	)
 	return n
 }
 
@@ -156,7 +156,7 @@ func (n Node) checkOss(addr string) error {
 		if err.Error() != chain.ERR_Empty {
 			return err
 		}
-		_, err = n.RegisterOss(make([]byte, 0), addr)
+		_, err = n.RegisterOss(make([]byte, chain.PeerIdPublicKeyLen), addr)
 		if err != nil {
 			return err
 		}
@@ -166,7 +166,7 @@ func (n Node) checkOss(addr string) error {
 
 	n.Build()
 	if string(ossinfo.Domain[:]) != addr {
-		_, err = n.UpdateOss(string(make([]byte, 0)), addr)
+		_, err = n.UpdateOss(string(make([]byte, chain.PeerIdPublicKeyLen)), addr)
 		if err != nil {
 			return err
 		}

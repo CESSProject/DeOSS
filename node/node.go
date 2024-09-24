@@ -112,6 +112,8 @@ func (n *Node) Start() {
 	go n.RefreshBlacklist(ch_refreshBlacklist)
 	go n.TrackerV2()
 
+	out.Ok("Service started successfully")
+
 	chainState := true
 	for {
 		select {
@@ -134,7 +136,7 @@ func (n *Node) Start() {
 			}
 
 		case <-task_10Minute.C:
-			go n.BackupMinerlist(filepath.Join(n.GetRootDir(), "peer_record"))
+			go n.BackupMinerlist(filepath.Join(n.GetRootDir(), "miner_record"))
 			go n.BackupBlacklist(filepath.Join(n.GetRootDir(), "blacklist_record"))
 			go n.BackupWhitelist(filepath.Join(n.GetRootDir(), "whitelist_record"))
 

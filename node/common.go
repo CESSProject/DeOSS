@@ -39,22 +39,22 @@ var globalTransport = &http.Transport{
 	DisableKeepAlives: true,
 }
 
-func CheckPermissionsMdl(account string, accessmode string, blacklist, accounts []string) bool {
-	for _, v := range blacklist {
+func CheckPermissionsMdl(account string, accessmode string, priority, blackwhite []string) bool {
+	for _, v := range priority {
 		if v == account {
 			return true
 		}
 	}
 	switch accessmode {
 	case configs.Access_Public:
-		for _, v := range accounts {
+		for _, v := range blackwhite {
 			if v == account {
 				return false
 			}
 		}
 		return true
 	case configs.Access_Private:
-		for _, v := range accounts {
+		for _, v := range blackwhite {
 			if v == account {
 				return true
 			}
@@ -69,7 +69,49 @@ func VerifySignatureMdl(c *gin.Context) (string, []byte, bool) {
 	message := c.Request.Header.Get(HTTPHeader_Message)
 	signature := c.Request.Header.Get(HTTPHeader_Signature)
 	ethAccount := c.Request.Header.Get(HTTPHeader_EthAccount)
+	timestamp, err := strconv.ParseInt(message, 10, 64)
+	if err != nil {
+		t, err := time.Parse(time.DateTime, message)
+		if err == nil {
+			if time.Now().After(t) {
+				return account, nil, false
+			}
+		}
+	} else {
+		if isUnixTimestamp(timestamp) {
+			if time.Now().Unix() >= timestamp {
+				return account, nil, false
+			}
+		} else if isUnixMillTimestamp(timestamp) {
+			if time.Now().UnixMilli() >= timestamp {
+				return account, nil, false
+			}
+		}
+	}
 
+	if ethAccount != "" {
+		ethAccInSian, err := VerifyEthSign(message, signature)
+		if err != nil {
+			return account, nil, false
+		}
+		if ethAccInSian != ethAccount {
+			return account, nil, false
+		}
+		pkey, err := sutils.ParsingPublickey(account)
+		if err != nil {
+			return account, nil, false
+		}
+		return account, pkey, true
+	}
+	pkey, ok, err := utils.VerifySR25519WithPubkey(account, message, signature)
+	if err != nil || !ok {
+		pkey, ok, err = utils.VerifyPolkadotjsHexSign(account, message, signature)
+		return account, pkey, ok
+	}
+	return account, pkey, ok
+}
+
+func VerifySignatureMdl2(account, ethAccount, message, signature string) (string, []byte, bool) {
 	timestamp, err := strconv.ParseInt(message, 10, 64)
 	if err != nil {
 		t, err := time.Parse(time.DateTime, message)

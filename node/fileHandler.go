@@ -93,8 +93,8 @@ func (f *fileTypeRecord) GetFileFormat(fid string) (string, bool) {
 	return value, ok
 }
 
-func NewFileHandler(cli chain.Chainer, track tracker.Tracker, ws workspace.Workspace, lg logger.Logger) *FileHandler {
-	return &FileHandler{Chainer: cli, Tracker: track, Workspace: ws, Logger: lg, Limiter: rate.NewLimiter(rate.Every(time.Millisecond*10), 20)}
+func NewFileHandler(cli chain.Chainer, track tracker.Tracker, ws workspace.Workspace, lg logger.Logger, cfg *confile.Config) *FileHandler {
+	return &FileHandler{Chainer: cli, Tracker: track, Workspace: ws, Logger: lg, Config: cfg, Limiter: rate.NewLimiter(rate.Every(time.Millisecond*10), 20)}
 }
 
 func (f *FileHandler) RegisterRoutes(server *gin.Engine) {
