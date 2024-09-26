@@ -300,7 +300,7 @@ func (f *FileHandler) OpenFileHandle(c *gin.Context) {
 				format, err = CheckFileType(f.Chainer, fid, c.Request.Header.Get(HTTPHeader_Account))
 				if err != nil {
 					f.Logopen("err", clientIp+" CheckFileType: "+err.Error())
-					ReturnJSON(c, 400, ERR_UnknownFileFormat, nil)
+					ReturnJSON(c, 403, ERR_RPCConnection, nil)
 					return
 				}
 				frecord.AddToFileRecord(fid, format)
@@ -313,7 +313,7 @@ func (f *FileHandler) OpenFileHandle(c *gin.Context) {
 
 	contenttype, ok := contentType.Load(format)
 	if !ok {
-		contenttype = "application/octet-stream"
+		contenttype = "text/plain"
 	}
 
 	f.Logopen("info", clientIp+" open file: "+fid+" format: "+format+" Range: "+rgn)

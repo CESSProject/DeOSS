@@ -496,4 +496,12 @@ func init() {
 	contentType.Store(".zac", "application/x-zaurus-zac")
 	contentType.Store(".zip", "application/zip")
 	contentType.Store(".json", "application/json")
+	contentType.Store(".go", "text/plain")
+	contentType.Store(".rs", "text/plain")
+	contentType.Store(".c", "text/plain")
+	contentType.Store(".py", "text/plain")
+	contentType.Store(".hpp", "text/plain")
+	contentType.Store(".cs", "text/plain")
+	contentType.Store(".ini", "text/plain")
+	contentType.Store(".s", "text/plain")
 }

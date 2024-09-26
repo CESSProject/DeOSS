@@ -468,6 +468,7 @@ func (n *Node) StoragePartFixed(data StorageDataType, assignments []string) (Sto
 		for j := 0; j < len(assignments); j++ {
 			n.Logpart("info", " will storage to "+assignments[j])
 			if IsStoraged(assignments[j], data.Complete) {
+				allsuc++
 				n.Logpart("info", " the miner already storaged")
 				continue
 			}
@@ -501,6 +502,9 @@ func (n *Node) StoragePartFixed(data StorageDataType, assignments []string) (Sto
 			if len(data.Data) > 1 {
 				data.Data = data.Data[1:]
 			}
+		}
+		if allsuc == len(assignments) {
+			return data, nil
 		}
 	}
 	return StorageDataType{}, errors.New("StoragePartFixed failed")

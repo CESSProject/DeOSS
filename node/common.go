@@ -501,7 +501,7 @@ func CheckFileType(cli chain.Chainer, fid string, account string) (string, error
 		}
 		return strings.ToLower(format), nil
 	}
-	return "", errors.New("unknown file format")
+	return ".txt", nil
 }
 
 func CheckFilename(c *gin.Context, filename string) error {
