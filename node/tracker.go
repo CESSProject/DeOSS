@@ -159,11 +159,13 @@ func (n *Node) StoragePartAssignment(ch chan<- bool, data StorageDataType, assig
 	var accountInfo record.Minerinfo
 	n.Logpart("info", " will storage file: "+data.Fid)
 	n.Logpart("info", fmt.Sprintf(" file have %d batch fragments", len(data.Data)))
+	suc := 0
 	for i := 0; i < len(data.Data); {
 		n.Logpart("info", fmt.Sprintf(" will storage %d batch fragments", i))
 		for j := 0; j < len(assignments); j++ {
 			n.Logpart("info", " will storage to "+assignments[j])
 			if IsStoraged(assignments[j], data.Complete) {
+				suc++
 				n.Logpart("info", " the miner already storaged")
 				continue
 			}
@@ -185,6 +187,7 @@ func (n *Node) StoragePartAssignment(ch chan<- bool, data StorageDataType, assig
 				n.Logpart("err", " storage failed: "+err.Error())
 				continue
 			}
+			suc++
 			n.Logpart("err", " transfer suc")
 			if len(data.Data) == 1 {
 				return
@@ -192,6 +195,9 @@ func (n *Node) StoragePartAssignment(ch chan<- bool, data StorageDataType, assig
 			if len(data.Data) > 1 {
 				data.Data = data.Data[1:]
 			}
+		}
+		if suc == len(assignments) {
+			return
 		}
 	}
 }
@@ -209,20 +215,27 @@ func (n *Node) StorageRangeAssignment(ch chan<- bool, data StorageDataType) {
 	var ok bool
 	var accountInfo record.Minerinfo
 	for i := 0; i < length; i++ {
+		n.Logrange("info", " use miner: "+minerinfolist[i].Account)
 		if IsStoraged(minerinfolist[i].Account, data.Complete) {
-			n.Logrange("info", " the miner already storaged "+minerinfolist[i].Account)
+			n.Logrange("info", " the miner already storaged")
 			continue
 		}
 		if n.IsInBlacklist(minerinfolist[i].Account) {
+			n.Logrange("err", " miner in blacklist")
 			continue
 		}
-		coordinateInfo, err := GetCoordinate(minerinfolist[i].Addr)
+		tmp := strings.Split(minerinfolist[i].Addr, "\x00")
+		if len(tmp) < 1 {
+			n.Logrange("err", " miner addr is invalid")
+			continue
+		}
+		coordinateInfo, err := GetCoordinate(tmp[0])
 		if err != nil {
-			n.Logrange("err", fmt.Sprintf("[%s] getAddrCoordinate: %v", minerinfolist[i].Account, err))
+			n.Logrange("err", fmt.Sprintf(" getAddrCoordinate: %v", err))
 			continue
 		}
 		if !coordinate.PointInRange(coordinateInfo, data.Range) {
-			n.Logrange("err", fmt.Sprintf("[%s] %v not in range: %v", minerinfolist[i].Account, coordinateInfo, data.Range))
+			n.Logrange("err", fmt.Sprintf(" %v not in range: %v", coordinateInfo, data.Range))
 			continue
 		}
 		accountInfo, ok = n.GetMinerinfo(minerinfolist[i].Account)
@@ -242,19 +255,19 @@ func (n *Node) StorageRangeAssignment(ch chan<- bool, data StorageDataType) {
 		n.Logrange("info", " will storage file: "+data.Fid)
 		n.Logrange("info", fmt.Sprintf(" file have %d batch fragments", len(data.Data)))
 		for i := 0; i < len(data.Data); {
-			n.Logrange("info", " will storage to "+minerinfolist[i].Account)
 			err := n.storageBatchFragment(accountInfo, data)
 			if err != nil {
 				n.Logrange("err", " storage failed: "+err.Error())
-				continue
+				break
 			}
-			n.Logrange("err", " transfer suc")
+			n.Logrange("info", " transfer suc")
 			if len(data.Data) == 1 {
 				return
 			}
 			if len(data.Data) > 1 {
 				data.Data = data.Data[1:]
 			}
+			break
 		}
 	}
 }
@@ -356,7 +369,7 @@ func (n *Node) checkFileState(fid string) (StorageDataType, bool, error) {
 				storageDataType.StorageType = Storage_PartAssignment
 				storageDataType.Assignments = recordFile.ShuntMiner
 			}
-		} else if len(recordFile.Points.Coordinate) > 3 {
+		} else if len(recordFile.Points.Coordinate) > 2 {
 			storageDataType.StorageType = Storage_RangeAssignment
 			storageDataType.Range = recordFile.Points
 		} else {
@@ -413,7 +426,7 @@ func (n *Node) checkFileState(fid string) (StorageDataType, bool, error) {
 		storageDataType.StorageType = Storage_FullAssignment
 	} else if len(recordFile.ShuntMiner) > 0 {
 		storageDataType.StorageType = Storage_PartAssignment
-	} else if len(recordFile.Points.Coordinate) > 3 {
+	} else if len(recordFile.Points.Coordinate) > 2 {
 		storageDataType.StorageType = Storage_RangeAssignment
 	} else {
 		storageDataType.StorageType = Storage_NoAssignment

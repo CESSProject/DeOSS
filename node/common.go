@@ -539,16 +539,19 @@ func CheckMinerLocation(cli chain.Chainer, puk []byte) (float64, float64, error)
 }
 
 func ParseCity(addr string) (float64, float64, bool) {
-	ip, err := net.ResolveIPAddr("ip", addr)
-	if err == nil {
+	ip, _, err := net.SplitHostPort(addr)
+	if err != nil {
+		return 0, 0, false
+	}
+	netip := net.ParseIP(ip)
+	if netip == nil {
+		return 0, 0, false
+	}
+	if netip.IsLoopback() || netip.IsPrivate() || netip.IsUnspecified() {
 		return 0, 0, false
 	}
 
-	if ip.IP.IsLoopback() || ip.IP.IsPrivate() || ip.IP.IsUnspecified() {
-		return 0, 0, false
-	}
-
-	city, err := coordinate.GetCity(ip.IP)
+	city, err := coordinate.GetCity(netip)
 	if err == nil {
 		return city.Location.Longitude, city.Location.Latitude, true
 	}

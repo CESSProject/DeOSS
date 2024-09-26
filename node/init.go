@@ -86,7 +86,7 @@ func InitMiddlewares() []gin.HandlerFunc {
 				HTTPHeader_Range,
 				HTTPHeader_X_Forwarded_For,
 			},
-			AllowMethods: []string{"PUT", "GET", "OPTION"},
+			AllowMethods: []string{"PUT", "GET", "DELETE", "OPTION"},
 		}),
 	}
 }
