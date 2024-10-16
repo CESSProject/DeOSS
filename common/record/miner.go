@@ -10,6 +10,7 @@ package record
 import (
 	"encoding/json"
 	"os"
+	"strings"
 	"sync"
 
 	sutils "github.com/CESSProject/cess-go-sdk/utils"
@@ -220,10 +221,11 @@ func (m *MinerRecord) AddToWhitelist(account string, info Minerinfo) {
 }
 
 func (m *MinerRecord) AddToBlacklist(account, addr, reason string) {
+	msg := strings.ReplaceAll(reason, "\"", "")
 	m.blacklistLock.Lock()
 	m.blacklist[account] = Reason{
 		Account: account,
-		Reason:  reason,
+		Reason:  msg,
 		Addr:    addr,
 	}
 	m.blacklistLock.Unlock()

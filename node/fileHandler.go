@@ -50,9 +50,8 @@ type Metadata struct {
 }
 
 type RtnUserBrief struct {
-	User       string `json:"user"`
-	FileName   string `json:"file_name"`
-	BucketName string `json:"bucket_name"`
+	User     string `json:"user"`
+	FileName string `json:"file_name"`
 }
 
 // location info
@@ -254,7 +253,6 @@ func (f *FileHandler) GetMetadataHandle(c *gin.Context) {
 	fileMetadata.Size = fmeta.FileSize.Uint64()
 	fileMetadata.Owner = make([]RtnUserBrief, len(fmeta.Owner))
 	for i := 0; i < len(fmeta.Owner); i++ {
-		fileMetadata.Owner[i].BucketName = string(fmeta.Owner[i].BucketName)
 		fileMetadata.Owner[i].FileName = string(fmeta.Owner[i].FileName)
 		fileMetadata.Owner[i].User, _ = sutils.EncodePublicKeyAsCessAccount(fmeta.Owner[i].User[:])
 	}
@@ -545,13 +543,12 @@ func (f *FileHandler) UploadFormFileHandle(c *gin.Context) {
 
 	account := c.Request.Header.Get(HTTPHeader_Account)
 	ethAccount := c.Request.Header.Get(HTTPHeader_EthAccount)
-	bucketName := c.Request.Header.Get(HTTPHeader_Bucket)
 	territoryName := c.Request.Header.Get(HTTPHeader_Territory)
 	cipher := c.Request.Header.Get(HTTPHeader_Cipher)
 	shuntminers := c.Request.Header.Values(HTTPHeader_Miner)
 	longitudes := c.Request.Header.Values(HTTPHeader_Longitude)
 	latitudes := c.Request.Header.Values(HTTPHeader_Latitude)
-	f.Logput("info", utils.StringBuilder(400, clientIp, account, ethAccount, bucketName, territoryName, cipher))
+	f.Logput("info", utils.StringBuilder(400, clientIp, account, ethAccount, territoryName, cipher))
 	shuntminerslength := len(shuntminers)
 	if shuntminerslength > 0 {
 		f.Logput("info", fmt.Sprintf("shuntminers: %d, %v", shuntminerslength, shuntminers))
@@ -574,11 +571,11 @@ func (f *FileHandler) UploadFormFileHandle(c *gin.Context) {
 		return
 	}
 
-	if !chain.CheckBucketName(bucketName) {
-		f.Logput("err", clientIp+" CheckBucketName failed: "+bucketName)
-		ReturnJSON(c, 400, ERR_HeaderFieldBucketName, nil)
-		return
-	}
+	// if !chain.CheckBucketName(bucketName) {
+	// 	f.Logput("err", clientIp+" CheckBucketName failed: "+bucketName)
+	// 	ReturnJSON(c, 400, ERR_HeaderFieldBucketName, nil)
+	// 	return
+	// }
 
 	if !sutils.CompareSlice(pkey, f.GetSignatureAccPulickey()) {
 		err = CheckAuthorize(f.Chainer, c, pkey)
@@ -650,7 +647,7 @@ func (f *FileHandler) UploadFormFileHandle(c *gin.Context) {
 
 	switch duplicate {
 	case Duplicate1:
-		blockhash, err := f.PlaceStorageOrder(fid, fname, bucketName, territoryName, segment, pkey, uint64(length))
+		blockhash, err := f.PlaceStorageOrder(fid, fname, territoryName, segment, pkey, uint64(length))
 		if err != nil {
 			f.Logput("err", clientIp+" PlaceStorageOrder: "+err.Error())
 			ReturnJSON(c, 500, ERR_SystemErr, nil)
@@ -672,7 +669,6 @@ func (f *FileHandler) UploadFormFileHandle(c *gin.Context) {
 		Points:        points,
 		Fid:           fid,
 		FileName:      fname,
-		BucketName:    bucketName,
 		TerritoryName: territoryName,
 		CacheDir:      cacheDir,
 		Cipher:        cipher,
@@ -684,7 +680,7 @@ func (f *FileHandler) UploadFormFileHandle(c *gin.Context) {
 		return
 	}
 
-	blockhash, err := f.PlaceStorageOrder(fid, fname, bucketName, territoryName, segment, pkey, uint64(length))
+	blockhash, err := f.PlaceStorageOrder(fid, fname, territoryName, segment, pkey, uint64(length))
 	if err != nil {
 		f.Logput("err", clientIp+" PlaceStorageOrder: "+err.Error())
 		ReturnJSON(c, 500, ERR_SystemErr, nil)

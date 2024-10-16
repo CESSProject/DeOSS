@@ -10,6 +10,7 @@ package node
 import (
 	"errors"
 	"math"
+	"net"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -26,6 +27,7 @@ import (
 	schain "github.com/CESSProject/cess-go-sdk/chain"
 	sutils "github.com/CESSProject/cess-go-sdk/utils"
 	"github.com/gin-gonic/gin"
+	"github.com/go-ping/ping"
 )
 
 type Node struct {
@@ -160,15 +162,19 @@ func (n *Node) RefreshBlacklist(ch chan<- bool) {
 	var url string
 	blacklist := n.GetAllBlacklist()
 	for _, v := range blacklist {
-		url = v.Addr
-		if strings.HasSuffix(url, "/") {
-			url = url + "version"
+		url = strings.ReplaceAll(v.Addr, "\u0000", "")
+		url = strings.TrimSuffix(url, "/")
+		if strings.Contains(url, ":") {
+			url = strings.TrimPrefix(url, "http://")
+			_, err = net.DialTimeout("tcp", url, time.Second*5)
+			if err == nil {
+				n.RemoveFromBlacklist(v.Account)
+			}
 		} else {
-			url = url + "/version"
-		}
-		err = GetGWVersion(url)
-		if err == nil {
-			n.RemoveFromBlacklist(v.Account)
+			_, err = ping.NewPinger(url)
+			if err == nil {
+				n.RemoveFromBlacklist(v.Account)
+			}
 		}
 	}
 }
@@ -192,7 +198,7 @@ func (n *Node) RefreshMiner(ch chan<- bool) {
 				}
 				continue
 			}
-			n.SaveMinerinfo(acc, string(minerinfo.PeerId[:]), string(minerinfo.State), minerinfo.IdleSpace.Uint64())
+			n.SaveMinerinfo(acc, string(minerinfo.Endpoint[:]), string(minerinfo.State), minerinfo.IdleSpace.Uint64())
 		}
 	}
 }

@@ -156,7 +156,7 @@ func (n Node) checkOss(addr string) error {
 		if err.Error() != chain.ERR_Empty {
 			return err
 		}
-		_, err = n.RegisterOss(make([]byte, chain.PeerIdPublicKeyLen), addr)
+		_, err = n.RegisterOss(addr)
 		if err != nil {
 			return err
 		}
@@ -166,7 +166,7 @@ func (n Node) checkOss(addr string) error {
 
 	n.Build()
 	if string(ossinfo.Domain[:]) != addr {
-		_, err = n.UpdateOss(string(make([]byte, chain.PeerIdPublicKeyLen)), addr)
+		_, err = n.UpdateOss(addr)
 		if err != nil {
 			return err
 		}

@@ -18,7 +18,6 @@ import (
 	"github.com/CESSProject/DeOSS/node"
 	cess "github.com/CESSProject/cess-go-sdk"
 	"github.com/CESSProject/cess-go-sdk/chain"
-	"github.com/btcsuite/btcutil/base58"
 	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/spf13/cobra"
 )
@@ -61,7 +60,6 @@ func statCmd(cmd *cobra.Command, args []string) {
 	}
 	var tableRows = []table.Row{
 		{"role", "deoss"},
-		{"peer id", base58.Encode([]byte(string(ossinfo.Peerid[:])))},
 		{"signature account", n.GetSignatureAcc()},
 		{"domain name", string(ossinfo.Domain)},
 	}

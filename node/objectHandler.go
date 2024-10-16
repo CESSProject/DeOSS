@@ -206,7 +206,7 @@ func (o *ObjectHandler) UploadObjectHandle(c *gin.Context) {
 
 	switch duplicate {
 	case Duplicate1:
-		blockhash, err := o.PlaceStorageOrder(fid, filename, bucketName, territoryName, segmentInfo, pkey, uint64(length))
+		blockhash, err := o.PlaceStorageOrder(fid, filename, territoryName, segmentInfo, pkey, uint64(length))
 		if err != nil {
 			o.Logput("err", clientIp+" PlaceStorageOrder: "+err.Error())
 			ReturnJSON(c, 500, ERR_SystemErr, nil)
@@ -240,7 +240,7 @@ func (o *ObjectHandler) UploadObjectHandle(c *gin.Context) {
 		return
 	}
 
-	blockhash, err := o.PlaceStorageOrder(fid, filename, bucketName, territoryName, segmentInfo, pkey, uint64(length))
+	blockhash, err := o.PlaceStorageOrder(fid, filename, territoryName, segmentInfo, pkey, uint64(length))
 	if err != nil {
 		o.Logput("err", clientIp+" PlaceStorageOrder: "+err.Error())
 		ReturnJSON(c, 500, ERR_SystemErr, nil)

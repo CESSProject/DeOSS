@@ -531,7 +531,7 @@ func CheckMinerLocation(cli chain.Chainer, puk []byte) (float64, float64, error)
 	if err != nil {
 		return 0, 0, err
 	}
-	longitude, latitude, ok := ParseCity(string(minerInfo.PeerId[:]))
+	longitude, latitude, ok := ParseCity(string(minerInfo.Endpoint[:]))
 	if ok {
 		return longitude, latitude, nil
 	}

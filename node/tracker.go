@@ -404,7 +404,6 @@ func (n *Node) checkFileState(fid string) (StorageDataType, bool, error) {
 	txhash, err := n.PlaceStorageOrder(
 		fid,
 		recordFile.FileName,
-		recordFile.BucketName,
 		recordFile.TerritoryName,
 		recordFile.Segment,
 		recordFile.Owner,
@@ -559,7 +558,7 @@ func (n *Node) storageToMiner(account string, tracks []StorageDataType) error {
 			return nil
 		}
 	}
-	n.Logtrack("info", " all files transferred")
+	n.Logtrack("info", " this batch fragments transferred")
 	return nil
 }
 
@@ -577,8 +576,9 @@ func (n *Node) storageBatchFragment(minerinfo record.Minerinfo, tracks StorageDa
 		err = n.UploadFragmentToMiner(minerinfo.Addr, tracks.Fid, filepath.Base(tracks.Data[0][j]), tracks.Data[0][j])
 		if err != nil {
 			n.Logtrack("info", fmt.Sprintf(" miner transfer %d fragment failed: %v", j, err))
-			//if strings.Contains(err.Error(), "refused") || strings.Contains(err.Error(), "timeout") {
-			n.AddToBlacklist(minerinfo.Account, minerinfo.Addr, err.Error())
+			errmsg := err.Error()
+			//if strings.Contains(errmsg, "refused") || strings.Contains(errmsg, "timeout") {
+			n.AddToBlacklist(minerinfo.Account, minerinfo.Addr, errmsg)
 			//}
 			return err
 		}

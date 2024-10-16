@@ -367,7 +367,7 @@ func (r *ResumeHandler) ResumeHandle(c *gin.Context) {
 
 	switch duplicate {
 	case Duplicate1:
-		blockhash, err := r.PlaceStorageOrder(fid, filename, bucketName, territoryName, segment, pkey, uint64(total))
+		blockhash, err := r.PlaceStorageOrder(fid, filename, territoryName, segment, pkey, uint64(total))
 		if err != nil {
 			r.Logput("err", clientIp+" PlaceStorageOrder: "+err.Error())
 			ReturnJSON(c, 500, ERR_SystemErr, nil)
@@ -401,7 +401,7 @@ func (r *ResumeHandler) ResumeHandle(c *gin.Context) {
 		return
 	}
 
-	blockhash, err := r.PlaceStorageOrder(fid, filename, bucketName, territoryName, segment, pkey, uint64(total))
+	blockhash, err := r.PlaceStorageOrder(fid, filename, territoryName, segment, pkey, uint64(total))
 	if err != nil {
 		r.Logput("err", clientIp+" PlaceStorageOrder: "+err.Error())
 		ReturnJSON(c, 500, ERR_SystemErr, nil)
