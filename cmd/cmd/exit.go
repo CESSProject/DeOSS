@@ -27,7 +27,7 @@ func exitCmd(cmd *cobra.Command, args []string) {
 		n   = node.NewEmptyNode()
 	)
 
-	n.Config, err = buildConfigFile(cmd)
+	n.Config, err = buildConfigFileNotCheck(cmd)
 	if err != nil {
 		log.Println(err)
 		os.Exit(1)

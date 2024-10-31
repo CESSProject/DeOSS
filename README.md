@@ -10,10 +10,6 @@ If you find any system errors or you have better suggestions, please submit an i
 ```
 wss://testnet-rpc.cess.network/ws/
 ```
-### CESS test network bootstrap node
-```
-_dnsaddr.boot-miner-testnet.cess.network
-```
 
 ### CESS test network public gateway
 
@@ -52,13 +48,12 @@ yum install git curl wget vim util-linux -y
 
 ### Firewall configuration
 
-By default, DeOSS uses port `8080` to listen for incoming connections and internally uses port `4001` for p2p communication, if your platform blocks these two ports by default, you may need to enable access to these port.
+Deoss defaults to listening on port `8080`.  The reference for configuring firewall open ports is as follows:
 
 #### ufw
 For hosts with ufw enabled (Debian, Ubuntu, etc.), you can use the ufw command to allow traffic to flow to specific ports. Use the following command to allow access to a port:
 ```
 ufw allow 8080
-ufw allow 4001
 ```
 
 #### firewall-cmd
@@ -68,7 +63,6 @@ firewall-cmd --get-active-zones
 ```
 This command gets the active zone(s). Now, apply port rules to the relevant zones returned above. For example if the zone is public, use
 ```
-firewall-cmd --zone=public --add-port=4001/tcp --permanent
 firewall-cmd --zone=public --add-port=8080/tcp --permanent
 ```
 Note that permanent makes sure the rules are persistent across firewall start, restart or reload. Finally reload the firewall for changes to take effect.
@@ -79,7 +73,6 @@ firewall-cmd --reload
 #### iptables
 For hosts with iptables enabled (RHEL, CentOS, etc.), you can use the iptables command to enable all traffic to a specific port. Use the following command to allow access to a port:
 ```
-iptables -A INPUT -p tcp --dport 4001 -j ACCEPT
 iptables -A INPUT -p tcp --dport 8080 -j ACCEPT
 service iptables restart
 ```
@@ -144,33 +137,29 @@ The contents of the configuration file template are as follows. The contents ins
 ```yaml
 application:
   # gateway's workspace
-  workspace: "/"
-  # gateway's url
-  url: ""
+  workspace: /
   # gateway run mode  [debug | release]
-  mode: "release"
-  # gateway API communication port
+  mode: release
+  # service visibility: [public | private]
+  # public: gateway address will be published on the chain
+  # private: gateway address will not be made public on the chain
+  visibility: public
+  # domain name, if it's empty and the visibility is public, the <ip:port> will be published on the chain
+  domainname: 
+  # maximum space occupied, gateway will automatically clean up the cached files
+  maxusespace: 1099511627776
+  # gateway API communication port, default is 8080
   port: 8080
 
 chain:
   # signature account mnemonic
-  # substrate well-known mnemonic:
-  #   - https://github.com/substrate-developer-hub/substrate-developer-hub.github.io/issues/613
-  mnemonic: "bottom drive obey lake curtain smoke basket hold race lonely fit walk"
+  mnemonic: ""
   # waiting for transaction timeout, default is 15 seconds
-  timeout: 30
+  timeout: 15
   # rpc endpoint list
   rpc:
     # test network
     - "wss://testnet-rpc.cess.network/ws/"
-
-storage:
-  # communication ports in the storage network
-  port: 4001
-  # bootstrap nodes in the storage network
-  boot:
-    # test network
-    - "_dnsaddr.boot-miner-testnet.cess.network"
 
 user:
   # high priority accounts will not be restricted or blacklisted when accessing the gateway
@@ -178,40 +167,15 @@ user:
 
 access:
   # access mode: [public | private]
-  # In public mode, only users in account can't access it
-  # In private mode, only users in account can access it
+  # public: only users in account can't access the gateway
+  # private: only users in account can access the gateway
   mode: public
   # account black/white list
   account:
 
-# user files cacher config
-cacher:
-  # file cache size, default 512G, (unit is byte)
-  size: 549755813888
-  # file cache expiration time, default 3 hour (unit is minutes)
-  expiration: 180
-  # directory to store file cache, default path: workspace/filecache/
-  directory:
-
-# storage mode selector config
-selector:
-  # used to find better storage node partners for gateway to upload or download files,
-  # two strategies for using your specified storage nodes, [priority | fixed]
-  strategy: priority
-  # storage miner filter file, json format, if it does not exist, it will be automatically created.
-  # you can configure which storage nodes to use or not use in this file.
-  # default path: workspace/storage_nodes.json
-  filter:
-  # maximum number of storage nodes allowed for long-term cooperation, default 120
-  number: 120
-  # maximum tolerable TTL for communication with storage nodes, default 500 ms (unit is milliseconds)
-  ttl: 500000000
-  # available storage node list refresh time, default 4 hours (unit is hours)
-  refresh: 4
-
 shunt:
-  # give priority to storing files to miners with these peerids
-  peerid:
+  # specify the storage miner account you want to store
+  account:
 ```
 
 ## 🟢 Usage for DeOSS
@@ -226,7 +190,6 @@ nohup ./deoss run 2>&1 &
 ./deoss stat
 +-------------------+------------------------------------------------------+
 | role              | deoss                                                |
-| peer id           | 12D3KooWFAcDpT7vTtbsS361P14z8LpgxPMRywQr19sAdNfdDBYE |
 | signature account | cXjy16zpi3kFU6ThDHeTifpwHop4YjaF3EvYipTeJSbTjmayP    |
 | domain name       | https://deoss-sv.cess.network                        |
 +-------------------+------------------------------------------------------+

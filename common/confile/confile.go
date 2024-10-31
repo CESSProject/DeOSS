@@ -176,6 +176,47 @@ func NewConfig(config_file string) (*Config, error) {
 	return c, nil
 }
 
+func NewConfigNotCheck(config_file string) (*Config, error) {
+	var confilePath = config_file
+	if confilePath == "" {
+		confilePath = DefaultConfig
+	}
+	fstat, err := os.Stat(confilePath)
+	if err != nil {
+		return nil, err
+	}
+	if fstat.IsDir() {
+		return nil, errors.Errorf("the '%v' is not a file", confilePath)
+	}
+
+	viper.SetConfigFile(confilePath)
+	viper.SetConfigType(path.Ext(confilePath)[1:])
+
+	err = viper.ReadInConfig()
+	if err != nil {
+		return nil, errors.Errorf("ReadInConfig: %v", err)
+	}
+	var c = &Config{}
+	err = viper.Unmarshal(c)
+	if err != nil {
+		return nil, errors.Errorf("configuration file format error: %v", err)
+	}
+
+	if c.Mnemonic == "" {
+		c.Mnemonic = os.Getenv("mnemonic")
+	}
+
+	_, err = signature.KeyringPairFromSecret(c.Mnemonic, 0)
+	if err != nil {
+		return nil, errors.Errorf("invalid mnemonic: %v", err)
+	}
+
+	if len(c.Rpc) == 0 {
+		return nil, errors.New("empty rpc list")
+	}
+	return c, nil
+}
+
 func (c *Config) IsHighPriorityAccount(acc string) bool {
 	length := len(c.User.Account)
 	for i := 0; i < length; i++ {

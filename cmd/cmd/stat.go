@@ -14,11 +14,13 @@ import (
 	"os"
 	"time"
 
+	"github.com/CESSProject/DeOSS/common/confile"
 	"github.com/CESSProject/DeOSS/configs"
 	"github.com/CESSProject/DeOSS/node"
 	cess "github.com/CESSProject/cess-go-sdk"
 	"github.com/CESSProject/cess-go-sdk/chain"
 	"github.com/jedib0t/go-pretty/v6/table"
+	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 )
 
@@ -30,7 +32,7 @@ func statCmd(cmd *cobra.Command, args []string) {
 		n   = node.NewEmptyNode()
 	)
 
-	n.Config, err = buildConfigFile(cmd)
+	n.Config, err = buildConfigFileNotCheck(cmd)
 	if err != nil {
 		log.Println(err)
 		os.Exit(1)
@@ -67,4 +69,25 @@ func statCmd(cmd *cobra.Command, args []string) {
 	tw.AppendRows(tableRows)
 	fmt.Println(tw.Render())
 	os.Exit(0)
+}
+
+func buildConfigFileNotCheck(cmd *cobra.Command) (*confile.Config, error) {
+	var conFilePath string
+	configpath1, _ := cmd.Flags().GetString("config")
+	configpath2, _ := cmd.Flags().GetString("c")
+	if configpath1 != "" {
+		_, err := os.Stat(configpath1)
+		if err != nil {
+			return nil, errors.Wrapf(err, "[Stat %s]", configpath1)
+		}
+		conFilePath = configpath1
+	} else if configpath2 != "" {
+		_, err := os.Stat(configpath2)
+		if err != nil {
+			return nil, errors.Wrapf(err, "[Stat %s]", configpath2)
+		}
+		conFilePath = configpath2
+	}
+
+	return confile.NewConfigNotCheck(conFilePath)
 }
