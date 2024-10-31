@@ -70,7 +70,6 @@ func InitMiddlewares() []gin.HandlerFunc {
 		cors.New(cors.Config{
 			AllowAllOrigins: true,
 			AllowHeaders: []string{
-				HTTPHeader_Bucket,
 				HTTPHeader_Territory,
 				HTTPHeader_Account,
 				HTTPHeader_EthAccount,

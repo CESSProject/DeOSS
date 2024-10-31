@@ -18,27 +18,20 @@ import (
 
 type Handler struct {
 	*FileHandler
-	//*BucketHandler
 	*ResumeHandler
 	*ObjectHandler
 }
 
 func NewHandler(cli chain.Chainer, track tracker.Tracker, ws workspace.Workspace, lg logger.Logger, cfg *confile.Config) *Handler {
 	return &Handler{
-		FileHandler: NewFileHandler(cli, track, ws, lg, cfg),
-		//BucketHandler: NewBucketHandler(cli, lg),
+		FileHandler:   NewFileHandler(cli, track, ws, lg, cfg),
 		ResumeHandler: NewResumeHandler(cli, track, ws, lg),
 		ObjectHandler: NewObjectHandler(cli, track, ws, lg),
 	}
 }
 
 func (h *Handler) RegisterRoutes(server *gin.Engine) {
-
 	h.FileHandler.RegisterRoutes(server)
-
-	//h.BucketHandler.RegisterRoutes(server)
-
 	h.ResumeHandler.RegisterRoutes(server)
-
 	h.ObjectHandler.RegisterRoutes(server)
 }

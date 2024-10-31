@@ -9,7 +9,6 @@ package node
 
 // HTTP HEADER
 const (
-	HTTPHeader_Bucket          = "Bucket"
 	HTTPHeader_Territory       = "Territory"
 	HTTPHeader_Account         = "Account"
 	HTTPHeader_EthAccount      = "EthAcc"

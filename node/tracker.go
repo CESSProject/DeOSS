@@ -178,8 +178,8 @@ func (n *Node) StoragePartAssignment(ch chan<- bool, data StorageDataType, assig
 				n.Logpart("err", " miner status is not "+schain.MINER_STATE_POSITIVE)
 				continue
 			}
-			if accountInfo.Idlespace < chain.FragmentSize*(chain.ParShards+chain.DataShards) {
-				n.Logpart("err", " miner space < 96M ")
+			if accountInfo.Idlespace < uint64(chain.FragmentSize*len(data.Data[0])) {
+				n.Logpart("err", fmt.Sprintf(" miner space < %dMiB", chain.FragmentSize*len(data.Data[0])))
 				continue
 			}
 			err := n.storageBatchFragment(accountInfo, data)
@@ -444,13 +444,16 @@ func (n *Node) storageFiles(tracks []StorageDataType) error {
 	if len(n.Config.Shunt.Account) > 0 {
 		for i := 0; i < len(tracks); i++ {
 			value, err := n.StoragePartFixed(tracks[i], n.Config.Shunt.Account)
-			if err == nil {
-				continueStorage = append(continueStorage, value)
+			if err != nil {
+				return err
 			}
+			continueStorage = append(continueStorage, value)
 		}
 		tracks = continueStorage
 	}
-
+	if len(tracks) <= 0 {
+		return nil
+	}
 	minerinfolist := n.GetAllWhitelistInfos()
 	minerinfolist = append(minerinfolist, n.GetAllMinerinfos()...)
 	length := len(minerinfolist)
@@ -493,8 +496,8 @@ func (n *Node) StoragePartFixed(data StorageDataType, assignments []string) (Sto
 				n.Logpart("err", " miner status is not "+schain.MINER_STATE_POSITIVE)
 				continue
 			}
-			if accountInfo.Idlespace < chain.FragmentSize*(chain.ParShards+chain.DataShards) {
-				n.Logpart("err", " miner space < 96M ")
+			if accountInfo.Idlespace < uint64(chain.FragmentSize*len(data.Data[0])) {
+				n.Logpart("err", fmt.Sprintf(" miner space < %dMiB", chain.FragmentSize*len(data.Data[0])))
 				continue
 			}
 			err := n.storageBatchFragment(accountInfo, data)
@@ -518,6 +521,9 @@ func (n *Node) StoragePartFixed(data StorageDataType, assignments []string) (Sto
 		if allsuc == len(assignments) {
 			return data, nil
 		}
+		if allsuc < len(assignments) {
+			return StorageDataType{}, errors.New("cannot be stored in configured miners")
+		}
 	}
 	return StorageDataType{}, errors.New("StoragePartFixed failed")
 }
@@ -532,10 +538,7 @@ func (n *Node) storageToMiner(account string, tracks []StorageDataType) error {
 		n.Logtrack("err", fmt.Sprintf(" miner status is not %s", schain.MINER_STATE_POSITIVE))
 		return fmt.Errorf(" %s status is not %s", account, schain.MINER_STATE_POSITIVE)
 	}
-	if accountInfo.Idlespace < chain.FragmentSize*(chain.ParShards+chain.DataShards) {
-		n.Logtrack("err", " miner space < 96M")
-		return fmt.Errorf(" %s space < 96M", account)
-	}
+
 	length := len(tracks)
 	for i := 0; i < length; i++ {
 		n.Logtrack("info", fmt.Sprintf(" miner will storage file %s", tracks[i].Fid))
@@ -543,19 +546,23 @@ func (n *Node) storageToMiner(account string, tracks []StorageDataType) error {
 			n.Logtrack("info", " miner already storaged this file")
 			continue
 		}
+		if accountInfo.Idlespace < uint64(chain.FragmentSize*len(tracks[i].Data[0])) {
+			n.Logtrack("err", fmt.Sprintf(" miner space < %dMiB", chain.FragmentSize*len(tracks[i].Data[0])))
+			return fmt.Errorf(" %s space < %dMiB", account, chain.FragmentSize*len(tracks[i].Data[0]))
+		}
 		err := n.storageBatchFragment(accountInfo, tracks[i])
 		if err != nil {
 			return err
 		}
+		accountInfo.Idlespace -= uint64(chain.FragmentSize * len(tracks[i].Data[0]))
 		if len(tracks[i].Data) > 1 {
 			tracks[i].Data = tracks[i].Data[1:]
+			if accountInfo.Idlespace < uint64(chain.FragmentSize*len(tracks[i].Data[0])) {
+				n.Logtrack("info", " miner space < 96M, stop storage")
+				return nil
+			}
 		} else {
 			tracks[i].Data = make([][]string, 0)
-		}
-		accountInfo.Idlespace -= chain.FragmentSize * (chain.ParShards + chain.DataShards)
-		if accountInfo.Idlespace < chain.FragmentSize*(chain.ParShards+chain.DataShards) {
-			n.Logtrack("info", " miner space < 96M, stop storage")
-			return nil
 		}
 	}
 	n.Logtrack("info", " this batch fragments transferred")
@@ -585,7 +592,7 @@ func (n *Node) storageBatchFragment(minerinfo record.Minerinfo, tracks StorageDa
 		n.Logtrack("info", fmt.Sprintf(" miner transfer %d fragment suc", j))
 	}
 	n.Logtrack("info", " miner transfer all fragment suc")
-	minerinfo.Idlespace -= chain.FragmentSize * (chain.ParShards + chain.DataShards)
+	minerinfo.Idlespace -= uint64(chain.FragmentSize * len(tracks.Data[0]))
 	n.AddToWhitelist(minerinfo.Account, minerinfo)
 	return nil
 }

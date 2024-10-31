@@ -48,16 +48,6 @@ func NewResumeHandler(cli chain.Chainer, track tracker.Tracker, ws workspace.Wor
 func (r *ResumeHandler) RegisterRoutes(server *gin.Engine) {
 	resumegroup := server.Group("/resume")
 	resumegroup.Use(
-		// func(ctx *gin.Context) {
-		// 	if !r.Limiter.Allow() {
-		// 		ctx.AbortWithStatusJSON(http.StatusOK, RespType{
-		// 			Code: http.StatusForbidden,
-		// 			Msg:  ERR_ServerBusy,
-		// 		})
-		// 		return
-		// 	}
-		// 	ctx.Next()
-		// },
 		func(ctx *gin.Context) {
 			acc, pk, ok := VerifySignatureMdl(ctx)
 			if !ok {
@@ -177,13 +167,6 @@ func (r *ResumeHandler) ResumeHandle(c *gin.Context) {
 			return
 		}
 
-		bucketName := c.Request.Header.Get(HTTPHeader_Bucket)
-		if !chain.CheckBucketName(bucketName) {
-			r.Logput("err", clientIp+" CheckBucketName failed: "+bucketName)
-			ReturnJSON(c, 400, ERR_HeaderFieldBucketName, nil)
-			return
-		}
-
 		pkeystr, ok := c.Get("publickey")
 		if !ok {
 			r.Logput("err", clientIp+" c.Get(publickey) failed")
@@ -282,12 +265,6 @@ func (r *ResumeHandler) ResumeHandle(c *gin.Context) {
 
 	territoryName := c.Request.Header.Get(HTTPHeader_Territory)
 	cipher := c.Request.Header.Get(HTTPHeader_Cipher)
-	bucketName := c.Request.Header.Get(HTTPHeader_Bucket)
-	if !chain.CheckBucketName(bucketName) {
-		r.Logput("err", clientIp+" CheckBucketName failed: "+bucketName)
-		ReturnJSON(c, 400, ERR_HeaderFieldBucketName, nil)
-		return
-	}
 
 	territorySpace, err := CheckTerritory(r.Chainer, c, pkey, territoryName)
 	if err != nil {
@@ -389,7 +366,6 @@ func (r *ResumeHandler) ResumeHandle(c *gin.Context) {
 		Points:        points,
 		Fid:           fid,
 		FileName:      filename,
-		BucketName:    bucketName,
 		TerritoryName: territoryName,
 		CacheDir:      cacherDir,
 		Cipher:        cipher,

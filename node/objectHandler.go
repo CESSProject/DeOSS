@@ -95,14 +95,13 @@ func (o *ObjectHandler) UploadObjectHandle(c *gin.Context) {
 	}
 
 	account := c.Request.Header.Get(HTTPHeader_Account)
-	bucketName := c.Request.Header.Get(HTTPHeader_Bucket)
 	filename := c.Request.Header.Get(HTTP_ParameterName)
 	territoryName := c.Request.Header.Get(HTTPHeader_Territory)
 	cipher := c.Request.Header.Get(HTTPHeader_Cipher)
 	shuntminers := c.Request.Header.Values(HTTPHeader_Miner)
 	longitudes := c.Request.Header.Values(HTTPHeader_Longitude)
 	latitudes := c.Request.Header.Values(HTTPHeader_Latitude)
-	o.Logput("info", utils.StringBuilder(400, clientIp, account, bucketName, territoryName, cipher))
+	o.Logput("info", utils.StringBuilder(400, clientIp, account, territoryName, cipher))
 
 	shuntminerslength := len(shuntminers)
 	if shuntminerslength > 0 {
@@ -123,12 +122,6 @@ func (o *ObjectHandler) UploadObjectHandle(c *gin.Context) {
 	if err != nil {
 		o.Logput("err", clientIp+" hex.DecodeString "+fmt.Sprintf("%v", pkeystr)+" "+err.Error())
 		ReturnJSON(c, 500, ERR_SystemErr, nil)
-		return
-	}
-
-	if !chain.CheckBucketName(bucketName) {
-		o.Logput("err", clientIp+" CheckBucketName failed: "+bucketName)
-		ReturnJSON(c, 400, ERR_HeaderFieldBucketName, nil)
 		return
 	}
 
@@ -228,7 +221,6 @@ func (o *ObjectHandler) UploadObjectHandle(c *gin.Context) {
 		Points:        points,
 		Fid:           fid,
 		FileName:      filename,
-		BucketName:    bucketName,
 		TerritoryName: territoryName,
 		CacheDir:      cacheDir,
 		Cipher:        cipher,
