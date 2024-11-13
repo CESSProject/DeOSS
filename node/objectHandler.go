@@ -18,6 +18,7 @@ import (
 	"github.com/CESSProject/DeOSS/common/confile"
 	"github.com/CESSProject/DeOSS/common/coordinate"
 	"github.com/CESSProject/DeOSS/common/logger"
+	"github.com/CESSProject/DeOSS/common/lru"
 	"github.com/CESSProject/DeOSS/common/tracker"
 	"github.com/CESSProject/DeOSS/common/utils"
 	"github.com/CESSProject/DeOSS/common/workspace"
@@ -35,10 +36,11 @@ type ObjectHandler struct {
 	logger.Logger
 	*confile.Config
 	*rate.Limiter
+	*lru.LRUCache
 }
 
-func NewObjectHandler(cli chain.Chainer, track tracker.Tracker, ws workspace.Workspace, lg logger.Logger) *ObjectHandler {
-	return &ObjectHandler{Chainer: cli, Tracker: track, Workspace: ws, Logger: lg, Limiter: rate.NewLimiter(rate.Every(chain.BlockInterval), 20)}
+func NewObjectHandler(cli chain.Chainer, track tracker.Tracker, ws workspace.Workspace, lg logger.Logger, lru *lru.LRUCache) *ObjectHandler {
+	return &ObjectHandler{Chainer: cli, Tracker: track, Workspace: ws, Logger: lg, Limiter: rate.NewLimiter(rate.Every(chain.BlockInterval), 20), LRUCache: lru}
 }
 
 func (o *ObjectHandler) RegisterRoutes(server *gin.Engine) {
@@ -186,6 +188,7 @@ func (o *ObjectHandler) UploadObjectHandle(c *gin.Context) {
 		return
 	}
 
+	o.AccessFile(newPath)
 	frecord.AddToFileRecord(fid, filepath.Ext(filename))
 
 	_, err = os.Stat(newPath)

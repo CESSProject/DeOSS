@@ -21,13 +21,15 @@ type Handler struct {
 	*FileHandler
 	*ResumeHandler
 	*ObjectHandler
+	*FilesHandler
 }
 
 func NewHandler(cli chain.Chainer, track tracker.Tracker, ws workspace.Workspace, lg logger.Logger, cfg *confile.Config, lru *lru.LRUCache) *Handler {
 	return &Handler{
 		FileHandler:   NewFileHandler(cli, track, ws, lg, cfg, lru),
 		ResumeHandler: NewResumeHandler(cli, track, ws, lg),
-		ObjectHandler: NewObjectHandler(cli, track, ws, lg),
+		ObjectHandler: NewObjectHandler(cli, track, ws, lg, lru),
+		FilesHandler:  NewFilesHandler(cli, track, ws, lg, cfg, lru),
 	}
 }
 
@@ -35,4 +37,5 @@ func (h *Handler) RegisterRoutes(server *gin.Engine) {
 	h.FileHandler.RegisterRoutes(server)
 	h.ResumeHandler.RegisterRoutes(server)
 	h.ObjectHandler.RegisterRoutes(server)
+	h.FilesHandler.RegisterRoutes(server)
 }
