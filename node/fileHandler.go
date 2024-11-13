@@ -23,6 +23,7 @@ import (
 	"github.com/CESSProject/DeOSS/common/confile"
 	"github.com/CESSProject/DeOSS/common/coordinate"
 	"github.com/CESSProject/DeOSS/common/logger"
+	"github.com/CESSProject/DeOSS/common/lru"
 	"github.com/CESSProject/DeOSS/common/tracker"
 	"github.com/CESSProject/DeOSS/common/utils"
 	"github.com/CESSProject/DeOSS/common/workspace"
@@ -40,6 +41,7 @@ type FileHandler struct {
 	logger.Logger
 	*confile.Config
 	*rate.Limiter
+	*lru.LRUCache
 }
 
 // file meta info
@@ -92,8 +94,8 @@ func (f *fileTypeRecord) GetFileFormat(fid string) (string, bool) {
 	return value, ok
 }
 
-func NewFileHandler(cli chain.Chainer, track tracker.Tracker, ws workspace.Workspace, lg logger.Logger, cfg *confile.Config) *FileHandler {
-	return &FileHandler{Chainer: cli, Tracker: track, Workspace: ws, Logger: lg, Config: cfg, Limiter: rate.NewLimiter(rate.Every(time.Millisecond*10), 20)}
+func NewFileHandler(cli chain.Chainer, track tracker.Tracker, ws workspace.Workspace, lg logger.Logger, cfg *confile.Config, lru *lru.LRUCache) *FileHandler {
+	return &FileHandler{Chainer: cli, Tracker: track, Workspace: ws, Logger: lg, Config: cfg, Limiter: rate.NewLimiter(rate.Every(time.Millisecond*10), 20), LRUCache: lru}
 }
 
 func (f *FileHandler) RegisterRoutes(server *gin.Engine) {
@@ -332,6 +334,8 @@ func (f *FileHandler) OpenFileHandle(c *gin.Context) {
 			ReturnJSON(c, 500, ERR_SystemErr, nil)
 			return
 		}
+		defer fd.Close()
+		f.AccessFile(fpath)
 		f.Logopen("info", fmt.Sprintf("[%s] return the file [%s] from local", clientIp, fid))
 		ReturnFileStream(c, fd, fid, contenttype.(string), format, int64(size))
 		return
@@ -366,6 +370,8 @@ func (f *FileHandler) OpenFileHandle(c *gin.Context) {
 			ReturnJSON(c, 500, ERR_SystemErr, nil)
 			return
 		}
+		defer fd.Close()
+		f.AccessFile(fpath)
 		f.Logopen("info", fmt.Sprintf("[%s] return the file [%s] from gw", clientIp, fid))
 		ReturnFileStream(c, fd, fid, contenttype.(string), format, int64(size))
 		return
@@ -378,6 +384,7 @@ func (f *FileHandler) OpenFileHandle(c *gin.Context) {
 		return
 	}
 	if rgn != "" {
+		f.AccessFile(fpath)
 		f.Logopen("info", fmt.Sprintf("[%s] return the file [%s] from miner by range", clientIp, fid))
 		err = ReturnFileRangeStream(c, rgn, contenttype.(string), fpath)
 		if err != nil {
@@ -391,6 +398,8 @@ func (f *FileHandler) OpenFileHandle(c *gin.Context) {
 		ReturnJSON(c, 500, ERR_SystemErr, nil)
 		return
 	}
+	defer fd.Close()
+	f.AccessFile(fpath)
 	f.Logopen("info", fmt.Sprintf("[%s] return the file [%s] from gw", clientIp, fid))
 	ReturnFileStream(c, fd, fid, contenttype.(string), format, int64(size))
 	return
@@ -415,6 +424,7 @@ func (f *FileHandler) DownloadFileHandle(c *gin.Context) {
 			return
 		}
 		defer fd.Close()
+		f.AccessFile(fpath)
 		f.Logdown("info", clientIp+" download the file from local: "+fid)
 		c.DataFromReader(http.StatusOK, int64(size), "application/octet-stream", fd, nil)
 		return
@@ -442,6 +452,7 @@ func (f *FileHandler) DownloadFileHandle(c *gin.Context) {
 			return
 		}
 		defer fd.Close()
+		f.AccessFile(fpath)
 		f.Logdown("info", clientIp+" download the file from gateway: "+fid)
 		c.DataFromReader(http.StatusOK, int64(size), "application/octet-stream", fd, nil)
 		return
@@ -461,6 +472,7 @@ func (f *FileHandler) DownloadFileHandle(c *gin.Context) {
 		return
 	}
 	defer fd.Close()
+	f.AccessFile(fpath)
 	f.Logdown("info", clientIp+" download the file from miner: "+fid)
 	c.DataFromReader(http.StatusOK, int64(size), "application/octet-stream", fd, nil)
 }
@@ -633,7 +645,7 @@ func (f *FileHandler) UploadFormFileHandle(c *gin.Context) {
 		ReturnJSON(c, 500, ERR_SystemErr, nil)
 		return
 	}
-
+	f.AccessFile(newPath)
 	frecord.AddToFileRecord(fid, filepath.Ext(fname))
 
 	_, err = os.Stat(newPath)

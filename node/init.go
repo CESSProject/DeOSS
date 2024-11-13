@@ -19,6 +19,7 @@ import (
 
 	out "github.com/CESSProject/DeOSS/common/fout"
 	"github.com/CESSProject/DeOSS/common/logger"
+	"github.com/CESSProject/DeOSS/common/lru"
 	"github.com/CESSProject/DeOSS/common/record"
 	"github.com/CESSProject/DeOSS/common/tracker"
 	"github.com/CESSProject/DeOSS/common/utils"
@@ -37,9 +38,10 @@ func (n *Node) InitNode() *Node {
 	n.InitMinerRecord(record.NewMinerRecord())
 	n.InitTracker(tracker.NewTracker(n.GetTrackDir()))
 	n.InitLogs()
+	n.InitCache()
 	n.InitWebServer(
 		InitMiddlewares(),
-		NewHandler(n.Chainer, n.Tracker, n.Workspace, n.Logger, n.Config),
+		NewHandler(n.Chainer, n.Tracker, n.Workspace, n.Logger, n.Config, n.LRUCache),
 	)
 	return n
 }
@@ -88,6 +90,16 @@ func InitMiddlewares() []gin.HandlerFunc {
 			AllowMethods: []string{"PUT", "GET", "DELETE", "OPTION"},
 		}),
 	}
+}
+
+func (n *Node) InitCache() {
+	lru := lru.NewLRUCache(n.Config.Maxusespace)
+	err := lru.InitCheck(n.GetFileDir())
+	if err != nil {
+		out.Err("Check cache failed.")
+		os.Exit(1)
+	}
+	n.InitLRUCache(lru)
 }
 
 func (n *Node) InitLogs() {

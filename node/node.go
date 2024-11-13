@@ -20,6 +20,7 @@ import (
 	"github.com/CESSProject/DeOSS/common/confile"
 	out "github.com/CESSProject/DeOSS/common/fout"
 	"github.com/CESSProject/DeOSS/common/logger"
+	"github.com/CESSProject/DeOSS/common/lru"
 	"github.com/CESSProject/DeOSS/common/record"
 	"github.com/CESSProject/DeOSS/common/tracker"
 	"github.com/CESSProject/DeOSS/common/workspace"
@@ -32,6 +33,7 @@ import (
 
 type Node struct {
 	*confile.Config
+	*lru.LRUCache
 	*gin.Engine
 	chain.Chainer
 	workspace.Workspace
@@ -70,6 +72,10 @@ func (n *Node) InitTracker(t tracker.Tracker) {
 
 func (n *Node) InitServer(s *gin.Engine) {
 	n.Engine = s
+}
+
+func (n *Node) InitLRUCache(lru *lru.LRUCache) {
+	n.LRUCache = lru
 }
 
 func (n *Node) Start() {
