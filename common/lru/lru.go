@@ -84,8 +84,6 @@ func (c *LRUCache) AccessFile(path string) error {
 }
 
 func (c *LRUCache) checkDiskUsage() {
-	c.mu.Lock()
-	defer c.mu.Unlock()
 	for c.usedSpace > c.capacity {
 		c.evict()
 	}

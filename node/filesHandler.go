@@ -9,6 +9,7 @@ package node
 
 import (
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -299,7 +300,7 @@ func saveFormFiles(c *gin.Context, cacheDir string) ([]MultiFormFiles, error) {
 
 	formFile := c.Request.MultipartForm.File["file"]
 	if len(formFile) == 0 {
-		return multiFormFiles, err
+		return multiFormFiles, errors.New("no such file")
 	}
 
 	fpath := ""

@@ -583,12 +583,6 @@ func (f *FileHandler) UploadFormFileHandle(c *gin.Context) {
 		return
 	}
 
-	// if !chain.CheckBucketName(bucketName) {
-	// 	f.Logput("err", clientIp+" CheckBucketName failed: "+bucketName)
-	// 	ReturnJSON(c, 400, ERR_HeaderFieldBucketName, nil)
-	// 	return
-	// }
-
 	if !sutils.CompareSlice(pkey, f.GetSignatureAccPulickey()) {
 		err = CheckAuthorize(f.Chainer, c, pkey)
 		if err != nil {
@@ -608,6 +602,8 @@ func (f *FileHandler) UploadFormFileHandle(c *gin.Context) {
 		f.Logput("err", clientIp+" CreateTmpPath: "+err.Error())
 		return
 	}
+
+	defer os.Remove(fpath)
 
 	f.Logput("info", clientIp+" tmp file: "+fpath)
 
@@ -744,7 +740,7 @@ func saveFormFile(c *gin.Context, file string) (string, int64, error) {
 	defer f.Close()
 	formfile, fileHeder, err := c.Request.FormFile("file")
 	if err != nil {
-		ReturnJSON(c, 400, ERR_SystemErr, nil)
+		ReturnJSON(c, 400, err.Error(), nil)
 		return "", 0, err
 	}
 	filename := fileHeder.Filename
