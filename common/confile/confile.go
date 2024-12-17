@@ -33,7 +33,9 @@ const (
   # private: gateway address will not be made public on the chain
   visibility: public
   # domain name, if it's empty and the visibility is public, the <ip:port> will be published on the chain
-  domainname: 
+  domainname:
+  # if you don't know what to fill in, please ignore it
+  callback: 
   # maximum space occupied, gateway will automatically clean up the cached files
   maxusespace: 1099511627776
   # gateway API communication port, default is 8080
@@ -71,6 +73,7 @@ type Application struct {
 	Mode        string `name:"mode" toml:"mode" yaml:"mode"`
 	Visibility  string `name:"visibility" toml:"visibility" yaml:"visibility"`
 	Domainname  string `name:"domainname" toml:"domainname" yaml:"domainname"`
+	Callback    string `name:"callback" toml:"callback" yaml:"callback"`
 	Maxusespace uint64 `name:"maxusespace" toml:"maxusespace" yaml:"maxusespace"`
 	Port        uint32 `name:"port" toml:"port" yaml:"port"`
 }

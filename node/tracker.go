@@ -92,7 +92,6 @@ func (n *Node) processTrackFiles() {
 
 	n.Logtrack("info", fmt.Sprintf("number of track files: %d", len(trackFiles)))
 
-	//count := 0
 	fid := ""
 	var dealFiles = make([]StorageDataType, 0)
 	for i := 0; i < len(trackFiles); i++ {
@@ -115,29 +114,12 @@ func (n *Node) processTrackFiles() {
 				<-concurrentStoragesCh
 				go n.StoragePartAssignment(concurrentStoragesCh, storageDataType, storageDataType.Assignments)
 			}
-		// case Storage_FullAssignment:
-		// 	if len(concurrentStoragesCh) > 0 {
-		// 		<-concurrentStoragesCh
-		// 		go n.StorageFullAssignment(concurrentStoragesCh, storageDataType)
-		// 	}
 		case Storage_RangeAssignment:
 			if len(concurrentStoragesCh) > 0 {
 				<-concurrentStoragesCh
 				go n.StorageRangeAssignment(concurrentStoragesCh, storageDataType)
 			}
 		}
-
-		// count++
-		// if count >= 10 {
-		// 	n.Logtrack("info", fmt.Sprintf(" will storage %d files: %v", len(dealFiles), dealFiles))
-		// 	err = n.storageFiles(dealFiles)
-		// 	if err != nil {
-		// 		n.Logtrack("err", err.Error())
-		// 		return
-		// 	}
-		// 	count = 0
-		// 	dealFiles = make([]StorageDataType, 0)
-		// }
 	}
 	if len(dealFiles) > 0 {
 		n.Logtrack("info", fmt.Sprintf(" will storage no assignment %d files", len(dealFiles)))
@@ -278,12 +260,59 @@ func (n *Node) checkFileState(fid string) (StorageDataType, bool, error) {
 		return StorageDataType{}, false, fmt.Errorf("[ParseTrackFromFile(%s)] %v", fid, err)
 	}
 
-	_, err = n.QueryFile(fid, -1)
+	fmeta, err := n.QueryFile(fid, -1)
 	if err != nil {
 		if err.Error() != chain.ERR_Empty {
 			return StorageDataType{}, false, err
 		}
+		_, err = n.QueryDealMap(fid, -1)
+		if err != nil {
+			if err.Error() != chain.ERR_Empty {
+				return StorageDataType{}, false, err
+			}
+			_, err = n.PlaceStorageOrder(fid, recordFile.FileName, recordFile.TerritoryName, recordFile.Segment, recordFile.Owner, recordFile.FileSize)
+			if err != nil {
+				return StorageDataType{}, false, err
+			}
+		}
 	} else {
+		suc := false
+		message := time.Now().Unix()
+		sig, err := sutils.SignedSR25519WithMnemonic(n.GetURI(), fmt.Sprintf("%d", message))
+		if err != nil {
+			return StorageDataType{}, true, nil
+		}
+
+		for i := 0; i < len(fmeta.Owner); i++ {
+			if sutils.CompareSlice(fmeta.Owner[i].User[:], recordFile.Owner) {
+				suc = true
+				break
+			}
+		}
+
+		if suc {
+			// call back suc
+			err = CallbackToDecloud(n.Config.Callback, fid, n.GetSignatureAcc(), hex.EncodeToString(sig), message, 1)
+			if err != nil {
+				return StorageDataType{}, true, nil
+			}
+		} else {
+			_, err = n.PlaceStorageOrder(fid, recordFile.FileName, recordFile.TerritoryName, recordFile.Segment, recordFile.Owner, recordFile.FileSize)
+			if err != nil {
+				// call back failed
+				err = CallbackToDecloud(n.Config.Callback, fid, n.GetSignatureAcc(), hex.EncodeToString(sig), message, 2)
+				if err != nil {
+					return StorageDataType{}, true, nil
+				}
+			} else {
+				// call back suc
+				err = CallbackToDecloud(n.Config.Callback, fid, n.GetSignatureAcc(), hex.EncodeToString(sig), message, 1)
+				if err != nil {
+					return StorageDataType{}, true, nil
+				}
+			}
+		}
+
 		for i := 0; i < len(recordFile.Segment); i++ {
 			for j := 0; j < len(recordFile.Segment[i].FragmentHash); j++ {
 				os.Remove(filepath.Join(recordFile.CacheDir, recordFile.Segment[i].FragmentHash[j]))

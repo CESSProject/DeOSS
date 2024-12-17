@@ -9,6 +9,8 @@ application:
   visibility: public
   # domain name, if it's empty and the visibility is public, the <ip:port> will be published on the chain
   domainname: 
+  # If you don't know what to fill in, please ignore it
+  callback: 
   # maximum space used, gateway will automatically clean up the cached files, default 1TiB
   maxusespace: 1099511627776
   # gateway API communication port, default is 8080

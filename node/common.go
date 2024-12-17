@@ -8,7 +8,9 @@
 package node
 
 import (
+	"bytes"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net"
@@ -835,4 +837,108 @@ func (n *Node) AccessControl(account string) error {
 		}
 	}
 	return fmt.Errorf("your account [%s] does not have permissions", account)
+}
+
+type Form struct {
+	Fid       string `json:"fid"`
+	Status    int    `json:"status"`
+	Account   string `json:"account"`
+	Message   int64  `json:"message"`
+	Signature string `json:"signature"`
+}
+
+type GraphQLRequest struct {
+	Query string `json:"query"`
+}
+
+type GraphQLMutation struct {
+	Mutation struct {
+		UpdateFileMapStatus Form `json:"updateFileMapStatus"`
+	} `json:"mutation"`
+}
+
+type RespSucByCallback struct {
+	Data RespDataByCallback `json:"data"`
+}
+
+type RespDataByCallback struct {
+	UpdateFileRecordsStatus bool `json:"updateFileRecordsStatus"`
+}
+
+func CallbackToDecloud(url, fid, account, sign string, message int64, status uint8) error {
+	if strings.Contains(url, "/") {
+		url = url + "api"
+	} else {
+		url = url + "/api"
+	}
+
+	mutation := GraphQLMutation{}
+	mutation.Mutation.UpdateFileMapStatus = Form{
+		Fid:       fid,
+		Status:    1,
+		Account:   account,
+		Message:   message,
+		Signature: sign,
+	}
+
+	query := fmt.Sprintf(`
+	mutation {
+		updateFileMapStatus(form: {
+			fid: "%s"
+			status: %d
+			account: "%s"
+			message: %d
+			signature: "%s"
+		})
+	}
+`, mutation.Mutation.UpdateFileMapStatus.Fid, mutation.Mutation.UpdateFileMapStatus.Status,
+		mutation.Mutation.UpdateFileMapStatus.Account, mutation.Mutation.UpdateFileMapStatus.Message,
+		mutation.Mutation.UpdateFileMapStatus.Signature)
+
+	requestBody := GraphQLRequest{
+		Query: query,
+	}
+
+	jsonData, err := json.Marshal(requestBody)
+	if err != nil {
+		return fmt.Errorf("Error marshalling request body: %v", err)
+	}
+
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return fmt.Errorf("Error creating HTTP request: %v", err)
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{}
+	client.Transport = globalTransport
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("Error sending request: %v", err)
+	}
+	defer resp.Body.Close()
+
+	//fmt.Printf("Response Status: %s\n", resp.Status)
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("failed code: %d", resp.StatusCode)
+	}
+
+	buf, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("read response body err: %v", err)
+	}
+
+	var respdata RespSucByCallback
+	err = json.Unmarshal(buf, &respdata)
+	if err != nil {
+		return fmt.Errorf("response failed: %v", err)
+	}
+
+	if !respdata.Data.UpdateFileRecordsStatus {
+		return errors.New("response false")
+	}
+
+	return nil
 }
