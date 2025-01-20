@@ -6,7 +6,7 @@ DeOSS ( Decentralized Object Storage Service ) is a decentralized object-based m
 If you find any system errors or you have better suggestions, please submit an issue or PR, or join the [CESS discord](https://discord.gg/mYHTMfBwNS) to communicate with us.
 
 ## 📢 Announcement
-### CESS test network rpc endpoints
+### CESS test network rpc endpoint
 ```
 wss://testnet-rpc.cess.network/ws/
 ```
@@ -86,7 +86,7 @@ Compile the binary program from the DeOSS source code and follow the process as 
 
 **1) install go**
 
-DeOSS requires [Go 1.21](https://golang.org/dl/), See the [official Golang installation instructions](https://golang.org/doc/install).
+DeOSS requires [Go 1.22](https://golang.org/dl/), See the [official Golang installation instructions](https://golang.org/doc/install).
 
 Open go mod mode:
 ```
