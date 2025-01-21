@@ -8,7 +8,7 @@ If you find any system errors or you have better suggestions, please submit an i
 ## 📢 Announcement
 ### CESS test network rpc endpoint
 ```
-wss://testnet-rpc.cess.network/ws/
+wss://testnet-rpc.cess.network
 ```
 
 ### CESS test network public gateway
