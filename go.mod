@@ -5,7 +5,7 @@ go 1.22
 toolchain go1.22.4
 
 require (
-	github.com/CESSProject/cess-go-sdk v0.7.0
+	github.com/CESSProject/cess-go-sdk v0.7.1-0.20250210085828-e5828b43cd15
 	github.com/CESSProject/go-keyring v0.0.0-20220614131247-ee3a8da30fde
 	github.com/cbergoon/merkletree v0.2.0
 	github.com/centrifuge/go-substrate-rpc-client/v4 v4.2.1
