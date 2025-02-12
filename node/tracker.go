@@ -278,7 +278,7 @@ func (n *Node) checkFileState(fid string) (StorageDataType, bool, error) {
 		return StorageDataType{}, false, fmt.Errorf("[ParseTrackFromFile(%s)] %v", fid, err)
 	}
 
-	_, err = n.QueryFile(fid, -1)
+	fmeta, err := n.QueryFile(fid, -1)
 	if err != nil {
 		if err.Error() != chain.ERR_Empty {
 			return StorageDataType{}, false, err
@@ -289,7 +289,31 @@ func (n *Node) checkFileState(fid string) (StorageDataType, bool, error) {
 				os.Remove(filepath.Join(recordFile.CacheDir, recordFile.Segment[i].FragmentHash[j]))
 			}
 		}
+
+		ownerflag := false
+		for i := 0; i < len(fmeta.Owner); i++ {
+			if sutils.CompareSlice(fmeta.Owner[i].User[:], recordFile.Owner) {
+				ownerflag = true
+				break
+			}
+		}
+
+		if !ownerflag {
+			txhash, err := n.PlaceStorageOrder(
+				fid,
+				recordFile.FileName,
+				recordFile.TerritoryName,
+				recordFile.Segment,
+				recordFile.Owner,
+				recordFile.FileSize,
+			)
+			if err != nil {
+				return StorageDataType{}, false, fmt.Errorf(" %s [UploadDeclaration] hash: %s err: %v", fid, txhash, err)
+			}
+		}
+
 		n.DeleteTraceFile(fid)
+
 		return StorageDataType{}, true, nil
 	}
 
@@ -314,6 +338,10 @@ func (n *Node) checkFileState(fid string) (StorageDataType, bool, error) {
 	if flag {
 		segment, hash, err := n.reFullProcessing(fid, recordFile.Cipher, recordFile.CacheDir)
 		if err != nil {
+			if strings.Contains(recordFile.CacheDir, "/deoss/file/cX") {
+				n.DeleteTraceFile(fid)
+				return StorageDataType{}, false, errors.Wrapf(err, "reFullProcessing failed: last version file")
+			}
 			return StorageDataType{}, false, errors.Wrapf(err, "reFullProcessing")
 		}
 		if recordFile.Fid != hash {
