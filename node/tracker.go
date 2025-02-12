@@ -429,6 +429,10 @@ func (n *Node) checkFileState(fid string) (StorageDataType, bool, error) {
 		return StorageDataType{}, true, errors.Errorf("[%s] user [%s] has revoked authorization", fid, user)
 	}
 
+	if strings.Contains(recordFile.BucketName, "ExtrinsicFailed") {
+		return StorageDataType{}, false, fmt.Errorf(" %s [UploadDeclaration] %v", fid, recordFile.BucketName)
+	}
+
 	txhash, err := n.PlaceStorageOrder(
 		fid,
 		recordFile.FileName,
@@ -438,6 +442,8 @@ func (n *Node) checkFileState(fid string) (StorageDataType, bool, error) {
 		recordFile.FileSize,
 	)
 	if err != nil {
+		recordFile.BucketName = fmt.Sprintf("hash: %s %v", txhash, err)
+		n.AddToTraceFile(recordFile.Fid, recordFile)
 		return StorageDataType{}, false, fmt.Errorf(" %s [UploadDeclaration] hash: %s err: %v", fid, txhash, err)
 	}
 	n.Logtrack("info", fmt.Sprintf(" %s [UploadDeclaration] suc: %s", fid, txhash))
