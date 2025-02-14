@@ -186,6 +186,42 @@ func (f *FileHandler) RegisterRoutes(server *gin.Engine) {
 	filegroup.GET(fmt.Sprintf("/open/:%s", HTTP_ParameterName_Fid), f.OpenFileHandle)
 	filegroup.GET(fmt.Sprintf("/metadata/:%s", HTTP_ParameterName_Fid), f.GetMetadataHandle)
 	filegroup.GET(fmt.Sprintf("/location/:%s", HTTP_ParameterName_Fid), f.GetLocationhandle)
+
+	fragmentgroup := server.Group("/fragment")
+	fragmentgroup.GET("/download",
+		func(ctx *gin.Context) {
+			acc, pk, ok := VerifySignatureMdl(ctx)
+			if !ok {
+				ctx.AbortWithStatusJSON(http.StatusOK, RespType{
+					Code: http.StatusForbidden,
+					Msg:  ERR_NoPermission,
+				})
+				return
+			}
+			ctx.Set("account", acc)
+			ctx.Set("publickey", hex.EncodeToString(pk))
+			ctx.Next()
+		},
+		func(ctx *gin.Context) {
+			acc, ok := ctx.Get("account")
+			if !ok {
+				ctx.AbortWithStatusJSON(http.StatusOK, RespType{
+					Code: http.StatusForbidden,
+					Msg:  ERR_NoPermission,
+				})
+				return
+			}
+			if !CheckPermissionsMdl(fmt.Sprintf("%v", acc), f.Config.Access.Mode, f.Config.User.Account, f.Config.Access.Account) {
+				ctx.AbortWithStatusJSON(http.StatusOK, RespType{
+					Code: http.StatusForbidden,
+					Msg:  ERR_NoPermission,
+				})
+				return
+			}
+			ctx.Next()
+		},
+		f.DownloadFragmentHandle,
+	)
 }
 
 func (f *FileHandler) GetLocationhandle(c *gin.Context) {
@@ -764,4 +800,84 @@ func saveFormFile(c *gin.Context, file string) (string, int64, error) {
 		return filename, 0, err
 	}
 	return filename, length, nil
+}
+
+func (f *FileHandler) DownloadFragmentHandle(c *gin.Context) {
+	fid := c.Param(HTTP_ParameterName_Fid)
+	fid, ok := c.GetQuery("fid")
+	if !ok {
+		ReturnJSON(c, 400, "invalid fid", nil)
+		return
+	}
+
+	fragmentHash, ok := c.GetQuery("fragment")
+	if !ok {
+		ReturnJSON(c, 400, "invalid fragment", nil)
+		return
+	}
+
+	clientIp := c.Request.Header.Get("X-Forwarded-For")
+	if clientIp == "" {
+		clientIp = c.ClientIP()
+	}
+
+	cacheDir := filepath.Join(f.GetTmpDir(), fid, fragmentHash)
+	os.MkdirAll(cacheDir, 0755)
+	defer os.RemoveAll(cacheDir)
+
+	_, fpath, err := FindLocalFile(fid, f.GetFileDir(), f.GetStoringDir())
+	if err == nil {
+		segment, fid, err := process.FullProcessing(fpath, "", cacheDir)
+		if err == nil {
+			for i := 0; i < len(segment); i++ {
+				for j := 0; j < len(segment[i].FragmentHash); j++ {
+					if fragmentHash == filepath.Base(segment[i].FragmentHash[j]) {
+						fd, err := os.Open(segment[i].FragmentHash[j])
+						if err == nil {
+							defer fd.Close()
+							f.AccessFile(fpath)
+							f.Logdown("info", clientIp+" download the file from local: "+fid)
+							c.DataFromReader(http.StatusOK, chain.FragmentSize, "application/octet-stream", fd, nil)
+							return
+						}
+					}
+				}
+			}
+		}
+	}
+
+	fmeta, err := f.QueryFile(fid, -1)
+	if err != nil {
+		f.Logdown("err", clientIp+" QueryFile failed: "+err.Error())
+		ReturnJSON(c, 404, ERR_NotFound, nil)
+		return
+	}
+
+	fpath, err = process.Retrievefile(f.Chainer, fmeta, fid, f.GetFileDir(), "")
+	if err != nil {
+		f.Logdown("info", clientIp+" process.Retrievefile: "+err.Error())
+		ReturnJSON(c, 404, ERR_NotFound, nil)
+		return
+	}
+
+	segment, fid, err := process.FullProcessing(fpath, "", cacheDir)
+	if err == nil {
+		for i := 0; i < len(segment); i++ {
+			for j := 0; j < len(segment[i].FragmentHash); j++ {
+				if fragmentHash == segment[i].FragmentHash[j] {
+					fd, err := os.Open(segment[i].FragmentHash[j])
+					if err == nil {
+						defer fd.Close()
+						f.AccessFile(fpath)
+						f.Logdown("info", clientIp+" download the file from local: "+fid)
+						c.DataFromReader(http.StatusOK, chain.FragmentSize, "application/octet-stream", fd, nil)
+						return
+					}
+				}
+			}
+		}
+	}
+
+	ReturnJSON(c, 404, ERR_NotFound, nil)
+	return
 }
