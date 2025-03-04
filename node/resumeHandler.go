@@ -41,8 +41,8 @@ type ResumeHandler struct {
 	*rate.Limiter
 }
 
-func NewResumeHandler(cli chain.Chainer, track tracker.Tracker, ws workspace.Workspace, lg logger.Logger) *ResumeHandler {
-	return &ResumeHandler{Chainer: cli, Tracker: track, Workspace: ws, Logger: lg, Limiter: rate.NewLimiter(rate.Every(time.Millisecond*10), 20)}
+func NewResumeHandler(cli chain.Chainer, track tracker.Tracker, ws workspace.Workspace, lg logger.Logger, cfg *confile.Config) *ResumeHandler {
+	return &ResumeHandler{Chainer: cli, Tracker: track, Workspace: ws, Logger: lg, Config: cfg, Limiter: rate.NewLimiter(rate.Every(time.Millisecond*10), 20)}
 }
 
 func (r *ResumeHandler) RegisterRoutes(server *gin.Engine) {
