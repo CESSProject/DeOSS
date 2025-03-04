@@ -476,7 +476,7 @@ func CheckFileType(cli chain.Chainer, fid string, account string) (string, error
 			if err.Error() != chain.ERR_Empty {
 				return "", err
 			}
-			return "", err
+			return "", errors.New(ERR_FileNotFound)
 		}
 		format = filepath.Ext(string(order.User.FileName))
 		return strings.ToLower(format), nil

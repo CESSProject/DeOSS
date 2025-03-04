@@ -335,6 +335,11 @@ func (f *FileHandler) OpenFileHandle(c *gin.Context) {
 			if err != nil {
 				format, err = CheckFileType(f.Chainer, fid, c.Request.Header.Get(HTTPHeader_Account))
 				if err != nil {
+					if err.Error() == ERR_FileNotFound {
+						f.Logopen("err", clientIp+" CheckFileType: "+err.Error())
+						ReturnJSON(c, 400, ERR_FileNotFound, nil)
+						return
+					}
 					f.Logopen("err", clientIp+" CheckFileType: "+err.Error())
 					ReturnJSON(c, 403, ERR_RPCConnection, nil)
 					return
