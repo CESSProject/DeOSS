@@ -100,7 +100,7 @@ func (r *ResumeHandler) ResumeHandle(c *gin.Context) {
 		return
 	}
 
-	rangeHeader := c.GetHeader("Content-Range")
+	rangeHeader := c.GetHeader(HTTPHeader_Range)
 	if rangeHeader == "" {
 		r.Logput("err", clientIp+" "+ERR_MissingContentRange)
 		ReturnJSON(c, 400, ERR_MissingContentRange, nil)

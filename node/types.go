@@ -21,7 +21,7 @@ const (
 	HTTPHeader_Cipher          = "Cipher"
 	HTTPHeader_Filename        = "Filename"
 	HTTPHeader_Format          = "Format"
-	HTTPHeader_Range           = "Range"
+	HTTPHeader_Range           = "Content-Range"
 	HTTPHeader_X_Forwarded_For = "X_Forwarded_For"
 )
 
