@@ -70,7 +70,7 @@ func (n *Node) InitWebServer(mdls []gin.HandlerFunc, hdl *Handler) {
 func InitMiddlewares() []gin.HandlerFunc {
 	return []gin.HandlerFunc{
 		cors.New(cors.Config{
-			AllowAllOrigins: true,
+			//AllowAllOrigins: true,
 			AllowHeaders: []string{
 				HTTPHeader_Territory,
 				HTTPHeader_Account,
