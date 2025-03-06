@@ -186,8 +186,8 @@ func CheckAuthorize(cli chain.Chainer, c *gin.Context, pkey []byte) error {
 		}
 	}
 	if !flag {
-		ReturnJSON(c, 403, fmt.Sprintf("please authorize the gateway account: %s", cli.GetSignatureAcc()), nil)
-		return fmt.Errorf("please authorize the gateway account: %s", cli.GetSignatureAcc())
+		ReturnJSON(c, 403, fmt.Sprintf("Please authorize this gateway account: %s", cli.GetSignatureAcc()), nil)
+		return fmt.Errorf("please authorize this gateway account: %s", cli.GetSignatureAcc())
 	}
 	return nil
 }

@@ -201,7 +201,9 @@ func (r *ResumeHandler) ResumeHandle(c *gin.Context) {
 		if fd != nil {
 			fd.Close()
 		}
+		os.Remove(fpath)
 	}()
+
 	fstat, err := fd.Stat()
 	if err != nil {
 		r.Logput("err", clientIp+" Stat: "+err.Error())
@@ -230,10 +232,24 @@ func (r *ResumeHandler) ResumeHandle(c *gin.Context) {
 		return
 	}
 
-	_, err = io.CopyN(fd, c.Request.Body, end-start+1)
+	length, err := io.Copy(fd, c.Request.Body)
 	if err != nil && err != io.EOF {
-		r.Logput("err", clientIp+" CopyN: "+err.Error())
+		r.Logput("err", clientIp+" Copy: "+err.Error())
 		ReturnJSON(c, 400, ERR_FailedToRecvData, nil)
+		return
+	}
+
+	//fmt.Println("length: ", length)
+
+	if length > (end - start + 1) {
+		r.Logput("err", clientIp+"io. Copy(body)")
+		ReturnJSON(c, 400, "received more file content", nil)
+		return
+	}
+
+	if length < (end - start + 1) {
+		r.Logput("err", clientIp+"io. Copy(body)")
+		ReturnJSON(c, 400, "received less file content", nil)
 		return
 	}
 
@@ -331,14 +347,14 @@ func (r *ResumeHandler) ResumeHandle(c *gin.Context) {
 		return
 	}
 
-	frecord.AddToFileRecord(fid, filepath.Ext(filename))
-
 	_, err = os.Stat(newPath)
 	if err != nil {
 		r.Logput("err", clientIp+" "+err.Error())
 		ReturnJSON(c, 500, ERR_SystemErr, nil)
 		return
 	}
+
+	frecord.AddToFileRecord(fid, filepath.Ext(filename))
 
 	r.Logput("info", clientIp+" new file path: "+newPath)
 

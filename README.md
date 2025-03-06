@@ -1,6 +1,6 @@
 # <h1 align="center">DeOSS </br> [![GitHub license](https://img.shields.io/badge/license-Apache2-blue)](#LICENSE) <a href=""><img src="https://img.shields.io/badge/golang-%3E%3D1.22-blue.svg"/></a> [![Go Reference](https://pkg.go.dev/badge/github.com/CESSProject/DeOSS.svg)](https://pkg.go.dev/github.com/CESSProject/DeOSS)  [![build](https://github.com/CESSProject/DeOSS/actions/workflows/build.yml/badge.svg)](https://github.com/CESSProject/DeOSS/actions/workflows/build.yml) [![Go Report Card](https://goreportcard.com/badge/github.com/CESSProject/cess-oss)](https://goreportcard.com/report/github.com/CESSProject/cess-oss)</h1>
 
-DeOSS ( Decentralized Object Storage Service ) is a decentralized object-based mass storage service that provides low-cost, secure and scalable distributed data storage services for the web3 domain.
+DeOSS (Decentralized Object Storage Service) is a decentralized object-based, low-cost, secure, agile, and scalable distributed mass storage service for the web3 industry. Both enterprises and individuals can use DeOSS to store. Based on blockchain technology, DeOSS effectively utilizes online idle storage resources to build a vast distributed storage network. The mission of DeOSS is to give the data ownership and benefits right back to the data producers, rather than centralized platforms.
 
 ### 🙋‍♂️ Reporting a Vulnerability
 If you find any system errors or you have better suggestions, please submit an [issue](https://github.com/CESSProject/DeOSS/issues) or [PR](https://github.com/CESSProject/DeOSS/pulls), or join the [CESS discord](https://discord.gg/mYHTMfBwNS) to communicate with us.
@@ -52,12 +52,14 @@ yum install git curl wget vim util-linux -y
 Deoss defaults to listening on port `8080`.  The reference for configuring firewall open ports is as follows:
 
 **· ufw**
+
 For hosts with ufw enabled (Debian, Ubuntu, etc.), you can use the ufw command to allow traffic to flow to specific ports. Use the following command to allow access to a port:
 ```
 ufw allow 8080
 ```
 
 **· firewall-cmd**
+
 For hosts with firewall-cmd enabled (CentOS), you can use the firewall-cmd command to allow traffic on specific ports. Use the following command to allow access to a port:
 ```
 firewall-cmd --get-active-zones
@@ -72,6 +74,7 @@ firewall-cmd --reload
 ```
 
 **· iptables**
+
 For hosts with iptables enabled (RHEL, CentOS, etc.), you can use the iptables command to enable all traffic to a specific port. Use the following command to allow access to a port:
 ```
 iptables -A INPUT -p tcp --dport 8080 -j ACCEPT
@@ -80,9 +83,11 @@ service iptables restart
 
 ### 🏗 Get the binary program
 **method one**
+
 Download the latest release code directly at： [Releases](https://github.com/CESSProject/DeOSS/releases)
 
 **method two**
+
 Compile the binary program from the DeOSS source code and follow the process as follows:
 
 ***1) install go***
