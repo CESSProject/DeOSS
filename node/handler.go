@@ -28,7 +28,7 @@ func NewHandler(cli chain.Chainer, track tracker.Tracker, ws workspace.Workspace
 	return &Handler{
 		FileHandler:   NewFileHandler(cli, track, ws, lg, cfg, lru),
 		ResumeHandler: NewResumeHandler(cli, track, ws, lg, cfg),
-		ObjectHandler: NewObjectHandler(cli, track, ws, lg, lru),
+		ObjectHandler: NewObjectHandler(cli, track, ws, lg, cfg, lru),
 		FilesHandler:  NewFilesHandler(cli, track, ws, lg, cfg, lru),
 	}
 }
