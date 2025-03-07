@@ -96,8 +96,8 @@ func (o *ObjectHandler) UploadObjectHandle(c *gin.Context) {
 		return
 	}
 
+	filename := c.Param(HTTP_ParameterName)
 	account := c.Request.Header.Get(HTTPHeader_Account)
-	filename := c.Request.Header.Get(HTTP_ParameterName)
 	territoryName := c.Request.Header.Get(HTTPHeader_Territory)
 	cipher := c.Request.Header.Get(HTTPHeader_Cipher)
 	shuntminers := c.Request.Header.Values(HTTPHeader_Miner)
