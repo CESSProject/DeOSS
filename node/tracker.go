@@ -261,28 +261,8 @@ func (n *Node) checkFileState(fid string) (StorageDataType, bool, error) {
 	}
 
 	fmeta, err := n.QueryFile(fid, -1)
-	if err != nil {
-		if err.Error() != chain.ERR_Empty {
-			return StorageDataType{}, false, err
-		}
-		_, err = n.QueryDealMap(fid, -1)
-		if err != nil {
-			if err.Error() != chain.ERR_Empty {
-				return StorageDataType{}, false, err
-			}
-			_, err = n.PlaceStorageOrder(fid, recordFile.FileName, recordFile.TerritoryName, recordFile.Segment, recordFile.Owner, recordFile.FileSize)
-			if err != nil {
-				return StorageDataType{}, false, err
-			}
-		}
-	} else {
+	if err == nil {
 		suc := false
-		message := time.Now().Unix()
-		sig, err := sutils.SignedSR25519WithMnemonic(n.GetURI(), fmt.Sprintf("%d", message))
-		if err != nil {
-			return StorageDataType{}, true, nil
-		}
-
 		for i := 0; i < len(fmeta.Owner); i++ {
 			if sutils.CompareSlice(fmeta.Owner[i].User[:], recordFile.Owner) {
 				suc = true
@@ -292,58 +272,60 @@ func (n *Node) checkFileState(fid string) (StorageDataType, bool, error) {
 
 		if suc {
 			// call back suc
-			err = CallbackToDecloud(n.Config.Callback, fid, n.GetSignatureAcc(), hex.EncodeToString(sig), message, 1)
+			err = n.CallbackToDecloud(n.Config.Callback, fid, 1)
 			if err != nil {
-				return StorageDataType{}, true, nil
+				n.Log("err", fmt.Sprintf("CallbackToDecloud: %v", err))
+			}
+			os.RemoveAll(recordFile.CacheDir)
+			n.DeleteTraceFile(fid)
+			return StorageDataType{}, true, nil
+		}
+
+		_, err = n.PlaceStorageOrder(fid, recordFile.FileName, recordFile.TerritoryName, recordFile.Segment, recordFile.Owner, recordFile.FileSize)
+		if err != nil {
+			// call back failed
+			err = n.CallbackToDecloud(n.Config.Callback, fid, 2)
+			if err != nil {
+				n.Log("err", fmt.Sprintf("CallbackToDecloud: %v", err))
 			}
 		} else {
-			_, err = n.PlaceStorageOrder(fid, recordFile.FileName, recordFile.TerritoryName, recordFile.Segment, recordFile.Owner, recordFile.FileSize)
+			// call back suc
+			err = n.CallbackToDecloud(n.Config.Callback, fid, 1)
 			if err != nil {
-				// call back failed
-				err = CallbackToDecloud(n.Config.Callback, fid, n.GetSignatureAcc(), hex.EncodeToString(sig), message, 2)
-				if err != nil {
-					return StorageDataType{}, true, nil
-				}
-			} else {
-				// call back suc
-				err = CallbackToDecloud(n.Config.Callback, fid, n.GetSignatureAcc(), hex.EncodeToString(sig), message, 1)
-				if err != nil {
-					return StorageDataType{}, true, nil
-				}
+				n.Log("err", fmt.Sprintf("CallbackToDecloud: %v", err))
 			}
 		}
-
-		for i := 0; i < len(recordFile.Segment); i++ {
-			for j := 0; j < len(recordFile.Segment[i].FragmentHash); j++ {
-				os.Remove(filepath.Join(recordFile.CacheDir, recordFile.Segment[i].FragmentHash[j]))
-			}
-		}
-
-		ownerflag := false
-		for i := 0; i < len(fmeta.Owner); i++ {
-			if sutils.CompareSlice(fmeta.Owner[i].User[:], recordFile.Owner) {
-				ownerflag = true
-				break
-			}
-		}
-
-		if !ownerflag {
-			txhash, err := n.PlaceStorageOrder(
-				fid,
-				recordFile.FileName,
-				recordFile.TerritoryName,
-				recordFile.Segment,
-				recordFile.Owner,
-				recordFile.FileSize,
-			)
-			if err != nil {
-				return StorageDataType{}, false, fmt.Errorf(" %s [UploadDeclaration] hash: %s err: %v", fid, txhash, err)
-			}
-		}
-
+		os.RemoveAll(recordFile.CacheDir)
 		n.DeleteTraceFile(fid)
-
 		return StorageDataType{}, true, nil
+	}
+
+	if err.Error() != chain.ERR_Empty {
+		return StorageDataType{}, false, err
+	}
+
+	dealmap, err := n.QueryDealMap(fid, -1)
+	if err != nil {
+		if err.Error() != chain.ERR_Empty {
+			return StorageDataType{}, false, err
+		}
+		_, err = n.PlaceStorageOrder(fid, recordFile.FileName, recordFile.TerritoryName, recordFile.Segment, recordFile.Owner, recordFile.FileSize)
+		if err != nil {
+			err = n.CallbackToDecloud(n.Config.Callback, fid, 2)
+			if err != nil {
+				n.Log("err", fmt.Sprintf("CallbackToDecloud: %v", err))
+			} else {
+				os.RemoveAll(recordFile.CacheDir)
+				n.DeleteTraceFile(fid)
+				return StorageDataType{}, true, nil
+			}
+			return StorageDataType{}, false, err
+		}
+		time.Sleep(time.Second * 12)
+		dealmap, err = n.QueryDealMap(fid, -1)
+		if err != nil {
+			return StorageDataType{}, false, err
+		}
 	}
 
 	flag := false
@@ -366,15 +348,14 @@ func (n *Node) checkFileState(fid string) (StorageDataType, bool, error) {
 
 	if flag {
 		segment, hash, err := n.reFullProcessing(fid, recordFile.Cipher, recordFile.CacheDir)
-		if err != nil {
-			if strings.Contains(recordFile.CacheDir, "/deoss/file/cX") {
-				n.DeleteTraceFile(fid)
+		if err != nil || recordFile.Fid != hash {
+			err = n.CallbackToDecloud(n.Config.Callback, fid, 2)
+			if err != nil {
+				n.Log("err", fmt.Sprintf("CallbackToDecloud: %v", err))
 				return StorageDataType{}, false, errors.Wrapf(err, "reFullProcessing failed: last version file")
 			}
+			n.DeleteTraceFile(fid)
 			return StorageDataType{}, false, errors.Wrapf(err, "reFullProcessing")
-		}
-		if recordFile.Fid != hash {
-			return StorageDataType{}, false, fmt.Errorf("The fid after reprocessing is inconsistent [%s != %s] %v", recordFile.Fid, hash, err)
 		}
 		recordFile.Segment = segment
 		err = n.AddToTraceFile(fid, recordFile)
@@ -389,95 +370,12 @@ func (n *Node) checkFileState(fid string) (StorageDataType, bool, error) {
 		Data:     make([][]string, 0),
 	}
 
-	dealmap, err := n.QueryDealMap(fid, -1)
-	if err != nil {
-		if err.Error() != chain.ERR_Empty {
-			return StorageDataType{}, false, err
-		}
-	} else {
-		for index := 0; index < (chain.DataShards + chain.ParShards); index++ {
-			acc, ok := IsComplete(index+1, dealmap.CompleteList)
-			if ok {
-				storageDataType.Complete = append(storageDataType.Complete, acc)
-				continue
-			}
-			var value = make([]string, 0)
-			for i := 0; i < len(recordFile.Segment); i++ {
-				value = append(value, string(recordFile.Segment[i].FragmentHash[index]))
-			}
-			storageDataType.Data = append(storageDataType.Data, value)
-		}
-		if len(recordFile.ShuntMiner) >= (chain.DataShards + chain.ParShards) {
-			storageDataType.StorageType = Storage_FullAssignment
-			storageDataType.Assignments = recordFile.ShuntMiner
-		} else if len(recordFile.ShuntMiner) > 0 {
-			suc := 0
-			for i := 0; i < len(recordFile.ShuntMiner); i++ {
-				for j := 0; j < len(storageDataType.Complete); j++ {
-					if recordFile.ShuntMiner[i] == storageDataType.Complete[j] {
-						suc++
-						break
-					}
-				}
-			}
-			if suc == len(recordFile.ShuntMiner) {
-				storageDataType.StorageType = Storage_NoAssignment
-			} else {
-				storageDataType.StorageType = Storage_PartAssignment
-				storageDataType.Assignments = recordFile.ShuntMiner
-			}
-		} else if len(recordFile.Points.Coordinate) > 2 {
-			storageDataType.StorageType = Storage_RangeAssignment
-			storageDataType.Range = recordFile.Points
-		} else {
-			storageDataType.StorageType = Storage_NoAssignment
-		}
-		return storageDataType, false, nil
-	}
-
-	// verify the space is authorized
-	authAccs, err := n.QueryAuthorityList(recordFile.Owner, -1)
-	if err != nil {
-		if err.Error() != chain.ERR_Empty {
-			return StorageDataType{}, false, err
-		}
-	}
-
-	flag = false
-	for _, v := range authAccs {
-		if sutils.CompareSlice(n.GetSignatureAccPulickey(), v[:]) {
-			flag = true
-			break
-		}
-	}
-
-	if !flag {
-		// os.RemoveAll(recordFile.CacheDir)
-		// n.DeleteTrackFile(roothash)
-		user, _ := sutils.EncodePublicKeyAsCessAccount(recordFile.Owner)
-		return StorageDataType{}, true, errors.Errorf("[%s] user [%s] has revoked authorization", fid, user)
-	}
-
-	if strings.Contains(recordFile.BucketName, "ExtrinsicFailed") {
-		return StorageDataType{}, false, fmt.Errorf(" %s [UploadDeclaration] %v", fid, recordFile.BucketName)
-	}
-
-	txhash, err := n.PlaceStorageOrder(
-		fid,
-		recordFile.FileName,
-		recordFile.TerritoryName,
-		recordFile.Segment,
-		recordFile.Owner,
-		recordFile.FileSize,
-	)
-	if err != nil {
-		recordFile.BucketName = fmt.Sprintf("hash: %s %v", txhash, err)
-		n.AddToTraceFile(recordFile.Fid, recordFile)
-		return StorageDataType{}, false, fmt.Errorf(" %s [UploadDeclaration] hash: %s err: %v", fid, txhash, err)
-	}
-	n.Logtrack("info", fmt.Sprintf(" %s [UploadDeclaration] suc: %s", fid, txhash))
-
 	for index := 0; index < (chain.DataShards + chain.ParShards); index++ {
+		acc, ok := IsComplete(index+1, dealmap.CompleteList)
+		if ok {
+			storageDataType.Complete = append(storageDataType.Complete, acc)
+			continue
+		}
 		var value = make([]string, 0)
 		for i := 0; i < len(recordFile.Segment); i++ {
 			value = append(value, string(recordFile.Segment[i].FragmentHash[index]))
@@ -486,13 +384,30 @@ func (n *Node) checkFileState(fid string) (StorageDataType, bool, error) {
 	}
 	if len(recordFile.ShuntMiner) >= (chain.DataShards + chain.ParShards) {
 		storageDataType.StorageType = Storage_FullAssignment
+		storageDataType.Assignments = recordFile.ShuntMiner
 	} else if len(recordFile.ShuntMiner) > 0 {
-		storageDataType.StorageType = Storage_PartAssignment
+		suc := 0
+		for i := 0; i < len(recordFile.ShuntMiner); i++ {
+			for j := 0; j < len(storageDataType.Complete); j++ {
+				if recordFile.ShuntMiner[i] == storageDataType.Complete[j] {
+					suc++
+					break
+				}
+			}
+		}
+		if suc == len(recordFile.ShuntMiner) {
+			storageDataType.StorageType = Storage_NoAssignment
+		} else {
+			storageDataType.StorageType = Storage_PartAssignment
+			storageDataType.Assignments = recordFile.ShuntMiner
+		}
 	} else if len(recordFile.Points.Coordinate) > 2 {
 		storageDataType.StorageType = Storage_RangeAssignment
+		storageDataType.Range = recordFile.Points
 	} else {
 		storageDataType.StorageType = Storage_NoAssignment
 	}
+
 	return storageDataType, false, nil
 }
 

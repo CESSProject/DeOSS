@@ -174,11 +174,11 @@ func (o *ObjectHandler) UploadObjectHandle(c *gin.Context) {
 
 	o.Logput("info", clientIp+" fid: "+fid)
 
-	duplicate, err := checkDuplicate(o.Chainer, c, fid, pkey)
-	if err != nil {
-		o.Logput("err", clientIp+" checkDuplicate: "+err.Error())
-		return
-	}
+	// duplicate, err := checkDuplicate(o.Chainer, c, fid, pkey)
+	// if err != nil {
+	// 	o.Logput("err", clientIp+" checkDuplicate: "+err.Error())
+	// 	return
+	// }
 
 	newPath := filepath.Join(o.GetFileDir(), fid)
 	err = os.Rename(fpath, newPath)
@@ -200,22 +200,22 @@ func (o *ObjectHandler) UploadObjectHandle(c *gin.Context) {
 
 	o.Logput("info", clientIp+" new file path: "+newPath)
 
-	switch duplicate {
-	case Duplicate1:
-		blockhash, err := o.PlaceStorageOrder(fid, filename, territoryName, segmentInfo, pkey, uint64(length))
-		if err != nil {
-			o.Logput("err", clientIp+" PlaceStorageOrder: "+err.Error())
-			ReturnJSON(c, 500, ERR_SystemErr, nil)
-			return
-		}
-		o.Logput("info", clientIp+" duplicate file: "+fid+" storage order hash: "+blockhash)
-		ReturnJSON(c, 200, MSG_OK, map[string]string{"fid": fid})
-		return
-	case Duplicate2:
-		o.Logput("info", clientIp+" duplicate file: "+fid)
-		ReturnJSON(c, 200, MSG_OK, map[string]string{"fid": fid})
-		return
-	}
+	// switch duplicate {
+	// case Duplicate1:
+	// 	blockhash, err := o.PlaceStorageOrder(fid, filename, territoryName, segmentInfo, pkey, uint64(length))
+	// 	if err != nil {
+	// 		o.Logput("err", clientIp+" PlaceStorageOrder: "+err.Error())
+	// 		ReturnJSON(c, 500, ERR_SystemErr, nil)
+	// 		return
+	// 	}
+	// 	o.Logput("info", clientIp+" duplicate file: "+fid+" storage order hash: "+blockhash)
+	// 	ReturnJSON(c, 200, MSG_OK, map[string]string{"fid": fid})
+	// 	return
+	// case Duplicate2:
+	// 	o.Logput("info", clientIp+" duplicate file: "+fid)
+	// 	ReturnJSON(c, 200, MSG_OK, map[string]string{"fid": fid})
+	// 	return
+	// }
 
 	err = o.AddToTraceFile(fid, tracker.TrackerInfo{
 		Segment:       segmentInfo,
@@ -235,13 +235,13 @@ func (o *ObjectHandler) UploadObjectHandle(c *gin.Context) {
 		return
 	}
 
-	blockhash, err := o.PlaceStorageOrder(fid, filename, territoryName, segmentInfo, pkey, uint64(length))
-	if err != nil {
-		o.Logput("err", clientIp+" PlaceStorageOrder: "+err.Error())
-		ReturnJSON(c, 500, ERR_SystemErr, nil)
-		return
-	}
-	o.Logput("info", clientIp+" uploaded suc and the storage order hash: "+blockhash)
+	// blockhash, err := o.PlaceStorageOrder(fid, filename, territoryName, segmentInfo, pkey, uint64(length))
+	// if err != nil {
+	// 	o.Logput("err", clientIp+" PlaceStorageOrder: "+err.Error())
+	// 	ReturnJSON(c, 500, ERR_SystemErr, nil)
+	// 	return
+	// }
+	//o.Logput("info", clientIp+" uploaded suc and the storage order hash: "+blockhash)
 	ReturnJSON(c, 200, MSG_OK, map[string]string{"fid": fid})
 }
 

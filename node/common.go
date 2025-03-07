@@ -843,7 +843,7 @@ type Form struct {
 	Fid       string `json:"fid"`
 	Status    int    `json:"status"`
 	Account   string `json:"account"`
-	Message   int64  `json:"message"`
+	Message   uint32 `json:"message"`
 	Signature string `json:"signature"`
 }
 
@@ -857,28 +857,23 @@ type GraphQLMutation struct {
 	} `json:"mutation"`
 }
 
-type RespSucByCallback struct {
-	Data RespDataByCallback `json:"data"`
-}
-
-type RespDataByCallback struct {
+type Data struct {
 	UpdateFileRecordsStatus bool `json:"updateFileRecordsStatus"`
 }
 
-func CallbackToDecloud(url, fid, account, sign string, message int64, status uint8) error {
-	if strings.Contains(url, "/") {
-		url = url + "api"
-	} else {
-		url = url + "/api"
+func (n *Node) CallbackToDecloud(url, fid string, status uint8) error {
+	message := time.Now().Add(time.Minute).Unix()
+	signature, err := sutils.SignedSR25519WithMnemonic(n.GetURI(), fmt.Sprintf("%d", message))
+	if err != nil {
+		return err
 	}
-
 	mutation := GraphQLMutation{}
 	mutation.Mutation.UpdateFileMapStatus = Form{
 		Fid:       fid,
 		Status:    1,
-		Account:   account,
-		Message:   message,
-		Signature: sign,
+		Account:   n.GetSignatureAcc(),
+		Message:   uint32(message),
+		Signature: hex.EncodeToString(signature),
 	}
 
 	query := fmt.Sprintf(`
@@ -919,7 +914,7 @@ func CallbackToDecloud(url, fid, account, sign string, message int64, status uin
 	}
 	defer resp.Body.Close()
 
-	//fmt.Printf("Response Status: %s\n", resp.Status)
+	fmt.Printf("Response code: %d\n", resp.StatusCode)
 
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("failed code: %d", resp.StatusCode)
@@ -930,15 +925,11 @@ func CallbackToDecloud(url, fid, account, sign string, message int64, status uin
 		return fmt.Errorf("read response body err: %v", err)
 	}
 
-	var respdata RespSucByCallback
+	var respdata Data
 	err = json.Unmarshal(buf, &respdata)
 	if err != nil {
 		return fmt.Errorf("response failed: %v", err)
 	}
-
-	if !respdata.Data.UpdateFileRecordsStatus {
-		return errors.New("response false")
-	}
-
+	fmt.Printf("Response data: %v\n", respdata.UpdateFileRecordsStatus)
 	return nil
 }
