@@ -318,7 +318,31 @@ func (n *Node) checkFileState(fid string) (StorageDataType, bool, error) {
 				os.Remove(filepath.Join(recordFile.CacheDir, recordFile.Segment[i].FragmentHash[j]))
 			}
 		}
+
+		ownerflag := false
+		for i := 0; i < len(fmeta.Owner); i++ {
+			if sutils.CompareSlice(fmeta.Owner[i].User[:], recordFile.Owner) {
+				ownerflag = true
+				break
+			}
+		}
+
+		if !ownerflag {
+			txhash, err := n.PlaceStorageOrder(
+				fid,
+				recordFile.FileName,
+				recordFile.TerritoryName,
+				recordFile.Segment,
+				recordFile.Owner,
+				recordFile.FileSize,
+			)
+			if err != nil {
+				return StorageDataType{}, false, fmt.Errorf(" %s [UploadDeclaration] hash: %s err: %v", fid, txhash, err)
+			}
+		}
+
 		n.DeleteTraceFile(fid)
+
 		return StorageDataType{}, true, nil
 	}
 
@@ -343,6 +367,10 @@ func (n *Node) checkFileState(fid string) (StorageDataType, bool, error) {
 	if flag {
 		segment, hash, err := n.reFullProcessing(fid, recordFile.Cipher, recordFile.CacheDir)
 		if err != nil {
+			if strings.Contains(recordFile.CacheDir, "/deoss/file/cX") {
+				n.DeleteTraceFile(fid)
+				return StorageDataType{}, false, errors.Wrapf(err, "reFullProcessing failed: last version file")
+			}
 			return StorageDataType{}, false, errors.Wrapf(err, "reFullProcessing")
 		}
 		if recordFile.Fid != hash {
@@ -430,6 +458,10 @@ func (n *Node) checkFileState(fid string) (StorageDataType, bool, error) {
 		return StorageDataType{}, true, errors.Errorf("[%s] user [%s] has revoked authorization", fid, user)
 	}
 
+	if strings.Contains(recordFile.BucketName, "ExtrinsicFailed") {
+		return StorageDataType{}, false, fmt.Errorf(" %s [UploadDeclaration] %v", fid, recordFile.BucketName)
+	}
+
 	txhash, err := n.PlaceStorageOrder(
 		fid,
 		recordFile.FileName,
@@ -439,7 +471,9 @@ func (n *Node) checkFileState(fid string) (StorageDataType, bool, error) {
 		recordFile.FileSize,
 	)
 	if err != nil {
-		return StorageDataType{}, false, fmt.Errorf(" %s [UploadDeclaration] %v", fid, err)
+		recordFile.BucketName = fmt.Sprintf("hash: %s %v", txhash, err)
+		n.AddToTraceFile(recordFile.Fid, recordFile)
+		return StorageDataType{}, false, fmt.Errorf(" %s [UploadDeclaration] hash: %s err: %v", fid, txhash, err)
 	}
 	n.Logtrack("info", fmt.Sprintf(" %s [UploadDeclaration] suc: %s", fid, txhash))
 
@@ -484,15 +518,16 @@ func (n *Node) storageFiles(tracks []StorageDataType) error {
 		return nil
 	}
 	minerinfolist := n.GetAllWhitelistInfos()
+	utils.RandSlice(minerinfolist)
 	minerinfolist = append(minerinfolist, n.GetAllMinerinfos()...)
 	length := len(minerinfolist)
 	n.Logtrack("info", fmt.Sprintf("miner length: %d", length))
 	for i := 0; i < length; i++ {
+		if n.IsInBlacklist(minerinfolist[i].Account) {
+			//n.Logtrack("info", " miner in blacklist")
+			continue
+		}
 		n.Logtrack("info", fmt.Sprintf(" use miner: %s", minerinfolist[i].Account))
-		// if n.IsInBlacklist(minerinfolist[i].Account) {
-		// 	n.Logtrack("info", " miner in blacklist")
-		// 	continue
-		// }
 		err := n.storageToMiner(minerinfolist[i].Account, tracks)
 		if err != nil {
 			n.Logtrack("err", err.Error())
@@ -564,7 +599,7 @@ func (n *Node) storageToMiner(account string, tracks []StorageDataType) error {
 		return nil
 	}
 	if accountInfo.State != schain.MINER_STATE_POSITIVE {
-		n.Logtrack("err", fmt.Sprintf(" miner status is not %s", schain.MINER_STATE_POSITIVE))
+		//n.Logtrack("err", fmt.Sprintf(" miner status is not %s", schain.MINER_STATE_POSITIVE))
 		return fmt.Errorf(" %s status is not %s", account, schain.MINER_STATE_POSITIVE)
 	}
 
@@ -576,8 +611,8 @@ func (n *Node) storageToMiner(account string, tracks []StorageDataType) error {
 			continue
 		}
 		if accountInfo.Idlespace < uint64(chain.FragmentSize*len(tracks[i].Data[0])) {
-			n.Logtrack("err", fmt.Sprintf(" miner space < %dMiB", chain.FragmentSize*len(tracks[i].Data[0])))
-			return fmt.Errorf(" %s space < %dMiB", account, chain.FragmentSize*len(tracks[i].Data[0]))
+			//n.Logtrack("err", fmt.Sprintf(" miner space < %dMiB", chain.FragmentSize*len(tracks[i].Data[0])))
+			return fmt.Errorf(" %s space < %d", account, chain.FragmentSize*len(tracks[i].Data[0]))
 		}
 		err := n.storageBatchFragment(accountInfo, tracks[i])
 		if err != nil {
@@ -587,7 +622,7 @@ func (n *Node) storageToMiner(account string, tracks []StorageDataType) error {
 		if len(tracks[i].Data) > 1 {
 			tracks[i].Data = tracks[i].Data[1:]
 			if accountInfo.Idlespace < uint64(chain.FragmentSize*len(tracks[i].Data[0])) {
-				n.Logtrack("info", " miner space < 96M, stop storage")
+				n.Logtrack("info", " not enough space for this miner, stop storing")
 				return nil
 			}
 		} else {
@@ -608,14 +643,29 @@ func (n *Node) storageBatchFragment(minerinfo record.Minerinfo, tracks StorageDa
 		n.Logtrack("info", " miner transferred all fragments of the file")
 		return nil
 	}
+	if minerinfo.Addr == "" {
+		//n.Logtrack("info", " miner addr is empty")
+		n.AddToBlacklist(minerinfo.Account, "", "miner addr is empty")
+		return errors.New("miner addr is empty")
+	}
+	if strings.Contains(minerinfo.Addr, "1.1.1.") ||
+		strings.Contains(minerinfo.Addr, "0.0.0.") ||
+		strings.Contains(minerinfo.Addr, "127.0.0.1") ||
+		strings.Contains(minerinfo.Addr, "192.168.") ||
+		strings.Contains(minerinfo.Addr, " ") {
+		//n.Logtrack("info", " miner addr is invalid")
+		n.AddToBlacklist(minerinfo.Account, minerinfo.Addr, "miner addr is invalid")
+		return errors.New("miner addr is invalid")
+	}
+	n.Logtrack("info", fmt.Sprintf(" miner addr: %s", minerinfo.Addr))
 	for j := 0; j < len(tracks.Data[0]); j++ {
 		err = n.UploadFragmentToMiner(minerinfo.Addr, tracks.Fid, filepath.Base(tracks.Data[0][j]), tracks.Data[0][j])
 		if err != nil {
 			n.Logtrack("info", fmt.Sprintf(" miner transfer %d fragment failed: %v", j, err))
 			errmsg := err.Error()
-			//if strings.Contains(errmsg, "refused") || strings.Contains(errmsg, "timeout") {
-			n.AddToBlacklist(minerinfo.Account, minerinfo.Addr, errmsg)
-			//}
+			if strings.Contains(errmsg, "refused") || strings.Contains(errmsg, "timed out") {
+				n.AddToBlacklist(minerinfo.Account, minerinfo.Addr, errmsg)
+			}
 			return err
 		}
 		n.Logtrack("info", fmt.Sprintf(" miner transfer %d fragment suc", j))
@@ -680,8 +730,10 @@ func (n *Node) UploadFragmentToMiner(addr, fid, fragmentHash, fragmentPath strin
 	req.Header.Set("Signature", hex.EncodeToString(sig))
 	req.Header.Set("Content-Type", writer.FormDataContentType())
 
-	client := &http.Client{}
-	client.Transport = globalTransport
+	client := &http.Client{
+		Timeout:   time.Minute,
+		Transport: globalTransport,
+	}
 	resp, err := client.Do(req)
 	if err != nil {
 		return err

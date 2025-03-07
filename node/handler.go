@@ -27,8 +27,8 @@ type Handler struct {
 func NewHandler(cli chain.Chainer, track tracker.Tracker, ws workspace.Workspace, lg logger.Logger, cfg *confile.Config, lru *lru.LRUCache) *Handler {
 	return &Handler{
 		FileHandler:   NewFileHandler(cli, track, ws, lg, cfg, lru),
-		ResumeHandler: NewResumeHandler(cli, track, ws, lg),
-		ObjectHandler: NewObjectHandler(cli, track, ws, lg, lru),
+		ResumeHandler: NewResumeHandler(cli, track, ws, lg, cfg),
+		ObjectHandler: NewObjectHandler(cli, track, ws, lg, cfg, lru),
 		FilesHandler:  NewFilesHandler(cli, track, ws, lg, cfg, lru),
 	}
 }

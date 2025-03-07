@@ -14,6 +14,7 @@ import (
 	"strings"
 
 	sutils "github.com/CESSProject/cess-go-sdk/utils"
+	"github.com/mr-tron/base58"
 	"github.com/vedhavyas/go-subkey/v2/sr25519"
 )
 
@@ -38,7 +39,38 @@ func VerifySR25519WithPubkey(account, msg, signature string) ([]byte, bool, erro
 	if err != nil {
 		return pk, false, err
 	}
+
 	ok := public.Verify([]byte(msg), []byte(signature))
+	if ok {
+		return pk, true, nil
+	}
+
+	if strings.HasPrefix(signature, "0x") {
+		sign, err := hex.DecodeString(signature[2:])
+		if err == nil {
+			ok = public.Verify([]byte(msg), sign)
+			if ok {
+				return pk, true, nil
+			}
+		}
+	}
+
+	sign, err := hex.DecodeString(signature)
+	if err == nil {
+		ok = public.Verify([]byte(msg), sign)
+		if ok {
+			return pk, true, nil
+		}
+	}
+
+	sign, err = base58.Decode(signature)
+	if err == nil {
+		ok = public.Verify([]byte(msg), sign)
+		if ok {
+			return pk, true, nil
+		}
+	}
+
 	return pk, ok, err
 }
 

@@ -70,24 +70,28 @@ func (n *Node) InitWebServer(mdls []gin.HandlerFunc, hdl *Handler) {
 func InitMiddlewares() []gin.HandlerFunc {
 	return []gin.HandlerFunc{
 		cors.New(cors.Config{
-			AllowAllOrigins: true,
-			AllowHeaders: []string{
-				HTTPHeader_Territory,
-				HTTPHeader_Account,
-				HTTPHeader_EthAccount,
-				HTTPHeader_Message,
-				HTTPHeader_Signature,
-				HTTPHeader_Miner,
-				HTTPHeader_Longitude,
-				HTTPHeader_Latitude,
-				HTTPHeader_Fid,
-				HTTPHeader_Cipher,
-				HTTPHeader_Filename,
-				HTTPHeader_Format,
-				HTTPHeader_Range,
-				HTTPHeader_X_Forwarded_For,
-			},
+			//AllowAllOrigins: true,
+			AllowHeaders: []string{"*"},
+			// AllowHeaders: []string{
+			// 	HTTPHeader_Territory,
+			// 	HTTPHeader_Account,
+			// 	HTTPHeader_EthAccount,
+			// 	HTTPHeader_Message,
+			// 	HTTPHeader_Signature,
+			// 	HTTPHeader_Miner,
+			// 	HTTPHeader_Longitude,
+			// 	HTTPHeader_Latitude,
+			// 	HTTPHeader_Fid,
+			// 	HTTPHeader_Cipher,
+			// 	HTTPHeader_Filename,
+			// 	HTTPHeader_Format,
+			// 	HTTPHeader_Range,
+			// 	HTTPHeader_X_Forwarded_For,
+			// },
 			AllowMethods: []string{"PUT", "GET", "DELETE", "OPTION"},
+			AllowOriginFunc: func(origin string) bool {
+				return true
+			},
 		}),
 	}
 }

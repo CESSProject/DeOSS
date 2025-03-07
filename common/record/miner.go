@@ -125,6 +125,16 @@ func (m *MinerRecord) SaveMinerinfo(account string, addr string, state string, i
 	}
 	m.minerlistLock.Unlock()
 
+	if addr == "" {
+		m.AddToBlacklist(account, addr, "miner addr is empty")
+	}
+
+	if strings.Contains(addr, "1.1.1.") ||
+		strings.Contains(addr, "0.0.0.") ||
+		strings.Contains(addr, " ") {
+		m.AddToBlacklist(account, addr, "miner addr is invalid")
+	}
+
 	m.whitelistLock.Lock()
 	_, ok := m.whitelist[account]
 	if ok {

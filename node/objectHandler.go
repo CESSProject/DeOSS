@@ -39,8 +39,8 @@ type ObjectHandler struct {
 	*lru.LRUCache
 }
 
-func NewObjectHandler(cli chain.Chainer, track tracker.Tracker, ws workspace.Workspace, lg logger.Logger, lru *lru.LRUCache) *ObjectHandler {
-	return &ObjectHandler{Chainer: cli, Tracker: track, Workspace: ws, Logger: lg, Limiter: rate.NewLimiter(rate.Every(chain.BlockInterval), 20), LRUCache: lru}
+func NewObjectHandler(cli chain.Chainer, track tracker.Tracker, ws workspace.Workspace, lg logger.Logger, cfg *confile.Config, lru *lru.LRUCache) *ObjectHandler {
+	return &ObjectHandler{Chainer: cli, Tracker: track, Workspace: ws, Logger: lg, Config: cfg, Limiter: rate.NewLimiter(rate.Every(chain.BlockInterval), 20), LRUCache: lru}
 }
 
 func (o *ObjectHandler) RegisterRoutes(server *gin.Engine) {
@@ -96,8 +96,8 @@ func (o *ObjectHandler) UploadObjectHandle(c *gin.Context) {
 		return
 	}
 
+	filename := c.Param(HTTP_ParameterName)
 	account := c.Request.Header.Get(HTTPHeader_Account)
-	filename := c.Request.Header.Get(HTTP_ParameterName)
 	territoryName := c.Request.Header.Get(HTTPHeader_Territory)
 	cipher := c.Request.Header.Get(HTTPHeader_Cipher)
 	shuntminers := c.Request.Header.Values(HTTPHeader_Miner)

@@ -22,4 +22,6 @@ const (
 	ERR_InvalidRangeEnd   = "invalid range end"
 	ERR_ReceiveData       = "network error"
 	ERR_UnknownFileFormat = "Unknown file format"
+
+	ERR_FileNotFound = "file not found"
 )

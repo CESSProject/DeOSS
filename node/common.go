@@ -188,8 +188,8 @@ func CheckAuthorize(cli chain.Chainer, c *gin.Context, pkey []byte) error {
 		}
 	}
 	if !flag {
-		ReturnJSON(c, 403, fmt.Sprintf("please authorize the gateway account: %s", cli.GetSignatureAcc()), nil)
-		return fmt.Errorf("please authorize the gateway account: %s", cli.GetSignatureAcc())
+		ReturnJSON(c, 403, fmt.Sprintf("Please authorize this gateway account: %s", cli.GetSignatureAcc()), nil)
+		return fmt.Errorf("please authorize this gateway account: %s", cli.GetSignatureAcc())
 	}
 	return nil
 }
@@ -478,7 +478,7 @@ func CheckFileType(cli chain.Chainer, fid string, account string) (string, error
 			if err.Error() != chain.ERR_Empty {
 				return "", err
 			}
-			return "", err
+			return "", errors.New(ERR_FileNotFound)
 		}
 		format = filepath.Ext(string(order.User.FileName))
 		return strings.ToLower(format), nil

@@ -23,6 +23,7 @@ import (
 	"github.com/CESSProject/DeOSS/common/lru"
 	"github.com/CESSProject/DeOSS/common/record"
 	"github.com/CESSProject/DeOSS/common/tracker"
+	"github.com/CESSProject/DeOSS/common/utils"
 	"github.com/CESSProject/DeOSS/common/workspace"
 	"github.com/CESSProject/cess-go-sdk/chain"
 	schain "github.com/CESSProject/cess-go-sdk/chain"
@@ -186,7 +187,12 @@ func (n *Node) RefreshBlacklist(ch chan<- bool) {
 }
 
 func (n *Node) RefreshMiner(ch chan<- bool) {
-	defer func() { ch <- true }()
+	defer func() {
+		ch <- true
+		if err := recover(); err != nil {
+			n.Pnc(utils.RecoverError(err))
+		}
+	}()
 	sminerList, err := n.QueryAllMiner(-1)
 	if err == nil {
 		for i := 0; i < len(sminerList); i++ {
@@ -210,6 +216,11 @@ func (n *Node) RefreshMiner(ch chan<- bool) {
 }
 
 func (n *Node) RefreshSelf() error {
+	defer func() {
+		if err := recover(); err != nil {
+			n.Pnc(utils.RecoverError(err))
+		}
+	}()
 	accInfo, err := n.QueryAccountInfoByAccountID(n.GetSignatureAccPulickey(), -1)
 	if err != nil {
 		return err

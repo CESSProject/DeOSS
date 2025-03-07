@@ -41,8 +41,8 @@ type ResumeHandler struct {
 	*rate.Limiter
 }
 
-func NewResumeHandler(cli chain.Chainer, track tracker.Tracker, ws workspace.Workspace, lg logger.Logger) *ResumeHandler {
-	return &ResumeHandler{Chainer: cli, Tracker: track, Workspace: ws, Logger: lg, Limiter: rate.NewLimiter(rate.Every(time.Millisecond*10), 20)}
+func NewResumeHandler(cli chain.Chainer, track tracker.Tracker, ws workspace.Workspace, lg logger.Logger, cfg *confile.Config) *ResumeHandler {
+	return &ResumeHandler{Chainer: cli, Tracker: track, Workspace: ws, Logger: lg, Config: cfg, Limiter: rate.NewLimiter(rate.Every(time.Millisecond*10), 20)}
 }
 
 func (r *ResumeHandler) RegisterRoutes(server *gin.Engine) {
@@ -100,7 +100,7 @@ func (r *ResumeHandler) ResumeHandle(c *gin.Context) {
 		return
 	}
 
-	rangeHeader := c.GetHeader("Content-Range")
+	rangeHeader := c.GetHeader(HTTPHeader_Range)
 	if rangeHeader == "" {
 		r.Logput("err", clientIp+" "+ERR_MissingContentRange)
 		ReturnJSON(c, 400, ERR_MissingContentRange, nil)
@@ -201,7 +201,9 @@ func (r *ResumeHandler) ResumeHandle(c *gin.Context) {
 		if fd != nil {
 			fd.Close()
 		}
+		os.Remove(fpath)
 	}()
+
 	fstat, err := fd.Stat()
 	if err != nil {
 		r.Logput("err", clientIp+" Stat: "+err.Error())
@@ -230,10 +232,24 @@ func (r *ResumeHandler) ResumeHandle(c *gin.Context) {
 		return
 	}
 
-	_, err = io.CopyN(fd, c.Request.Body, end-start+1)
+	length, err := io.Copy(fd, c.Request.Body)
 	if err != nil && err != io.EOF {
-		r.Logput("err", clientIp+" CopyN: "+err.Error())
+		r.Logput("err", clientIp+" Copy: "+err.Error())
 		ReturnJSON(c, 400, ERR_FailedToRecvData, nil)
+		return
+	}
+
+	//fmt.Println("length: ", length)
+
+	if length > (end - start + 1) {
+		r.Logput("err", clientIp+"io. Copy(body)")
+		ReturnJSON(c, 400, "received more file content", nil)
+		return
+	}
+
+	if length < (end - start + 1) {
+		r.Logput("err", clientIp+"io. Copy(body)")
+		ReturnJSON(c, 400, "received less file content", nil)
 		return
 	}
 
@@ -331,14 +347,14 @@ func (r *ResumeHandler) ResumeHandle(c *gin.Context) {
 		return
 	}
 
-	frecord.AddToFileRecord(fid, filepath.Ext(filename))
-
 	_, err = os.Stat(newPath)
 	if err != nil {
 		r.Logput("err", clientIp+" "+err.Error())
 		ReturnJSON(c, 500, ERR_SystemErr, nil)
 		return
 	}
+
+	frecord.AddToFileRecord(fid, filepath.Ext(filename))
 
 	r.Logput("info", clientIp+" new file path: "+newPath)
 
