@@ -122,6 +122,7 @@ For test network please claim your free CESS tokens at `https://www.cess.network
 ### 📝 Configuration file
 
 Use `deoss` to generate configuration file templates directly in the current directory:
+
 ```shell
 ./deoss config
 ```
