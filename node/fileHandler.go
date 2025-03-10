@@ -653,10 +653,10 @@ func (f *FileHandler) UploadFormFileHandle(c *gin.Context) {
 		f.Logput("err", clientIp+" saveFormFile: "+err.Error())
 		return
 	}
-
-	if territorySpace < calcActualSpace(uint64(length)) {
+	actureSpace := calcActualSpace(uint64(length))
+	if territorySpace < actureSpace {
 		f.Logput("err", clientIp+ERR_InsufficientTerritorySpace)
-		ReturnJSON(c, 400, ERR_InsufficientTerritorySpace, nil)
+		ReturnJSON(c, 400, fmt.Sprintf("remaining space in the territory is less than %d", actureSpace), nil)
 		return
 	}
 
@@ -740,11 +740,15 @@ func (f *FileHandler) UploadFormFileHandle(c *gin.Context) {
 }
 
 func calcActualSpace(size uint64) uint64 {
+	minSpace := chain.NumberOfDataCopies * chain.SegmentSize
+	if size <= uint64(minSpace) {
+		return uint64(minSpace)
+	}
 	count := size / chain.SegmentSize
 	if size%chain.SegmentSize != 0 {
 		count++
 	}
-	return count * chain.SegmentSize
+	return count * chain.SegmentSize * chain.NumberOfDataCopies
 }
 
 func checkDuplicate(cli chain.Chainer, c *gin.Context, fid string, pkey []byte) (DuplicateType, error) {
