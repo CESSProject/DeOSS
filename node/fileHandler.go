@@ -601,6 +601,7 @@ func (f *FileHandler) UploadFormFileHandle(c *gin.Context) {
 	shuntminers := c.Request.Header.Values(HTTPHeader_Miner)
 	longitudes := c.Request.Header.Values(HTTPHeader_Longitude)
 	latitudes := c.Request.Header.Values(HTTPHeader_Latitude)
+	filename := c.Request.Header.Get(HTTPHeader_Filename)
 	f.Logput("info", utils.StringBuilder(400, clientIp, account, ethAccount, territoryName, cipher))
 	shuntminerslength := len(shuntminers)
 	if shuntminerslength > 0 {
@@ -648,7 +649,7 @@ func (f *FileHandler) UploadFormFileHandle(c *gin.Context) {
 
 	f.Logput("info", clientIp+" tmp file: "+fpath)
 
-	fname, length, err := saveFormFile(c, fpath)
+	fname, length, err := saveFormFile(c, fpath, filename)
 	if err != nil {
 		f.Logput("err", clientIp+" saveFormFile: "+err.Error())
 		return
@@ -776,7 +777,7 @@ func checkDuplicate(cli chain.Chainer, c *gin.Context, fid string, pkey []byte) 
 	return Duplicate1, nil
 }
 
-func saveFormFile(c *gin.Context, file string) (string, int64, error) {
+func saveFormFile(c *gin.Context, file string, name string) (string, int64, error) {
 	f, err := os.OpenFile(file, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, os.ModePerm)
 	if err != nil {
 		ReturnJSON(c, 500, ERR_SystemErr, nil)
@@ -788,27 +789,32 @@ func saveFormFile(c *gin.Context, file string) (string, int64, error) {
 		ReturnJSON(c, 400, err.Error(), nil)
 		return "", 0, err
 	}
-	filename := fileHeder.Filename
-	if strings.Contains(filename, "%") {
-		filename, err = url.PathUnescape(filename)
+
+	if name == "" {
+		name = fileHeder.Filename
+	}
+
+	if strings.Contains(name, "%") {
+		name, err = url.PathUnescape(name)
 		if err != nil {
-			filename = fileHeder.Filename
+			name = fileHeder.Filename
 		}
 	}
-	if len(filename) > int(chain.MaxBucketNameLength) {
+	if len(name) > int(chain.MaxBucketNameLength) {
 		ReturnJSON(c, 400, ERR_FileNameTooLang, nil)
 		return "", 0, errors.New(ERR_FileNameTooLang)
 	}
-	if len(filename) < int(chain.MinBucketNameLength) {
+	if len(name) < int(chain.MinBucketNameLength) {
 		ReturnJSON(c, 400, ERR_FileNameTooShort, nil)
 		return "", 0, errors.New(ERR_FileNameTooShort)
 	}
+
 	length, err := io.Copy(f, formfile)
 	if err != nil {
 		ReturnJSON(c, 400, ERR_ReceiveData, nil)
-		return filename, 0, err
+		return name, 0, err
 	}
-	return filename, length, nil
+	return name, length, nil
 }
 
 func (f *FileHandler) DownloadFragmentHandle(c *gin.Context) {
