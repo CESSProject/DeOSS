@@ -201,7 +201,6 @@ func (r *ResumeHandler) ResumeHandle(c *gin.Context) {
 		if fd != nil {
 			fd.Close()
 		}
-		os.Remove(fpath)
 	}()
 
 	fstat, err := fd.Stat()

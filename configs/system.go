@@ -14,7 +14,7 @@ const (
 	// Name space
 	NameSpace = Name
 	// version
-	Version = Name + " " + "v0.4.2 2503111033-1741660414799"
+	Version = Name + " " + "v0.4.2 2503121048-1741747714194"
 	// description
 	Description = "Object storage service based on CESS network"
 )
