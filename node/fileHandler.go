@@ -72,6 +72,12 @@ type fileTypeRecord struct {
 	record map[string]string
 }
 
+type UserFilesInfo struct {
+	Territory string `json:"territory"`
+	Fid       string `json:"fid"`
+	Size      uint64 `json:"size"`
+}
+
 var frecord *fileTypeRecord
 
 func init() {
@@ -186,6 +192,7 @@ func (f *FileHandler) RegisterRoutes(server *gin.Engine) {
 	filegroup.GET(fmt.Sprintf("/open/:%s", HTTP_ParameterName_Fid), f.OpenFileHandle)
 	filegroup.GET(fmt.Sprintf("/metadata/:%s", HTTP_ParameterName_Fid), f.GetMetadataHandle)
 	filegroup.GET(fmt.Sprintf("/location/:%s", HTTP_ParameterName_Fid), f.GetLocationhandle)
+	filegroup.GET("/list", f.GetUserFilesHandle)
 
 	fragmentgroup := server.Group("/fragment")
 	fragmentgroup.GET("/download",
@@ -283,8 +290,41 @@ func (f *FileHandler) GetMetadataHandle(c *gin.Context) {
 	fileMetadata.Fid = fid
 	fmeta, err := f.QueryFile(fid, -1)
 	if err != nil {
-		f.Logget("err", clientIp+" QueryFile failed: "+err.Error())
-		ReturnJSON(c, 404, ERR_NotFound, nil)
+		if !errors.Is(err, chain.ERR_RPC_EMPTY_VALUE) {
+			f.Logget("err", clientIp+" QueryFile failed: "+err.Error())
+			ReturnJSON(c, 403, ERR_RPCConnection, nil)
+			return
+		}
+
+		sorder, err := f.QueryDealMap(fid, -1)
+		if err != nil {
+			if !errors.Is(err, chain.ERR_RPC_EMPTY_VALUE) {
+				f.Logget("err", clientIp+" QueryDealMap failed: "+err.Error())
+				ReturnJSON(c, 403, ERR_RPCConnection, nil)
+				return
+			}
+
+			traceFile, err := f.ParsingTraceFile(fid)
+			if err != nil {
+				f.Logget("err", clientIp+" ParsingTraceFile failed: "+err.Error())
+				ReturnJSON(c, 403, "The file has not been uploaded to the chain yet, please go to the gateway where the file was uploaded to query.", nil)
+				return
+			}
+
+			fileMetadata.Size = traceFile.FileSize
+			fileMetadata.Owner = make([]RtnUserBrief, 1)
+			fileMetadata.Owner[0].FileName = traceFile.FileName
+			fileMetadata.Owner[0].User, _ = sutils.EncodePublicKeyAsCessAccount(traceFile.Owner)
+			f.Logget("info", clientIp+" get metadata from file suc of the file: "+fid)
+			ReturnJSON(c, 200, MSG_OK, fileMetadata)
+		}
+
+		fileMetadata.Size = sorder.FileSize.Uint64()
+		fileMetadata.Owner = make([]RtnUserBrief, 1)
+		fileMetadata.Owner[0].FileName = string(sorder.User.FileName)
+		fileMetadata.Owner[0].User, _ = sutils.EncodePublicKeyAsCessAccount(sorder.User.User[:])
+		f.Logget("info", clientIp+" get metadata from file suc of the file: "+fid)
+		ReturnJSON(c, 200, MSG_OK, fileMetadata)
 		return
 	}
 
@@ -296,6 +336,64 @@ func (f *FileHandler) GetMetadataHandle(c *gin.Context) {
 	}
 	f.Logget("info", clientIp+" get metadata from file suc of the file: "+fid)
 	ReturnJSON(c, 200, MSG_OK, fileMetadata)
+}
+
+func (f *FileHandler) GetUserFilesHandle(c *gin.Context) {
+	clientIp := c.Request.Header.Get("X-Forwarded-For")
+	if clientIp == "" {
+		clientIp = c.ClientIP()
+	}
+
+	account, ok := c.GetQuery(HTTPHeader_Account)
+	if !ok {
+		account = c.Request.Header.Get(HTTPHeader_Account)
+		if account == "" {
+			f.Logget("err", clientIp+"GetUserFilesHandle: not found account")
+			ReturnJSON(c, 400, "Please set your Account in the header or url", nil)
+			return
+		}
+	}
+
+	puk, err := sutils.ParsingPublickey(account)
+	if err != nil {
+		f.Logget("err", clientIp+"GetUserFilesHandle-ParsingPublickey: "+err.Error())
+		ReturnJSON(c, 400, "Invalid CESS account: "+account, nil)
+		return
+	}
+
+	territory, ok := c.GetQuery(HTTPHeader_Territory)
+	if !ok {
+		territory = c.Request.Header.Get(HTTPHeader_Territory)
+	}
+
+	f.Logget("info", clientIp+" get file list request: "+account+" "+territory)
+
+	userFileSlice, err := f.QueryUserHoldFileList(puk, -1)
+	if err != nil {
+		if !errors.Is(err, chain.ERR_RPC_EMPTY_VALUE) {
+			f.Logget("err", clientIp+"GetUserFilesHandle-QueryUserHoldFileList: "+err.Error())
+			ReturnJSON(c, 403, ERR_RPCConnection, nil)
+			return
+		}
+	}
+
+	if territory == "" {
+		ReturnJSON(c, 200, "ok", userFileSlice)
+		return
+	}
+
+	var territoryFiles []UserFilesInfo
+	for i := 0; i < len(userFileSlice); i++ {
+		if string(userFileSlice[i].TerritoryName) == territory {
+			territoryFiles = append(territoryFiles, UserFilesInfo{
+				Territory: territory,
+				Fid:       string(userFileSlice[i].Filehash[:]),
+				Size:      userFileSlice[i].FileSize.Uint64(),
+			})
+		}
+	}
+	ReturnJSON(c, 200, "ok", territoryFiles)
+	return
 }
 
 func (f *FileHandler) OpenFileHandle(c *gin.Context) {
