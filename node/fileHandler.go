@@ -686,6 +686,13 @@ func (f *FileHandler) UploadFormFileHandle(c *gin.Context) {
 		clientIp = c.ClientIP()
 	}
 
+	usedSpace, _ := utils.GetDirUsedSpace(f.GetRootDir())
+	if usedSpace >= f.Maxusespace {
+		f.Logput("err", fmt.Sprintf("exceeds configuration space: %d > %d", usedSpace, f.Maxusespace))
+		ReturnJSON(c, 403, "Server space is insufficient, please try again later", nil)
+		return
+	}
+
 	err := CheckChainSt(f.Chainer, c)
 	if err != nil {
 		f.Logput("err", clientIp+" CheckChainSt: "+err.Error())
@@ -749,11 +756,13 @@ func (f *FileHandler) UploadFormFileHandle(c *gin.Context) {
 
 	fname, length, err := saveFormFile(c, fpath, filename)
 	if err != nil {
+		os.RemoveAll(cacheDir)
 		f.Logput("err", clientIp+" saveFormFile: "+err.Error())
 		return
 	}
 	actureSpace := calcActualSpace(uint64(length))
 	if territorySpace < actureSpace {
+		os.RemoveAll(cacheDir)
 		f.Logput("err", clientIp+ERR_InsufficientTerritorySpace)
 		ReturnJSON(c, 400, fmt.Sprintf("remaining space in the territory is less than %d", actureSpace), nil)
 		return
@@ -761,6 +770,7 @@ func (f *FileHandler) UploadFormFileHandle(c *gin.Context) {
 
 	segment, fid, err := process.FullProcessing(fpath, cipher, cacheDir)
 	if err != nil {
+		os.RemoveAll(cacheDir)
 		f.Logput("err", clientIp+" FullProcessing: "+err.Error())
 		ReturnJSON(c, 500, ERR_SystemErr, nil)
 		return
@@ -770,6 +780,7 @@ func (f *FileHandler) UploadFormFileHandle(c *gin.Context) {
 
 	duplicate, err := checkDuplicate(f.Chainer, c, fid, pkey)
 	if err != nil {
+		os.RemoveAll(cacheDir)
 		f.Logput("err", clientIp+" checkDuplicate: "+err.Error())
 		return
 	}
@@ -777,6 +788,7 @@ func (f *FileHandler) UploadFormFileHandle(c *gin.Context) {
 	newPath := filepath.Join(f.GetFileDir(), fid)
 	err = os.Rename(fpath, newPath)
 	if err != nil {
+		os.RemoveAll(cacheDir)
 		f.Logput("err", clientIp+" Rename: "+err.Error())
 		ReturnJSON(c, 500, ERR_SystemErr, nil)
 		return
@@ -786,6 +798,7 @@ func (f *FileHandler) UploadFormFileHandle(c *gin.Context) {
 
 	_, err = os.Stat(newPath)
 	if err != nil {
+		os.RemoveAll(cacheDir)
 		f.Logput("err", clientIp+" "+err.Error())
 		ReturnJSON(c, 500, ERR_SystemErr, nil)
 		return
@@ -797,6 +810,8 @@ func (f *FileHandler) UploadFormFileHandle(c *gin.Context) {
 	case Duplicate1:
 		blockhash, err := f.PlaceStorageOrder(fid, fname, territoryName, segment, pkey, uint64(length))
 		if err != nil {
+			os.Remove(newPath)
+			os.RemoveAll(cacheDir)
 			f.Logput("err", clientIp+" PlaceStorageOrder: "+err.Error())
 			ReturnJSON(c, 500, ERR_SystemErr, nil)
 			return
@@ -805,6 +820,7 @@ func (f *FileHandler) UploadFormFileHandle(c *gin.Context) {
 		ReturnJSON(c, 200, MSG_OK, map[string]string{"fid": fid})
 		return
 	case Duplicate2:
+		os.RemoveAll(cacheDir)
 		f.Logput("info", clientIp+" duplicate file: "+fid)
 		ReturnJSON(c, 200, MSG_OK, map[string]string{"fid": fid})
 		return
@@ -823,6 +839,8 @@ func (f *FileHandler) UploadFormFileHandle(c *gin.Context) {
 		FileSize:      uint64(length),
 	})
 	if err != nil {
+		os.Remove(newPath)
+		os.RemoveAll(cacheDir)
 		f.Logput("err", clientIp+" AddToTraceFile: "+err.Error())
 		ReturnJSON(c, 500, ERR_SystemErr, nil)
 		return
@@ -830,6 +848,9 @@ func (f *FileHandler) UploadFormFileHandle(c *gin.Context) {
 
 	blockhash, err := f.PlaceStorageOrder(fid, fname, territoryName, segment, pkey, uint64(length))
 	if err != nil {
+		f.DeleteTraceFile(fid)
+		os.Remove(newPath)
+		os.RemoveAll(cacheDir)
 		f.Logput("err", clientIp+" PlaceStorageOrder: "+err.Error())
 		ReturnJSON(c, 500, ERR_SystemErr, nil)
 		return

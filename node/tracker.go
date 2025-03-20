@@ -81,7 +81,7 @@ func (n *Node) processTrackFiles() {
 
 	var err error
 	var trackFiles []string
-	trackFiles, err = n.ListTraceFiles()
+	trackFiles, err = n.GetNumbersTrackFiles(10)
 	if err != nil {
 		n.Logtrack("err", err.Error())
 		return

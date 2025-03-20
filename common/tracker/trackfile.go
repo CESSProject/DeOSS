@@ -62,6 +62,7 @@ type Tracker interface {
 	ParsingTraceFile(fid string) (TrackerInfo, error)
 	HasTraceFile(fid string) bool
 	ListTraceFiles() ([]string, error)
+	GetNumbersTrackFiles(number int) ([]string, error)
 	DeleteTraceFile(fid string)
 }
 
@@ -168,6 +169,29 @@ func (n *Track) ListTraceFiles() ([]string, error) {
 	}
 	n.lock.Unlock()
 	return result, nil
+}
+
+func (n *Track) GetNumbersTrackFiles(number int) ([]string, error) {
+	if number <= 0 {
+		return []string{}, nil
+	}
+
+	var listFile []string
+	err := filepath.WalkDir(n.dir, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if !d.IsDir() {
+			if len(filepath.Base(path)) == chain.FileHashLen {
+				listFile = append(listFile, path)
+				if len(listFile) >= number {
+					return errors.New("founded")
+				}
+			}
+		}
+		return nil
+	})
+	return listFile, err
 }
 
 func (n *Track) DeleteTraceFile(fid string) {

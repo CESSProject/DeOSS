@@ -170,6 +170,11 @@ func GetDirFreeSpace(dir string) (uint64, error) {
 	return sageStat.Free, err
 }
 
+func GetDirUsedSpace(dir string) (uint64, error) {
+	sageStat, err := disk.Usage(dir)
+	return sageStat.Used, err
+}
+
 func GetSysMemAvailable() (uint64, error) {
 	var result uint64
 	memInfo, err := mem.VirtualMemory()
