@@ -686,10 +686,10 @@ func (f *FileHandler) UploadFormFileHandle(c *gin.Context) {
 		clientIp = c.ClientIP()
 	}
 
-	usedSpace, _ := utils.GetDirUsedSpace(f.GetRootDir())
-	if usedSpace >= f.Maxusespace {
-		f.Logput("err", fmt.Sprintf("exceeds configuration space: %d > %d", usedSpace, f.Maxusespace))
-		ReturnJSON(c, 403, "Server space is insufficient, please try again later", nil)
+	freeSpace, _ := utils.GetDirFreeSpace(f.GetRootDir())
+	if freeSpace < 10*1024*1024*1024 {
+		f.Logput("err", fmt.Sprintf("insufficient server space: %d", freeSpace))
+		ReturnJSON(c, 500, "Server space is insufficient, please try again later", nil)
 		return
 	}
 
