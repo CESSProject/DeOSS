@@ -30,7 +30,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-//go:embed favicon.ico
+//go:embed assets/favicon.ico
 var favicon string
 
 func (n *Node) InitNode() *Node {
